@@ -198,12 +198,30 @@
   place-glyph(acc-x, y, glyph, smufl, sp)
 }
 
+/// Compute the x coordinate of the stem attachment point for a note at canvas x.
+/// Matches the stem-x logic used inside draw-note.
+#let note-stem-x(x, duration, stem-dir, sp: 1.0) = {
+  let smufl = notehead-smufl-name(duration)
+  let nh-w = advance-width(smufl)
+  let nh-anch = anchors(smufl)
+  let stem-att = if stem-dir == "up" {
+    nh-anch.at("stemUpSE", default: (x: nh-w, y: 0.168))
+  } else {
+    nh-anch.at("stemDownNW", default: (x: 0.0, y: -0.168))
+  }
+  let sx = x - nh-w / 2.0 * sp + stem-att.x * sp
+  let half-thin = default-stem-thickness / 2.0 * sp
+  sx + if stem-dir == "up" { -half-thin } else { half-thin }
+}
+
 /// Draw a complete note event (notehead + stem + flag + dots + accidental + ledger lines).
+/// - beamed: when true, suppress flag (note is part of a beam group)
 #let draw-note(
   x, y, event, stem-dir, stem-y-end,
   y-top,
   clef: "treble",
   sp: 1.0,
+  beamed: false,
 ) = {
   import cetz.draw: *
   let duration = event.duration
@@ -232,12 +250,17 @@
       nh-anch.at("stemDownNW", default: (x: 0.0, y: -0.168))
     }
     let stem-x = x - nh-w / 2.0 * sp + stem-att.x * sp
+    // Shift stem inward so its outer edge is flush with the notehead outer edge
+    // rather than the stem center being at the notehead edge (which would let
+    // half the stem width protrude past the notehead).
+    let half-thin = default-stem-thickness / 2.0 * sp
+    let stem-x = stem-x + if stem-dir == "up" { -half-thin } else { half-thin }
     let stem-start-y = y + stem-att.y * sp
 
     draw-stem(stem-x, stem-start-y, stem-y-end, sp: sp)
 
-    // Draw flag (for unbeamed 8th and shorter)
-    if duration >= 8 {
+    // Draw flag (only for unbeamed 8th and shorter)
+    if duration >= 8 and not beamed {
       draw-flag(stem-x, stem-y-end, duration, stem-dir, sp: sp)
     }
   }

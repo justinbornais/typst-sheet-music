@@ -6,7 +6,8 @@
 #import "constants.typ": *
 #import "render-staff.typ": draw-staff-lines, draw-barline
 #import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance
-#import "render-notes.typ": draw-note, draw-rest
+#import "render-notes.typ": draw-note, draw-rest, note-stem-x
+#import "render-beams.typ": draw-beam-group
 
 /// Render a single system (one line of music) for one staff.
 ///
@@ -87,8 +88,8 @@
   // Draw staff lines across full width
   draw-staff-lines(0.0, total-width * sp, y-top, sp: sp)
 
-  // Draw opening (initial) barline
-  draw-barline(0.2 * sp, y-top, y-bottom, style: "single", sp: sp)
+  // Draw opening (initial) barline flush with the left edge of the staff.
+  draw-barline(0.0, y-top, y-bottom, style: "single", sp: sp)
 
   // Draw clef
   let cx = prefix-x
@@ -109,28 +110,119 @@
     cx += time-w
   }
 
-  // Draw all music events
+  // ── Pre-compute per-item x positions (needed for beam geometry) ─────────
+  let item-xs = items.map(item => music-start-x + item.x * scale-x * sp)
+
+  // ── Auto-beaming: group consecutive notes with duration ≥ 8 ─────────────
+  // Groups are broken by barlines, rests, notes with duration < 8, or when
+  // the group reaches 4 notes (one half-measure in 4/4 time).
+  let raw-beam-groups = ()
+  let cur-beam = ()
+  for (i, item) in items.enumerate() {
+    let ev = item.event
+    if ev.type == "note" and ev.duration >= 8 {
+      // Flush at 4 notes and start a new group
+      if cur-beam.len() == 4 {
+        raw-beam-groups.push(cur-beam)
+        cur-beam = ()
+      }
+      cur-beam.push(i)
+    } else {
+      if cur-beam.len() >= 2 { raw-beam-groups.push(cur-beam) }
+      cur-beam = ()
+    }
+  }
+  if cur-beam.len() >= 2 { raw-beam-groups.push(cur-beam) }
+
+  // Compute beam geometry: adjusted stem ends + beam-note records.
+  let adj-stem-ends = (:)   // str(i) → stem-y in staff-sp units
+  let adj-stem-dirs = (:)   // str(i) → stem-dir string
+  let beam-groups-data = () // array of beam-note arrays for draw-beam-group
+
+  for group in raw-beam-groups {
+    let stem-dir = items.at(group.first()).stem-dir
+    let x0 = item-xs.at(group.first())
+    let xn = item-xs.at(group.last())
+    let sy0 = items.at(group.first()).stem-y-end   // staff-sp units
+    let syn = items.at(group.last()).stem-y-end
+
+    let beam-note-data = ()
+    for idx in group {
+      let item = items.at(idx)
+      let xi = item-xs.at(idx)
+      // Linearly interpolate the beam y at this note's x
+      let t = if xn != x0 { (xi - x0) / (xn - x0) } else { 0.0 }
+      let by-staff = sy0 + t * (syn - sy0)   // staff-sp units
+      let by-abs   = y-top + by-staff * sp   // absolute canvas y
+      let sx = note-stem-x(xi, item.event.duration, stem-dir, sp: sp)
+      beam-note-data.push((stem-x: sx, beam-y: by-abs, duration: item.event.duration, stem-dir: stem-dir))
+      adj-stem-ends.insert(str(idx), by-staff)
+      adj-stem-dirs.insert(str(idx), stem-dir)
+    }
+    beam-groups-data.push(beam-note-data)
+  }
+
+  // ── Find tuplet groups (from tuplet-start / tuplet-end flags) ────────────
+  let tuplet-groups = ()
+  let cur-tup-indices = ()
+  let cur-tup-n = 1
+  let cur-tup-m = 1
+  for (i, item) in items.enumerate() {
+    let ev = item.event
+    if ev.type == "note" or ev.type == "rest" {
+      let tn = ev.at("tuplet-n", default: 1)
+      if tn > 1 {
+        let tm = ev.at("tuplet-m", default: 1)
+        if ev.at("tuplet-start", default: false) {
+          cur-tup-indices = (i,)
+          cur-tup-n = tn
+          cur-tup-m = tm
+        } else if cur-tup-indices.len() > 0 {
+          cur-tup-indices.push(i)
+        }
+        if ev.at("tuplet-end", default: false) and cur-tup-indices.len() > 0 {
+          tuplet-groups.push((indices: cur-tup-indices, n: cur-tup-n, m: cur-tup-m))
+          cur-tup-indices = ()
+        }
+      }
+    }
+  }
+
+  // ── Draw all music events ────────────────────────────────────────────────
   let note-idx = 0  // Track which note we're on for fingerings
-  for item in items {
+  for (i, item) in items.enumerate() {
     let event = item.event
-    let x = music-start-x + item.x * scale-x * sp
+    let x = item-xs.at(i)
     let y = item.y * sp
 
     if event.type == "note" {
+      // Use beam-adjusted stem end and direction if this note is beamed
+      let stem-end-override = adj-stem-ends.at(str(i), default: none)
+      let stem-dir-override = adj-stem-dirs.at(str(i), default: none)
+      let actual-stem-end = if stem-end-override != none {
+        y-top + stem-end-override * sp
+      } else {
+        y-top + item.stem-y-end * sp
+      }
+      let actual-stem-dir = if stem-dir-override != none { stem-dir-override } else { item.stem-dir }
+      let is-beamed = stem-end-override != none
+
       draw-note(
         x, y-top + y, event,
-        item.stem-dir, y-top + item.stem-y-end * sp,
+        actual-stem-dir, actual-stem-end,
         y-top,
         clef: clef-name,
         sp: sp,
+        beamed: is-beamed,
       )
 
-      // Draw fingering number above/below the note
+      // Draw fingering number above the note
       if fingerings != none and note-idx < fingerings.len() {
         let fng = fingerings.at(note-idx)
         if fng != none and fng != 0 {
           let fng-str = str(fng)
-          let fng-y = y-top + 1.5 * sp  // Above the staff
+          let note-center-y = y-top + y
+          let fng-y = calc.max(y-top + 1.5 * sp, note-center-y + 1.0 * sp)
           content(
             (x, fng-y),
             anchor: "south",
@@ -142,16 +234,89 @@
     } else if event.type == "rest" {
       draw-rest(x, y-top + y, event.duration, dots: event.dots, sp: sp)
     } else if event.type == "barline" {
-      // Draw barline at ~1/3 into its slot so more space falls after it
-      draw-barline(x + 0.5 * sp, y-top, y-bottom, style: event.style, sp: sp)
+      // All barlines except the very last item are drawn at their layout position.
+      // The last barline is drawn at the right edge (handled below).
+      if i < items.len() - 1 {
+        draw-barline(x + 0.5 * sp, y-top, y-bottom, style: event.style, sp: sp)
+      }
     }
     // spacers: invisible, nothing to draw
   }
 
-  // Draw final barline at the end (if the music doesn't end with one)
-  let last-is-barline = items.len() > 0 and items.last().event.type == "barline"
-  if not last-is-barline {
-    draw-barline(total-width * sp - 0.2 * sp, y-top, y-bottom, style: "final", sp: sp)
+  // ── Draw final barline at right edge (always) ────────────────────────────
+  // Use the style from the last event if it is a barline; otherwise "final".
+  let final-style = if items.len() > 0 and items.last().event.type == "barline" {
+    items.last().event.style
+  } else {
+    "final"
+  }
+  // Position the closing barline so its rightmost visual edge is flush with
+  // the right end of the staff lines.
+  let final-x = if final-style == "final" or final-style == "repeat-end" or final-style == "repeat-both" {
+    total-width * sp - default-thick-barline / 2.0 * sp
+  } else {
+    total-width * sp - default-barline-thickness / 2.0 * sp
+  }
+  draw-barline(final-x, y-top, y-bottom, style: final-style, sp: sp)
+
+  // ── Draw beams ───────────────────────────────────────────────────────────
+  for beam-data in beam-groups-data {
+    draw-beam-group(beam-data, sp: sp)
+  }
+
+  // ── Draw tuplet brackets ─────────────────────────────────────────────────
+  for tup in tuplet-groups {
+    let indices = tup.indices
+    let tn = tup.n
+    if indices.len() == 0 { continue }
+
+    // Collect x positions and stem ends for the tuplet notes
+    let tup-xs = indices.map(idx => item-xs.at(idx))
+    let tup-stem-ends = indices.map(idx => {
+      let override = adj-stem-ends.at(str(idx), default: none)
+      if override != none {
+        y-top + override * sp
+      } else {
+        y-top + items.at(idx).stem-y-end * sp
+      }
+    })
+
+    let x-first = tup-xs.first()
+    let x-last  = tup-xs.last()
+    let stem-dir = adj-stem-dirs.at(str(indices.first()), default: items.at(indices.first()).stem-dir)
+
+    // Place bracket on same side as beam (stem-tip side)
+    let bracket-y = if stem-dir == "up" {
+      // up-stems: bracket above stem tips
+      tup-stem-ends.fold(tup-stem-ends.first(), calc.max) + 0.6 * sp
+    } else {
+      // down-stems: bracket below stem tips
+      tup-stem-ends.fold(tup-stem-ends.first(), calc.min) - 0.6 * sp
+    }
+    let tick-len = 0.4 * sp
+    let tick-dir = if stem-dir == "up" { -1.0 } else { 1.0 }   // toward noteheads
+
+    // Draw bracket: horizontal line + end ticks
+    line(
+      (x-first, bracket-y), (x-last, bracket-y),
+      stroke: (thickness: 0.12 * sp * 1mm, paint: black),
+    )
+    line(
+      (x-first, bracket-y), (x-first, bracket-y + tick-dir * tick-len),
+      stroke: (thickness: 0.12 * sp * 1mm, paint: black),
+    )
+    line(
+      (x-last, bracket-y), (x-last, bracket-y + tick-dir * tick-len),
+      stroke: (thickness: 0.12 * sp * 1mm, paint: black),
+    )
+    // Tuplet number centered on bracket
+    let mid-x = (x-first + x-last) / 2.0
+    let num-anchor = if stem-dir == "up" { "south" } else { "north" }
+    content(
+      (mid-x, bracket-y),
+      anchor: num-anchor,
+      text(size: 7pt, weight: "regular", style: "italic", str(tn)),
+    )
   }
 }
 

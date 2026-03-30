@@ -23,6 +23,10 @@
     if event.type == "note" and event.at("accidental", default: none) != none {
       w += 0.5
     }
+    // Scale width for tuplet notes/rests (e.g. 3 notes in space of 2 → ×2/3)
+    let tn = event.at("tuplet-n", default: 1)
+    let tm = event.at("tuplet-m", default: 1)
+    if tn > 1 { w = w * tm / tn }
     w
   }
 }

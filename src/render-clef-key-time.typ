@@ -17,7 +17,11 @@
   let count = key-sig-accidental-count.at(key-name, default: 0)
   let n = calc.abs(count)
   if n == 0 { 0.0 }
-  else { n * 0.7 * sp + default-key-sig-padding * sp }
+  else {
+    let acc-smufl = if count > 0 { "accidentalSharp" } else { "accidentalFlat" }
+    let acc-w = advance-width(acc-smufl)
+    n * (acc-w + 0.2) * sp + default-key-sig-padding * sp
+  }
 }
 
 /// Compute the width of a time signature in staff-space units.
@@ -75,7 +79,7 @@
     positions = key-sig-flat-positions.at(clef-name, default: key-sig-flat-positions.treble)
   }
 
-  let acc-spacing = 0.7 * sp
+  let acc-spacing = (advance-width(acc-smufl) + 0.2) * sp
   for i in range(n) {
     let staff-pos = positions.at(i)
     let acc-y = y-top - staff-pos * sp / 2.0

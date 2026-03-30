@@ -29,6 +29,10 @@
   beam-start: false,
   beam-end: false,
   articulations: (),
+  tuplet-n: 1,
+  tuplet-m: 1,
+  tuplet-start: false,
+  tuplet-end: false,
 ) = (
   type: "note",
   name: name,
@@ -42,16 +46,28 @@
   beam-start: beam-start,
   beam-end: beam-end,
   articulations: articulations,
+  tuplet-n: tuplet-n,
+  tuplet-m: tuplet-m,
+  tuplet-start: tuplet-start,
+  tuplet-end: tuplet-end,
 )
 
 /// Create a rest event.
 #let make-rest(
   duration: 4,
   dots: 0,
+  tuplet-n: 1,
+  tuplet-m: 1,
+  tuplet-start: false,
+  tuplet-end: false,
 ) = (
   type: "rest",
   duration: duration,
   dots: dots,
+  tuplet-n: tuplet-n,
+  tuplet-m: tuplet-m,
+  tuplet-start: tuplet-start,
+  tuplet-end: tuplet-end,
 )
 
 /// Create a spacer (invisible rest) event.

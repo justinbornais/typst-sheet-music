@@ -14,6 +14,11 @@
   let last-duration = 4   // sticky duration
   let last-dots = 0
 
+  // Tuplet state: track open "{n" blocks
+  let tuplet-start-idx = none
+  let tuplet-n = none
+  let tuplet-m = none
+
   // Helper: peek at current character (returns none at end)
   let peek(p) = {
     if p < len { input.at(p) } else { none }
@@ -101,14 +106,27 @@
         pos += 1
       }
 
-      // Parse octave markers
-      while peek(pos) == "'" {
-        octave += 1
-        pos += 1
-      }
-      while peek(pos) == "," {
-        octave -= 1
-        pos += 1
+      // If a single digit immediately follows (before any tick/comma) and the
+      // character after that digit is ' or ,, treat the digit as an absolute
+      // octave number.  Otherwise fall through to the relative-tick path.
+      let abs-oct-char = peek(pos)
+      if abs-oct-char != none and is-digit(abs-oct-char) {
+        let next-after = peek(pos + 1)
+        if next-after == "'" or next-after == "," {
+          octave = int(abs-oct-char)
+          pos += 1
+          // Absorb any following ticks/commas as visual separators (do not
+          // shift the octave since it was specified absolutely).
+          while peek(pos) == "'" or peek(pos) == "," { pos += 1 }
+        } else {
+          // No absolute octave - parse relative tick/comma modifiers.
+          while peek(pos) == "'" { octave += 1; pos += 1 }
+          while peek(pos) == "," { octave -= 1; pos += 1 }
+        }
+      } else {
+        // No digit at all - parse relative tick/comma modifiers.
+        while peek(pos) == "'" { octave += 1; pos += 1 }
+        while peek(pos) == "," { octave -= 1; pos += 1 }
       }
 
       // Parse duration
@@ -128,8 +146,6 @@
         dots += 1
         pos += 1
       }
-      // If no dots specified but duration wasn't given, use last dots? No, dots don't stick.
-      // Actually per the spec, only duration is sticky. Dots are per-note.
 
       // Parse tie
       let tie = false
@@ -211,14 +227,21 @@
         pos += 1
       }
 
-      // Parse octave markers
-      while peek(pos) == "'" {
-        octave += 1
-        pos += 1
-      }
-      while peek(pos) == "," {
-        octave -= 1
-        pos += 1
+      // Absolute octave: single digit before tick/comma → absolute octave.
+      let abs-oct-char = peek(pos)
+      if abs-oct-char != none and is-digit(abs-oct-char) {
+        let next-after = peek(pos + 1)
+        if next-after == "'" or next-after == "," {
+          octave = int(abs-oct-char)
+          pos += 1
+          while peek(pos) == "'" or peek(pos) == "," { pos += 1 }
+        } else {
+          while peek(pos) == "'" { octave += 1; pos += 1 }
+          while peek(pos) == "," { octave -= 1; pos += 1 }
+        }
+      } else {
+        while peek(pos) == "'" { octave += 1; pos += 1 }
+        while peek(pos) == "," { octave -= 1; pos += 1 }
       }
 
       // Parse duration
@@ -350,6 +373,63 @@
         if last.type == "note" {
           events.at(events.len() - 1).slur-end = true
         }
+      }
+      pos += 1
+      continue
+    }
+
+    // --- Tuplet start: "{n" or "{n:m" ---
+    if ch == "{" {
+      pos += 1
+      // Skip optional whitespace
+      while pos < len and (input.at(pos) == " " or input.at(pos) == "\t") { pos += 1 }
+      // Parse n (required digit string)
+      let n-str = ""
+      while pos < len and is-digit(input.at(pos)) {
+        n-str += input.at(pos)
+        pos += 1
+      }
+      if n-str.len() > 0 {
+        let tn = int(n-str)
+        // Parse optional :m
+        let tm = none
+        if pos < len and input.at(pos) == ":" {
+          pos += 1
+          let m-str = ""
+          while pos < len and is-digit(input.at(pos)) {
+            m-str += input.at(pos)
+            pos += 1
+          }
+          if m-str.len() > 0 { tm = int(m-str) }
+        }
+        if tm == none {
+          // Default m: largest power of 2 strictly less than n
+          let m = 1
+          while m * 2 < tn { m = m * 2 }
+          tm = m
+        }
+        // Skip whitespace after header
+        while pos < len and (input.at(pos) == " " or input.at(pos) == "\t") { pos += 1 }
+        tuplet-start-idx = events.len()
+        tuplet-n = tn
+        tuplet-m = tm
+      }
+      continue
+    }
+
+    // --- Tuplet end: "}" ---
+    if ch == "}" {
+      if tuplet-start-idx != none {
+        let end-idx = events.len()
+        for i in range(tuplet-start-idx, end-idx) {
+          events.at(i).tuplet-n = tuplet-n
+          events.at(i).tuplet-m = tuplet-m
+          if i == tuplet-start-idx { events.at(i).tuplet-start = true }
+          if i == end-idx - 1 { events.at(i).tuplet-end = true }
+        }
+        tuplet-start-idx = none
+        tuplet-n = none
+        tuplet-m = none
       }
       pos += 1
       continue

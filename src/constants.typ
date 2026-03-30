@@ -222,8 +222,8 @@
 
 // Horizontal spacing constants (in staff spaces)
 #let default-clef-padding = 0.5            // Space after clef
-#let default-key-sig-padding = 0.5         // Space after key signature
-#let default-time-sig-padding = 0.75       // Space after time signature
+#let default-key-sig-padding = 1.0         // Space after key signature
+#let default-time-sig-padding = 1.25       // Space after time signature
 #let default-note-spacing-base = 2.5       // Base spacing for quarter note
 #let default-barline-padding = 0.5         // Space before/after barlines
 #let default-accidental-padding = 0.35     // Space for accidental before notehead

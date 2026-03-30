@@ -26,7 +26,7 @@
   // Eighth note (8) = factor ~0.7
   // Sixteenth (16) = factor ~0.5
   let base-factor = calc.log(4.0 / duration, base: 2) + 1.0
-  // Clamp to minimum — ensures 8th notes and shorter have adequate space
+  // Clamp to minimum - ensures 8th notes and shorter have adequate space
   let factor = calc.max(base-factor, 0.75)
   // Dots increase spacing slightly
   if dots >= 1 { factor = factor * 1.15 }
