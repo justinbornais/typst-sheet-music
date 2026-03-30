@@ -111,11 +111,11 @@
   import cetz.draw: *
   if count == 0 { return }
   let nh-w = advance-width(notehead-smufl-name(duration))
-  let dot-x = x + nh-w / 2.0 * sp + 0.3 * sp
+  let dot-x = x + nh-w / 2.0 * sp + 0.4 * sp
   for i in range(count) {
     circle(
-      (dot-x + i * 0.4 * sp, y + 0.15 * sp),
-      radius: 0.12 * sp,
+      (dot-x + i * 0.5 * sp, y + 0.15 * sp),
+      radius: 0.2 * sp,
       fill: black,
       stroke: none,
     )

@@ -42,7 +42,7 @@
 #melody(
   key: "C",
   time: "4/4",
-  music: "c'1 | c'2 d'2 | c'4 d' e' f' | c'8 d' e' f' g' a' b' c''",
+  music: "c4'1 | c'2 d'2 | c'4 d' e' f' | c'8 d' e' f' g' a' b' c''",
 )
 
 #v(1cm)

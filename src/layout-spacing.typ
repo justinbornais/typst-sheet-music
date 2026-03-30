@@ -21,7 +21,7 @@
     let w = base-width * factor
     // Extra space for notes with accidentals
     if event.type == "note" and event.at("accidental", default: none) != none {
-      w += 1.0
+      w += 0.5
     }
     w
   }
