@@ -1,4 +1,4 @@
-# typst-sheet-music — Requirements Document
+# typst-sheet-music - Requirements Document
 
 > **Version:** 1.0.0-draft  
 > **Date:** 2026-03-29  
@@ -46,8 +46,8 @@
 14. [Performance Considerations](#14-performance-considerations)
 15. [Packaging and Distribution](#15-packaging-and-distribution)
 16. [Phased Implementation Roadmap](#16-phased-implementation-roadmap)
-17. [Appendix A — Full Syntax Reference](#appendix-a--full-syntax-reference)
-18. [Appendix B — SMuFL Glyph Subset](#appendix-b--smufl-glyph-subset)
+17. [Appendix A - Full Syntax Reference](#appendix-a--full-syntax-reference)
+18. [Appendix B - SMuFL Glyph Subset](#appendix-b--smufl-glyph-subset)
 
 ---
 
@@ -87,7 +87,7 @@ The library draws all notation using **CeTZ** (the de-facto Typst drawing librar
 |----|----------|
 | NG1 | Audio/MIDI playback. |
 | NG2 | MusicXML import/export (may be considered in future versions). |
-| NG3 | Tablature rendering (guitar tabs) in v1 — may be added later. |
+| NG3 | Tablature rendering (guitar tabs) in v1 - may be added later. |
 | NG4 | Automatic part extraction from a full score. |
 | NG5 | Full editorial/critical-edition notation (ossia staves, editorial accidentals, etc.). |
 
@@ -111,7 +111,7 @@ The library draws all notation using **CeTZ** (the de-facto Typst drawing librar
 |--------|---------------|
 | **LilyPond** | Gold standard for text-input music notation. Its input syntax (`c'4 d'8 e'`) is proven and ergonomic. We will adapt (not copy) this approach for our Typst syntax. Its spacing and engraving algorithms are world-class reference points. |
 | **MuseScore** | WYSIWYG editor. Relevant for understanding what users expect in terms of visual output (vertical alignment, beaming rules, spacing). |
-| **VexFlow** | JavaScript music notation renderer. Good reference for a programmatic rendering API — demonstrates that quality output can come from placing glyphs + drawing lines/curves. |
+| **VexFlow** | JavaScript music notation renderer. Good reference for a programmatic rendering API - demonstrates that quality output can come from placing glyphs + drawing lines/curves. |
 | **SMuFL / Bravura** | The W3C standard glyph layout for music fonts. Bravura is the reference SMuFL font (open-source, SIL OFL). Using SMuFL means we get thousands of standard music glyphs with well-defined metrics. |
 
 ---
@@ -183,16 +183,16 @@ The library draws all notation using **CeTZ** (the de-facto Typst drawing librar
 
 ### Design Principles
 
-1. **Minimal boilerplate** — common cases should be short.
-2. **One line per voice/staff** — visual correspondence between input and output.
-3. **LilyPond-inspired pitch/duration encoding** — familiar to musicians who have used text-based notation.
-4. **Typst-native** — uses Typst strings and function arguments, not a custom DSL with a separate parser (though we parse the music strings).
+1. **Minimal boilerplate** - common cases should be short.
+2. **One line per voice/staff** - visual correspondence between input and output.
+3. **LilyPond-inspired pitch/duration encoding** - familiar to musicians who have used text-based notation.
+4. **Typst-native** - uses Typst strings and function arguments, not a custom DSL with a separate parser (though we parse the music strings).
 
 ### Pitch Encoding
 
 | Element | Syntax | Example | Meaning |
 |---------|--------|---------|---------|
-| Note name | `a`–`g` (lowercase) | `c` | Middle octave reference pitch |
+| Note name | `a`-`g` (lowercase) | `c` | Middle octave reference pitch |
 | Sharp | `#` after note name | `f#` | F-sharp |
 | Flat | `b` after note name (when ambiguous, use `&`) | `e&` | E-flat |
 | Double sharp | `##` | `f##` | F double-sharp |
@@ -226,7 +226,7 @@ The library draws all notation using **CeTZ** (the de-facto Typst drawing librar
 ```typst
 #import "@preview/sheet-music:0.1.0": score
 
-// Simple melody — single staff
+// Simple melody - single staff
 #score(
   title: "Ode to Joy",
   composer: "L. van Beethoven",
@@ -380,7 +380,7 @@ chords: (
 | CL2 | Bass clef (F clef). |
 | CL3 | Alto clef (C clef, 3rd line). |
 | CL4 | Tenor clef (C clef, 4th line). |
-| CL5 | Treble clef 8va bassa (`treble-8`) — for tenor voice. |
+| CL5 | Treble clef 8va bassa (`treble-8`) - for tenor voice. |
 | CL6 | Treble clef 8va alta (`treble+8`). |
 | CL7 | Mid-measure clef changes rendered at reduced size. |
 | CL8 | Percussion clef (two vertical bars). |
@@ -395,7 +395,7 @@ chords: (
 | M4 | Repeat barlines (start repeat, end repeat, start+end repeat). |
 | M5 | Dashed/dotted barline (for irregular groupings). |
 | M6 | Barlines connect staves within a group (configurable per group type). |
-| M7 | Beats per measure are **not enforced** — the renderer draws whatever notes the user places between barline markers. |
+| M7 | Beats per measure are **not enforced** - the renderer draws whatever notes the user places between barline markers. |
 | M8 | Measure numbers displayed at the start of each system (configurable: every measure, every N measures, or off). |
 
 ### 6.7 Beaming
@@ -561,9 +561,9 @@ Chords are multiple notes sounding simultaneously on the same staff.
 
 All musical symbols (noteheads, rests, clefs, accidentals, flags, dynamics, etc.) are rendered by placing characters from the **Bravura** (SMuFL) font at precise coordinates on the CeTZ canvas. This approach is key because:
 
-1. **Scalable vectors** — font glyphs are outlines, not bitmaps.
-2. **Consistent style** — all symbols come from a professionally designed, standardized music font.
-3. **Precise metrics** — SMuFL metadata provides exact bounding boxes, stem attachment points, and anchors.
+1. **Scalable vectors** - font glyphs are outlines, not bitmaps.
+2. **Consistent style** - all symbols come from a professionally designed, standardized music font.
+3. **Precise metrics** - SMuFL metadata provides exact bounding boxes, stem attachment points, and anchors.
 
 ### Line/Curve Rendering
 
@@ -636,15 +636,15 @@ Systems are emitted as Typst `block()` elements. Typst's native page-break algor
 ### Bravura Font
 
 - **Source:** [steinbergmedia/bravura](https://github.com/steinbergmedia/bravura) (or equivalent mirror).
-- **License:** SIL Open Font License 1.1 — fully compatible with distribution in a Typst package.
+- **License:** SIL Open Font License 1.1 - fully compatible with distribution in a Typst package.
 - **Bundled files:**
-  - `Bravura.otf` — the font file itself.
-  - `bravura_metadata.json` — glyph metrics, anchors, bounding boxes.
-  - `glyphnames.json` — SMuFL canonical glyph names → Unicode PUA codepoints.
+  - `Bravura.otf` - the font file itself.
+  - `bravura_metadata.json` - glyph metrics, anchors, bounding boxes.
+  - `glyphnames.json` - SMuFL canonical glyph names → Unicode PUA codepoints.
 
 ### Glyph Access in Typst
 
-Typst supports loading custom fonts bundled with a package. On the CeTZ canvas, we place text nodes using the Bravura font at specific Unicode codepoints (from SMuFL's Private Use Area, U+E000–U+F8FF).
+Typst supports loading custom fonts bundled with a package. On the CeTZ canvas, we place text nodes using the Bravura font at specific Unicode codepoints (from SMuFL's Private Use Area, U+E000-U+F8FF).
 
 Example of rendering a treble clef:
 ```typst
@@ -670,7 +670,7 @@ sheet-music/
 ├── typst.toml                     # Package manifest
 ├── LICENSE                        # MIT or Apache-2.0
 ├── README.md                      # Usage documentation
-├── lib.typ                        # Main entry point — exports public API
+├── lib.typ                        # Main entry point - exports public API
 │
 ├── src/
 │   ├── parser.typ                 # Music string parser → event list
@@ -829,7 +829,7 @@ sheet-music/
 
 ### Example-Based Tests
 
-- Each file in `examples/` serves as an integration test — compile and visually inspect.
+- Each file in `examples/` serves as an integration test - compile and visually inspect.
 
 ---
 
@@ -883,7 +883,7 @@ Fonts placed in the `fonts/` directory of a Typst package are automatically avai
 
 ## 16. Phased Implementation Roadmap
 
-### Phase 1 — Core Foundation (MVP)
+### Phase 1 - Core Foundation (MVP)
 
 **Goal:** Render a single staff with basic notes, rests, barlines, clef, key signature, and time signature.
 
@@ -900,7 +900,7 @@ Fonts placed in the `fonts/` directory of a Typst package are automatically avai
 
 **Deliverable:** Render "Ode to Joy" as a single-staff melody.
 
-### Phase 2 — Multi-Staff and Alignment
+### Phase 2 - Multi-Staff and Alignment
 
 **Goal:** Grand staff, SATB, vertical beat alignment, system breaks.
 
@@ -915,7 +915,7 @@ Fonts placed in the `fonts/` directory of a Typst package are automatically avai
 
 **Deliverable:** Render a piano grand staff and SATB chorale.
 
-### Phase 3 — Beaming, Ties, Slurs
+### Phase 3 - Beaming, Ties, Slurs
 
 **Goal:** Automatic beaming, ties, slurs, and polished rhythmic notation.
 
@@ -928,7 +928,7 @@ Fonts placed in the `fonts/` directory of a Typst package are automatically avai
 
 **Deliverable:** Render beamed passages with slurs and ties.
 
-### Phase 4 — Lyrics and Chord Symbols
+### Phase 4 - Lyrics and Chord Symbols
 
 **Goal:** Lead sheet capability.
 
@@ -941,7 +941,7 @@ Fonts placed in the `fonts/` directory of a Typst package are automatically avai
 
 **Deliverable:** Render "Amazing Grace" lead sheet with melody, chords, and lyrics.
 
-### Phase 5 — Articulations, Dynamics, and Expression
+### Phase 5 - Articulations, Dynamics, and Expression
 
 **Goal:** Full expression markings.
 
@@ -955,7 +955,7 @@ Fonts placed in the `fonts/` directory of a Typst package are automatically avai
 
 **Deliverable:** Expressive score rendering with all standard markings.
 
-### Phase 6 — Advanced Notation
+### Phase 6 - Advanced Notation
 
 **Goal:** Grace notes, tuplets, repeats, ornaments, multi-voice.
 
@@ -970,7 +970,7 @@ Fonts placed in the `fonts/` directory of a Typst package are automatically avai
 
 **Deliverable:** Full-featured notation covering all requirements in this document.
 
-### Phase 7 — Polish and Publishing
+### Phase 7 - Polish and Publishing
 
 **Goal:** Publication readiness.
 
@@ -983,7 +983,7 @@ Fonts placed in the `fonts/` directory of a Typst package are automatically avai
 
 ---
 
-## Appendix A — Full Syntax Reference
+## Appendix A - Full Syntax Reference
 
 ### Music String Grammar (Informal)
 
@@ -1058,7 +1058,7 @@ rest_marker= 'N.C.'
 
 ---
 
-## Appendix B — SMuFL Glyph Subset
+## Appendix B - SMuFL Glyph Subset
 
 Below are the key SMuFL codepoints (from the Bravura font) that the library must use. Full list in `data/glyphnames.json`.
 
@@ -1116,7 +1116,7 @@ Below are the key SMuFL codepoints (from the Bravura font) that the library must
 
 | Glyph | Codepoint | SMuFL Name |
 |-------|-----------|------------|
-| Digits 0-9 | U+E080–U+E089 | `timeSig0`–`timeSig9` |
+| Digits 0-9 | U+E080-U+E089 | `timeSig0`-`timeSig9` |
 | Common time | U+E08A | `timeSigCommon` |
 | Cut time | U+E08B | `timeSigCutCommon` |
 
