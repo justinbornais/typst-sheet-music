@@ -86,7 +86,9 @@
   // Parse music for each staff
   let staves-events = staves.map(s => {
     let music-str = s.at("music", default: "")
-    parse-music(music-str)
+    let clef-name = s.at("clef", default: "treble")
+    let base-oct = if clef-name == "bass" { 3 } else { 4 }
+    parse-music(music-str, base-octave: base-oct)
   })
 
   // Internal helper: compute prefix width in staff-space units for a given system

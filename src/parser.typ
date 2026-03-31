@@ -7,7 +7,9 @@
 #import "utils.typ": is-digit, is-lower, is-whitespace
 
 /// Main entry: parse a music string into an array of events.
-#let parse-music(input) = {
+/// - base-octave: the default octave number when no ' or , markers are given.
+///   Use 4 for treble clef (C4 = middle C), 3 for bass clef (C3 = low C).
+#let parse-music(input, base-octave: 4) = {
   let events = ()
   let pos = 0
   let len = input.len()
@@ -109,7 +111,7 @@
       let name = ch
       pos += 1
       let accidental = none
-      let octave = 4
+      let octave = base-octave
 
       // Parse accidental
       let ac = peek(pos)
@@ -219,7 +221,7 @@
       let name = "b"
       pos += 1
       let accidental = none
-      let octave = 4
+      let octave = base-octave
 
       // Parse accidental
       let ac = peek(pos)

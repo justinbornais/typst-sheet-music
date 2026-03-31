@@ -14,10 +14,10 @@
     (
       clef: "treble",
       music: "
-        |: f#'4 f#' g' a' | a'8 b' g'4 f#' e' | d' d' e' f#' | f#'4. e'8 e'2 |
-        f#'4 f#' g' a' | a' g' f#' e' | d' d' e' f#' | e'4. d'8 d'2 |
-        e'4 e' f#' d' | e' f#'8 g'8 f#'4 d' | e' f#'8 g'8 f#'4 e' | d' e' a4'2 |
-        f#'4 f#' g' a' | a' g' f#' e' | d' d' e' f#' | e'4. d'8 d'2 :|
+        f#4 f# g a | a8 b g4 f# e | d d e f# | f#4. e8 e2 |
+        f#4 f# g a | a g f# e | d d e f# | e4. d8 d2 |
+        e4 e f# d | e f#8 g8 f#4 d | e f#8 g8 f#4 e | d e a4 d |
+        f#4 f# g a | a g f# e | d d e f# | e4. d8 d2
       ",
       fingerings: (
         // Line 1: measures 1-4

@@ -12,7 +12,7 @@
   key: "C",
   time: "4/4",
   clef: "treble",
-  music: "c4'4 d' e' f' | g' a' b' c''",
+  music: "c4 d e f | g a b c'",
 )
 
 #v(1cm)
@@ -22,7 +22,7 @@
 #melody(
   key: "D",
   time: "4/4",
-  music: "d'4 e' f#' g' | a' b' c#'' d''",
+  music: "d4 e f# g | a b c#' d'",
 )
 
 #v(1cm)
@@ -32,7 +32,7 @@
 #melody(
   key: "C",
   time: "4/4",
-  music: "c'4 r4 e'4 r4 | r2 g'2",
+  music: "c4 r4 e r | r2 g2",
 )
 
 #v(1cm)
@@ -42,7 +42,7 @@
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4'1 | c'2 d'2 | c'4 d' e' f' | c'8 d' e' f' g' a' b' c''",
+  music: "c1 | c2 d2 | c4 d e f | c8 d e f g a b c'",
 )
 
 #v(1cm)
@@ -52,7 +52,7 @@
 #melody(
   key: "C",
   time: "4/4",
-  music: "c'4. d'8 e'4 f' | g'2. r4",
+  music: "c4. d8 e4 f | g2. r4",
 )
 
 #v(1cm)
@@ -62,7 +62,7 @@
 #melody(
   key: "C",
   time: "4/4",
-  music: "c'4 c#' d' d&' | e&' e' f#' g'",
+  music: "c4 c# d d& | e& e f# g",
 )
 
 #v(1cm)
@@ -72,7 +72,7 @@
 #melody(
   key: "C",
   time: "4/4",
-  music: "c2'4 d3' e3' f3' | g5' a' b' c'' | d'' e'' f'' g''",
+  music: "d4 c b, a, | g' a' b' c''",
 )
 
 #v(1cm)
@@ -83,7 +83,7 @@
   key: "C",
   time: "4/4",
   staves: (
-    (clef: "bass", music: "c3 d e f | g a b c'"),
+    (clef: "bass", music: "c4 d e f | g a b c'"),
   ),
 )
 
@@ -94,7 +94,7 @@
 #melody(
   key: "Bb",
   time: "3/4",
-  music: "b&'4 c'' d'' | e&'' f'' g''",
+  music: "b&4 c' d' | e&' f' g'",
 )
 
 #v(1cm)
@@ -107,7 +107,7 @@
   key: "G",
   time: "3/4",
   staves: (
-    (clef: "treble", music: "g'4 a' b' | c'' d'' e'' | d''2."),
+    (clef: "treble", music: "g4 a b | c' d' e' | d'2."),
   ),
 )
 
@@ -119,7 +119,7 @@ Treble: G5 (no ledger), A5 (1 ledger), D4 (no ledger), C4 (1 ledger):
 #melody(
   key: "C",
   time: "4/4",
-  music: "g''4 a'' d'4 c'",
+  music: "g'4 a' d c",
 )
 
 #v(0.5cm)
@@ -129,7 +129,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
   key: "C",
   time: "4/4",
   staves: (
-    (clef: "bass", music: "b4 c' f,,, e,,,"),
+    (clef: "bass", music: "b4 c' f, e,"),
   ),
 )
 
@@ -140,7 +140,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 #melody(
   key: "C",
   time: "4/4",
-  music: "f#'4 g' a' b'",
+  music: "f#4 g a b",
 )
 
 == Test 13: 16th Notes
