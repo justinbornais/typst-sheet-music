@@ -46,8 +46,8 @@
       clef: "bass",
       music: "
         d1 | a, | d | a, |
-        d | a, | d | a,2 d |
-        |: a, d | a, d | a, f#, | b,4 e, a,2 |
+        d | a, | d | a,2 d4 r |
+        |: a,2 d | a, d | a, f#, | b,4 e, a,2 |
         d1 | a, | d | a,2 d :|"
     )
   ),

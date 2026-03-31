@@ -28,10 +28,16 @@
 /// - y-bottom: y of bottom staff line
 /// - style: "single", "double", "final", "repeat-start", "repeat-end"
 /// - sp: staff space
-#let draw-barline(x, y-top, y-bottom, style: "single", sp: 1.0) = {
+/// - dot-staff-tops: array of y-top values for each staff where repeat dots
+///   should be drawn. Defaults to just (y-top,) for a single staff.
+#let draw-barline(x, y-top, y-bottom, style: "single", sp: 1.0, dot-staff-tops: none) = {
   import cetz.draw: *
   let thin = default-barline-thickness * sp
   let thick = default-thick-barline * sp
+  let dot-radius = 0.22 * sp
+
+  // Resolve which staff y-tops get repeat dots
+  let staff-tops = if dot-staff-tops != none { dot-staff-tops } else { (y-top,) }
 
   if style == "single" {
     line(
@@ -65,17 +71,21 @@
       (x + 0.5 * sp, y-top), (x + 0.5 * sp, y-bottom),
       stroke: thin * 1mm + black,
     )
-    // Dots
-    let dot-y1 = y-top - 1.5 * sp
-    let dot-y2 = y-top - 2.5 * sp
-    circle((x + 1.0 * sp, dot-y1), radius: 0.15 * sp, fill: black, stroke: none)
-    circle((x + 1.0 * sp, dot-y2), radius: 0.15 * sp, fill: black, stroke: none)
+    // Dots on each staff
+    for st in staff-tops {
+      let dot-y1 = st - 1.5 * sp
+      let dot-y2 = st - 2.5 * sp
+      circle((x + 1.0 * sp, dot-y1), radius: dot-radius, fill: black, stroke: none)
+      circle((x + 1.0 * sp, dot-y2), radius: dot-radius, fill: black, stroke: none)
+    }
   } else if style == "repeat-end" {
-    // Dots
-    let dot-y1 = y-top - 1.5 * sp
-    let dot-y2 = y-top - 2.5 * sp
-    circle((x - 1.0 * sp, dot-y1), radius: 0.15 * sp, fill: black, stroke: none)
-    circle((x - 1.0 * sp, dot-y2), radius: 0.15 * sp, fill: black, stroke: none)
+    // Dots on each staff
+    for st in staff-tops {
+      let dot-y1 = st - 1.5 * sp
+      let dot-y2 = st - 2.5 * sp
+      circle((x - 1.0 * sp, dot-y1), radius: dot-radius, fill: black, stroke: none)
+      circle((x - 1.0 * sp, dot-y2), radius: dot-radius, fill: black, stroke: none)
+    }
     line(
       (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
       stroke: thin * 1mm + black,

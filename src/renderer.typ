@@ -635,6 +635,9 @@
         if staff-group == "grand" {
           draw-brace(sys-y-top, sys-y-bottom, sp: unit)
 
+          // Compute y-top of each staff for repeat dot placement
+          let staff-y-tops = range(num-staves).map(si => total-offset - si * (staff-height-mm + spacing-mm))
+
           // ── Spanning barlines for grand staff ────────────────────────────
           // Compute the same scale-x that render-system uses so we can
           // determine exact barline x positions.
@@ -659,7 +662,7 @@
           for (bi, item) in first-items.enumerate() {
             if item.event.type == "barline" and bi < first-items.len() - 1 {
               let bx = first-item-xs.at(bi)
-              draw-barline(bx + 0.5 * unit, sys-y-top, sys-y-bottom, style: item.event.style, sp: unit)
+              draw-barline(bx + 0.5 * unit, sys-y-top, sys-y-bottom, style: item.event.style, sp: unit, dot-staff-tops: staff-y-tops)
             }
           }
 
@@ -674,7 +677,7 @@
           } else {
             total-width-sp * unit - default-barline-thickness / 2.0 * unit
           }
-          draw-barline(final-x, sys-y-top, sys-y-bottom, style: final-style, sp: unit)
+          draw-barline(final-x, sys-y-top, sys-y-bottom, style: final-style, sp: unit, dot-staff-tops: staff-y-tops)
         } else if staff-group == "bracket" {
           draw-bracket(sys-y-top, sys-y-bottom, sp: unit)
         }
