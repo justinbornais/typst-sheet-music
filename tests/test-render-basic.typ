@@ -370,3 +370,123 @@ Two chords in 6/8 → beat 1 and beat 4 (middle of compound time):
     ),
   ),
 )
+
+#v(1cm)
+
+== Test 29: Dynamics — basic markings
+
+Dynamic markings rendered below the staff:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4(pp) d e(mf) f | g(f) a b(ff) c'",
+)
+
+#v(1cm)
+
+== Test 30: Dynamics — all standard markings
+
+Every standard dynamic marking:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4(ppp) d(pp) e(p) f(mp) | g(mf) a(f) b(ff) c'(fff)",
+)
+
+#v(1cm)
+
+== Test 31: Dynamics — sf, sfz, fp
+
+Special dynamics:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4(sf) d(sfz) e(fp) f",
+)
+
+#v(1cm)
+
+== Test 32: Articulations — accent
+
+Accent marks on notes:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4> d> e> f> | g> a> b> c'>",
+)
+
+#v(1cm)
+
+== Test 33: Articulations — staccato
+
+Staccato dots on notes:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4* d* e* f* | g* a* b* c'*",
+)
+
+#v(1cm)
+
+== Test 34: Articulations — tenuto
+
+Tenuto marks on notes:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4- d- e- f- | g- a- b- c'-",
+)
+
+#v(1cm)
+
+== Test 35: Articulations — fermata
+
+Fermata on final note:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f | g a b c'_",
+)
+
+#v(1cm)
+
+== Test 36: Articulations — combined (accent + staccato)
+
+Multiple articulations on the same note:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4>* d>* e f | g a b c'>*",
+)
+
+#v(1cm)
+
+== Test 37: Articulations + Dynamics combined
+
+Articulations and dynamics on the same note:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4>*(f) d e(p) f_ | g>-(ff) a b c'_*(pp)",
+)
+
+#v(1cm)
+
+== Test 38: Articulations with fermata and other marks
+
+Fermata combined with other articulations:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f>_ | g a b c'>*_",
+)

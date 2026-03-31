@@ -9,6 +9,7 @@
 #import "render-notes.typ": draw-note, draw-rest, note-stem-x, draw-chord-event
 #import "render-beams.typ": draw-beam-group
 #import "render-chords.typ": format-chord-symbol, chord-beat-offsets
+#import "render-articulations.typ": draw-articulations, draw-dynamic
 #import "pitch.typ": compute-stem-end-y
 #import "utils.typ": duration-to-beats
 
@@ -280,12 +281,42 @@
         beamed: is-beamed,
       )
 
+      // Draw articulations near the notehead
+      if event.articulations.len() > 0 {
+        draw-articulations(x, y-top + y, event.articulations, actual-stem-dir, y-top, sp: sp)
+      }
+
+      // Draw dynamic below the staff
+      if event.dynamic != none {
+        // Compute how far below-staff articulations extend
+        let dyn-extra = 0.0
+        if actual-stem-dir == "up" {
+          let below-arts = event.articulations.filter(a => a != "fermata")
+          if below-arts.len() > 0 {
+            let note-abs-y = y-top + y
+            let art-bottom = note-abs-y + 1.0 * sp - below-arts.len() * 1.0 * sp
+            // Always push dynamic below the articulations
+            let min-dyn-offset = below-arts.len() * 0.8 * sp
+            if art-bottom < y-bottom {
+              dyn-extra = calc.max(y-bottom - art-bottom, min-dyn-offset)
+            } else {
+              dyn-extra = min-dyn-offset
+            }
+          }
+        }
+        draw-dynamic(x, y-bottom, event.dynamic, sp: sp, extra-offset: dyn-extra)
+      }
+
       // Draw fingering(s) above the note
       if fingerings != none and note-idx < fingerings.len() {
         let fng = fingerings.at(note-idx)
         if fng != none and fng != 0 {
           let note-center-y = y-top + y
           let fng-base-y = calc.max(y-top + 1.5 * sp, note-center-y + 1.0 * sp)
+          // Push fingering higher if a fermata is present
+          if event.articulations.contains("fermata") {
+            fng-base-y = calc.max(fng-base-y, calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp)
+          }
           draw-fingering(x, fng-base-y, fng)
         }
       }
@@ -315,6 +346,37 @@
         sp: sp,
         beamed: is-beamed,
       )
+
+      // Draw articulations near the outermost note of the chord
+      if event.articulations.len() > 0 {
+        // Use the note on the articulation side (opposite stem)
+        let art-note-y = if actual-stem-dir == "down" {
+          chord-ys-abs.fold(chord-ys-abs.at(0), calc.max) // topmost note
+        } else {
+          chord-ys-abs.fold(chord-ys-abs.at(0), calc.min) // bottommost note
+        }
+        draw-articulations(x, art-note-y, event.articulations, actual-stem-dir, y-top, sp: sp)
+      }
+
+      // Draw dynamic below the staff
+      if event.dynamic != none {
+        // Compute how far below-staff articulations extend
+        let dyn-extra = 0.0
+        if actual-stem-dir == "up" {
+          let below-arts = event.articulations.filter(a => a != "fermata")
+          if below-arts.len() > 0 {
+            let art-note-y-dyn = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
+            let art-bottom = art-note-y-dyn + 1.0 * sp - below-arts.len() * 1.0 * sp
+            let min-dyn-offset = below-arts.len() * 0.8 * sp
+            if art-bottom < y-bottom {
+              dyn-extra = calc.max(y-bottom - art-bottom, min-dyn-offset)
+            } else {
+              dyn-extra = min-dyn-offset
+            }
+          }
+        }
+        draw-dynamic(x, y-bottom, event.dynamic, sp: sp, extra-offset: dyn-extra)
+      }
 
       // Draw fingering(s) above the highest note of the chord
       if fingerings != none and note-idx < fingerings.len() {

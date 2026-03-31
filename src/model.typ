@@ -17,6 +17,7 @@
 /// - beam-start: boolean
 /// - beam-end: boolean
 /// - articulations: array of strings
+/// - dynamic: optional dynamic marking string (e.g., "f", "pp", "sfz")
 #let make-note(
   name,
   accidental: none,
@@ -29,6 +30,7 @@
   beam-start: false,
   beam-end: false,
   articulations: (),
+  dynamic: none,
   tuplet-n: 1,
   tuplet-m: 1,
   tuplet-start: false,
@@ -46,6 +48,7 @@
   beam-start: beam-start,
   beam-end: beam-end,
   articulations: articulations,
+  dynamic: dynamic,
   tuplet-n: tuplet-n,
   tuplet-m: tuplet-m,
   tuplet-start: tuplet-start,
@@ -147,6 +150,7 @@
   beam-start: false,
   beam-end: false,
   articulations: (),
+  dynamic: none,
 ) = (
   type: "chord",
   notes: notes,
@@ -158,6 +162,7 @@
   beam-start: beam-start,
   beam-end: beam-end,
   articulations: articulations,
+  dynamic: dynamic,
 )
 
 // --- Staff description ---

@@ -150,6 +150,39 @@
       // Parse tie
       let tie = false
       if peek(pos) == "~" { tie = true; pos += 1 }
+
+      // Parse articulations: > (accent), * (staccato), - (tenuto), _ (fermata)
+      let articulations = ()
+      while peek(pos) == ">" or peek(pos) == "*" or peek(pos) == "-" or peek(pos) == "_" {
+        let ac = peek(pos)
+        if ac == ">" { articulations.push("accent") }
+        else if ac == "*" { articulations.push("staccato") }
+        else if ac == "-" { articulations.push("tenuto") }
+        else if ac == "_" { articulations.push("fermata") }
+        pos += 1
+      }
+
+      // Parse dynamic: (text) where text contains only dynamic chars
+      // Must come before slur parsing so (mf) isn't misread as slur-start
+      let dynamic = none
+      if peek(pos) == "(" {
+        let dyn-start = pos + 1
+        let dyn-end = dyn-start
+        let is-dynamic = true
+        while dyn-end < len and input.at(dyn-end) != ")" {
+          let dc = input.at(dyn-end)
+          if dc == " " or dc == "\t" or dc == "\n" or dc == "\r" or is-digit(dc) or (dc >= "a" and dc <= "g" and dc != "f") or dc == "<" {
+            is-dynamic = false
+            break
+          }
+          dyn-end += 1
+        }
+        if is-dynamic and dyn-end < len and input.at(dyn-end) == ")" and dyn-end > dyn-start {
+          dynamic = input.slice(dyn-start, dyn-end)
+          pos = dyn-end + 1
+        }
+      }
+
       // Parse slur
       let slur-start = false
       let slur-end = false
@@ -174,6 +207,8 @@
           slur-end: slur-end,
           beam-start: beam-start,
           beam-end: beam-end,
+          articulations: articulations,
+          dynamic: dynamic,
         ))
       }
       continue
@@ -247,6 +282,38 @@
         pos += 1
       }
 
+      // Parse articulations: > (accent), * (staccato), - (tenuto), _ (fermata)
+      let articulations = ()
+      while peek(pos) == ">" or peek(pos) == "*" or peek(pos) == "-" or peek(pos) == "_" {
+        let ac = peek(pos)
+        if ac == ">" { articulations.push("accent") }
+        else if ac == "*" { articulations.push("staccato") }
+        else if ac == "-" { articulations.push("tenuto") }
+        else if ac == "_" { articulations.push("fermata") }
+        pos += 1
+      }
+
+      // Parse dynamic: (text) where text contains only dynamic chars (p,m,f,r,s,z)
+      // Must come before slur parsing so (mf) isn't misread as slur-start
+      let dynamic = none
+      if peek(pos) == "(" {
+        let dyn-start = pos + 1
+        let dyn-end = dyn-start
+        let is-dynamic = true
+        while dyn-end < len and input.at(dyn-end) != ")" {
+          let dc = input.at(dyn-end)
+          if dc == " " or dc == "\t" or dc == "\n" or dc == "\r" or is-digit(dc) or (dc >= "a" and dc <= "g" and dc != "f") or dc == "<" {
+            is-dynamic = false
+            break
+          }
+          dyn-end += 1
+        }
+        if is-dynamic and dyn-end < len and input.at(dyn-end) == ")" and dyn-end > dyn-start {
+          dynamic = input.slice(dyn-start, dyn-end)
+          pos = dyn-end + 1
+        }
+      }
+
       // Parse slur start/end
       let slur-start = false
       let slur-end = false
@@ -285,6 +352,8 @@
         slur-end: slur-end,
         beam-start: beam-start,
         beam-end: beam-end,
+        articulations: articulations,
+        dynamic: dynamic,
       ))
       continue
     }
@@ -355,6 +424,38 @@
         pos += 1
       }
 
+      // Parse articulations: > (accent), * (staccato), - (tenuto), _ (fermata)
+      let articulations = ()
+      while peek(pos) == ">" or peek(pos) == "*" or peek(pos) == "-" or peek(pos) == "_" {
+        let ac = peek(pos)
+        if ac == ">" { articulations.push("accent") }
+        else if ac == "*" { articulations.push("staccato") }
+        else if ac == "-" { articulations.push("tenuto") }
+        else if ac == "_" { articulations.push("fermata") }
+        pos += 1
+      }
+
+      // Parse dynamic: (text) where text contains only dynamic chars
+      // Must come before slur parsing so (mf) isn't misread as slur-start
+      let dynamic = none
+      if peek(pos) == "(" {
+        let dyn-start = pos + 1
+        let dyn-end = dyn-start
+        let is-dynamic = true
+        while dyn-end < len and input.at(dyn-end) != ")" {
+          let dc = input.at(dyn-end)
+          if dc == " " or dc == "\t" or dc == "\n" or dc == "\r" or is-digit(dc) or (dc >= "a" and dc <= "g" and dc != "f") or dc == "<" {
+            is-dynamic = false
+            break
+          }
+          dyn-end += 1
+        }
+        if is-dynamic and dyn-end < len and input.at(dyn-end) == ")" and dyn-end > dyn-start {
+          dynamic = input.slice(dyn-start, dyn-end)
+          pos = dyn-end + 1
+        }
+      }
+
       // Parse slur
       let slur-start = false
       let slur-end = false
@@ -393,6 +494,8 @@
         slur-end: slur-end,
         beam-start: beam-start,
         beam-end: beam-end,
+        articulations: articulations,
+        dynamic: dynamic,
       ))
       continue
     }

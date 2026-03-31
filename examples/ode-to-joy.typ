@@ -1,5 +1,6 @@
 // Ode to Joy - Full melody example
-// Demonstrates system breaks, key signatures, fingering numbers, and chord symbols.
+// Demonstrates system breaks, key signatures, fingering numbers, chord symbols,
+// dynamics, and articulations.
 
 #import "../lib.typ": score
 
@@ -63,10 +64,10 @@
     (
       clef: "treble",
       music: "
-        f#4 f# g a | a8 b g4 f# e | d d e f# | f#4. e8 e2 |
-        f#4 f# g a | a g f# e | d d e f# | e4. d8 d2 |
-        e4 e f# d | e f#8 g8 f#4 d | e f#8 g8 f#4 e | d e a4 d |
-        f#4 f# g a | a g f# e | d d e f# | e4. d8 d2
+        f#4(mf) f# g a | a8 b g4 f# e | d d e f# | f#4. e8 e2 |
+        f#4(f) f# g a | a> g f# e | d d e f# | e4. d8 d2 |
+        e4(p) e f# d | e f#8 g8 f#4 d | e f#8 g8 f#4 e | d e a4_(ff) d |
+        f#4 f# g a | a> g* f# e | d d e f# | e4. d8 d2_
       ",
       fingerings: (
         // Line 1: measures 1-4
