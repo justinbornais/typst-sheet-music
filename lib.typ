@@ -4,6 +4,7 @@
 
 #import "src/parser.typ": parse-music
 #import "src/layout.typ": layout-staff, layout-score
+#import "src/layout-spacing.typ": align-staves-by-beat
 #import "src/layout-breaks.typ": compute-system-breaks, split-at-line-breaks, has-line-breaks
 #import "src/renderer.typ": render-score
 #import "src/render-clef-key-time.typ": clef-advance, key-sig-advance, time-sig-advance
@@ -195,6 +196,11 @@
           systems-events-per-staff.at(si).at(sys-idx)
         } else { () }
         laid-out-staves.push(layout-staff(sys-evs, clef: clef, staff-space: staff-size))
+      }
+
+      // Beat-align across staves so notes at the same beat share x positions.
+      if laid-out-staves.len() > 1 {
+        laid-out-staves = align-staves-by-beat(laid-out-staves)
       }
 
       // Fingerings: only for the first staff

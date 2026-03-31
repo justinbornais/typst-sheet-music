@@ -37,6 +37,7 @@
   show-time: true,
   fingerings: none,
   forced-music-start-x: none,
+  skip-barlines: false,
 ) = {
   import cetz.draw: *
 
@@ -254,7 +255,7 @@
     } else if event.type == "barline" {
       // All barlines except the very last item are drawn at their layout position.
       // The last barline is drawn at the right edge (handled below).
-      if i < items.len() - 1 {
+      if not skip-barlines and i < items.len() - 1 {
         draw-barline(x + 0.5 * sp, y-top, y-bottom, style: event.style, sp: sp)
       }
     }
@@ -262,20 +263,22 @@
   }
 
   // ── Draw final barline at right edge (always) ────────────────────────────
-  // Use the style from the last event if it is a barline; otherwise "final".
-  let final-style = if items.len() > 0 and items.last().event.type == "barline" {
-    items.last().event.style
-  } else {
-    "final"
+  if not skip-barlines {
+    // Use the style from the last event if it is a barline; otherwise "final".
+    let final-style = if items.len() > 0 and items.last().event.type == "barline" {
+      items.last().event.style
+    } else {
+      "final"
+    }
+    // Position the closing barline so its rightmost visual edge is flush with
+    // the right end of the staff lines.
+    let final-x = if final-style == "final" or final-style == "repeat-end" or final-style == "repeat-both" {
+      total-width * sp - default-thick-barline / 2.0 * sp
+    } else {
+      total-width * sp - default-barline-thickness / 2.0 * sp
+    }
+    draw-barline(final-x, y-top, y-bottom, style: final-style, sp: sp)
   }
-  // Position the closing barline so its rightmost visual edge is flush with
-  // the right end of the staff lines.
-  let final-x = if final-style == "final" or final-style == "repeat-end" or final-style == "repeat-both" {
-    total-width * sp - default-thick-barline / 2.0 * sp
-  } else {
-    total-width * sp - default-barline-thickness / 2.0 * sp
-  }
-  draw-barline(final-x, y-top, y-bottom, style: final-style, sp: sp)
 
   // ── Draw beams ───────────────────────────────────────────────────────────
   for beam-data in beam-groups-data {
@@ -384,6 +387,7 @@
   let num-staves = laid-out-staves.len()
   let staff-height-mm = 4.0 * unit
   let spacing-mm = staff-spacing / 1mm
+  let use-spanning-barlines = staff-group == "grand" and num-staves > 1
 
   // Pre-compute the maximum music-start-x across all staves so notes and
   // barlines align horizontally in a grand staff / multi-staff system.
@@ -423,6 +427,7 @@
           show-time: show-time,
           fingerings: if i == 0 { fingerings } else { none },
           forced-music-start-x: shared-music-start-x,
+          skip-barlines: use-spanning-barlines,
         )
       }
 
@@ -443,6 +448,47 @@
 
         if staff-group == "grand" {
           draw-brace(sys-y-top, sys-y-bottom, sp: unit)
+
+          // ── Spanning barlines for grand staff ────────────────────────────
+          // Compute the same scale-x that render-system uses so we can
+          // determine exact barline x positions.
+          let first-items = laid-out-staves.at(0).items
+          let total-layout-width = laid-out-staves.at(0).total-width
+          let available-music-width = if avail-width != none {
+            avail-width / unit - shared-music-start-x / unit - 1.0
+          } else {
+            total-layout-width + 2.0
+          }
+          let scale-x = if total-layout-width > 0 {
+            available-music-width / total-layout-width
+          } else { 1.0 }
+          let total-width-sp = if avail-width != none {
+            avail-width / unit
+          } else {
+            shared-music-start-x / unit + total-layout-width * scale-x + 1.0
+          }
+
+          // Internal barlines
+          let first-item-xs = first-items.map(item => shared-music-start-x + item.x * scale-x * unit)
+          for (bi, item) in first-items.enumerate() {
+            if item.event.type == "barline" and bi < first-items.len() - 1 {
+              let bx = first-item-xs.at(bi)
+              draw-barline(bx + 0.5 * unit, sys-y-top, sys-y-bottom, style: item.event.style, sp: unit)
+            }
+          }
+
+          // Final barline
+          let final-style = if first-items.len() > 0 and first-items.last().event.type == "barline" {
+            first-items.last().event.style
+          } else {
+            "final"
+          }
+          let final-x = if final-style == "final" or final-style == "repeat-end" or final-style == "repeat-both" {
+            total-width-sp * unit - default-thick-barline / 2.0 * unit
+          } else {
+            total-width-sp * unit - default-barline-thickness / 2.0 * unit
+          }
+          draw-barline(final-x, sys-y-top, sys-y-bottom, style: final-style, sp: unit)
         } else if staff-group == "bracket" {
           draw-bracket(sys-y-top, sys-y-bottom, sp: unit)
         }
