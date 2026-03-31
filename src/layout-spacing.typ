@@ -19,9 +19,13 @@
     let dots = event.at("dots", default: 0)
     let factor = duration-spacing-factor(dur, dots: dots)
     let w = base-width * factor
-    // Extra space for notes with accidentals
+    // Extra space for notes/chords with accidentals
     if event.type == "note" and event.at("accidental", default: none) != none {
       w += 0.5
+    }
+    if event.type == "chord" {
+      let any-acc = event.at("notes", default: ()).any(n => n.at("accidental", default: none) != none)
+      if any-acc { w += 0.5 }
     }
     // Scale width for tuplet notes/rests (e.g. 3 notes in space of 2 → ×2/3)
     let tn = event.at("tuplet-n", default: 1)
@@ -76,7 +80,7 @@
     for item in laid-out.items {
       beats.push(calc.round(beat, digits: 6))
       let ev = item.event
-      if ev.type == "note" or ev.type == "rest" or ev.type == "spacer" {
+      if ev.type == "note" or ev.type == "rest" or ev.type == "spacer" or ev.type == "chord" {
         let dur = ev.at("duration", default: 4)
         let dots = ev.at("dots", default: 0)
         let dur-beats = duration-to-beats(dur, dots: dots)

@@ -150,3 +150,71 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
   time: "5/4",
   music: "c16 d e f g a b c' d' e' f' g' a' b' c'' d'' e''4",
 )
+
+#v(1cm)
+
+== Test 14: Chords — basic block chords
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "<c e g>4 <d f a> <e g b> <f a c'>",
+)
+
+#v(1cm)
+
+== Test 15: Chords — mixed with single notes
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 <e g b> c' | <c e g>2 <f a c'>2",
+)
+
+#v(1cm)
+
+== Test 16: Chords — dotted and eighth chords
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "<c e>4. <d f>8 <e g>4 r | <c g>8 <d a> <e b> <f c'> <g d'> <a e'> <b f'> <c' g'>",
+)
+
+#v(1cm)
+
+== Test 17: Chords — with accidentals
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "<c e& g>4 <d f# a> <e g b&> <f# a c'>",
+)
+
+#v(1cm)
+
+== Test 18: Fingerings — skip a note (none) and multi-finger chord
+
+// Fingerings: note 1 = finger 1, note 2 = skipped, note 3 = fingers (1,3) stacked, note 4 = finger 5
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f",
+  fingerings: (1, none, (1, 3), 5),
+)
+
+#v(1cm)
+
+== Test 19: Fingerings — chords with skip and stacked fingerings
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "<c e g>4 <d f a> <e g b> <f a c'>",
+      fingerings: ((1, 3, 5), none, (1, 3, 5), (1, 3)),
+    ),
+  ),
+)

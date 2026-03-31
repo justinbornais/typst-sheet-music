@@ -214,6 +214,74 @@
   sx + if stem-dir == "up" { -half-thin } else { half-thin }
 }
 
+/// Draw a chord event: multiple simultaneous noteheads with a single shared stem/flag.
+/// - x: absolute canvas x (mm)
+/// - chord-ys-abs: array of absolute canvas y (mm) for each note in the chord
+/// - chord-staff-positions: array of staff positions (for ledger lines)
+/// - event: the chord event (has .notes, .duration, .dots)
+/// - stem-dir: "up" or "down"
+/// - stem-y-end: absolute canvas y for the stem tip (mm)
+/// - y-top: absolute canvas y of the top staff line (mm)
+/// - beamed: suppress flag when true
+#let draw-chord-event(
+  x,
+  chord-ys-abs,
+  chord-staff-positions,
+  event,
+  stem-dir,
+  stem-y-end,
+  y-top,
+  clef: "treble",
+  sp: 1.0,
+  beamed: false,
+) = {
+  import cetz.draw: *
+  let duration = event.duration
+  let smufl = notehead-smufl-name(duration)
+  let nh-w = advance-width(smufl)
+  let nh-anch = anchors(smufl)
+
+  // Draw each notehead with its ledger lines, accidental, and dots
+  for (ni, note) in event.notes.enumerate() {
+    let ny = chord-ys-abs.at(ni)
+    let nsp = chord-staff-positions.at(ni)
+    draw-ledger-lines(x, y-top, nsp, sp: sp)
+    if note.accidental != none {
+      draw-accidental(x, ny, note.accidental, duration, sp: sp)
+    }
+    draw-notehead(x, ny, duration, sp: sp)
+    if event.dots > 0 {
+      draw-dots(x, ny, event.dots, duration, sp: sp)
+    }
+  }
+
+  // Draw shared stem
+  if duration >= 2 and stem-dir != none {
+    let stem-att = if stem-dir == "up" {
+      nh-anch.at("stemUpSE", default: (x: nh-w, y: 0.168))
+    } else {
+      nh-anch.at("stemDownNW", default: (x: 0.0, y: -0.168))
+    }
+    let stem-x-coord = x - nh-w / 2.0 * sp + stem-att.x * sp
+    let half-thin = default-stem-thickness / 2.0 * sp
+    let stem-x-coord = stem-x-coord + if stem-dir == "up" { -half-thin } else { half-thin }
+
+    // Stem starts at the primary notehead (closest to stem base)
+    let primary-y-abs = if stem-dir == "up" {
+      chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
+    } else {
+      chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+    }
+    let stem-start-y = primary-y-abs + stem-att.y * sp
+
+    draw-stem(stem-x-coord, stem-start-y, stem-y-end, sp: sp)
+
+    if duration >= 8 and not beamed {
+      draw-flag(stem-x-coord, stem-y-end, duration, stem-dir, sp: sp)
+    }
+  }
+}
+
 /// Draw a complete note event (notehead + stem + flag + dots + accidental + ledger lines).
 /// - beamed: when true, suppress flag (note is part of a beam group)
 #let draw-note(

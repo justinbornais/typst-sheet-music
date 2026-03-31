@@ -39,40 +39,58 @@
     if event.type == "note" {
       // Compute staff position and Y coordinate
       let sp = staff-position(event.name, event.octave, clef: current-clef)
-      // Y = position in staff spaces (positive = upward from top line in CeTZ coords)
-      // In our system: position 0 = top line = y 0
-      //                position 8 = bottom line = y -4*staff-space
-      // Y goes negative downward in staff-space units
-      y = -sp / 2.0   // Convert half-spaces to staff-spaces (negative = down)
-
-      // Stem direction
+      y = -sp / 2.0
       stem-dir = auto-stem-direction(sp)
-
-      // Stem end Y
-      stem-y-end = compute-stem-end-y(y, sp, stem-dir, 1.0)  // 1.0 = staff-space unit
+      stem-y-end = compute-stem-end-y(y, sp, stem-dir, 1.0)
+      items.push(make-laid-out-event(event, x: x, y: y, stem-dir: stem-dir, stem-y-end: stem-y-end))
+    } else if event.type == "chord" {
+      // Compute per-note staff positions and y values
+      let sp-list = event.notes.map(n => staff-position(n.name, n.octave, clef: current-clef))
+      let y-list  = sp-list.map(spos => -spos / 2.0)
+      // Stem direction from average staff position
+      let avg-sp = sp-list.fold(0.0, (acc, spos) => acc + spos) / sp-list.len()
+      stem-dir = auto-stem-direction(avg-sp)
+      // Primary note (stem-base): bottom note for stem-up, top note for stem-down
+      let primary-sp = if stem-dir == "up" {
+        sp-list.fold(sp-list.at(0), calc.max)
+      } else {
+        sp-list.fold(sp-list.at(0), calc.min)
+      }
+      y = -primary-sp / 2.0
+      // Stem tip extends from the note furthest in the stem direction
+      let tip-sp = if stem-dir == "up" {
+        sp-list.fold(sp-list.at(0), calc.min)
+      } else {
+        sp-list.fold(sp-list.at(0), calc.max)
+      }
+      let tip-y = -tip-sp / 2.0
+      stem-y-end = compute-stem-end-y(tip-y, tip-sp, stem-dir, 1.0)
+      // Store per-note y values and staff positions alongside the layout item
+      items.push((
+        event: event,
+        x: x,
+        y: y,
+        stem-dir: stem-dir,
+        stem-y-end: stem-y-end,
+        chord-ys: y-list,
+        chord-staff-positions: sp-list,
+      ))
     } else if event.type == "rest" {
       // Rests are centered vertically on the staff
-      // Whole rest hangs from line 2 (position 2), y = -1.0
-      // Half rest sits on line 3 (position 4), y = -2.0
-      // Quarter rest spans middle area, y = -2.0 (center of staff)
       if event.duration == 1 {
-        y = -1.0   // Whole rest: hangs from 4th line (2nd from top)
+        y = -1.0
       } else if event.duration == 2 {
-        y = -2.0   // Half rest: sits on middle line
+        y = -2.0
       } else {
-        y = -2.0   // Others: centered on staff
+        y = -2.0
       }
+      items.push(make-laid-out-event(event, x: x, y: y, stem-dir: stem-dir, stem-y-end: stem-y-end))
     } else if event.type == "clef" {
       current-clef = event.clef
+      items.push(make-laid-out-event(event, x: x, y: y, stem-dir: stem-dir, stem-y-end: stem-y-end))
+    } else {
+      items.push(make-laid-out-event(event, x: x, y: y, stem-dir: stem-dir, stem-y-end: stem-y-end))
     }
-
-    items.push(make-laid-out-event(
-      event,
-      x: x,
-      y: y,
-      stem-dir: stem-dir,
-      stem-y-end: stem-y-end,
-    ))
   }
 
   let tw = total-events-width(events)

@@ -3,7 +3,7 @@
 // Converts a music string like "c'4 d' e' f' | g'2 g'" into an array
 // of event dictionaries (notes, rests, barlines, etc.)
 
-#import "model.typ": make-note, make-rest, make-spacer, make-barline, make-line-break
+#import "model.typ": make-note, make-rest, make-spacer, make-barline, make-line-break, make-chord
 #import "utils.typ": is-digit, is-lower, is-whitespace
 
 /// Main entry: parse a music string into an array of events.
@@ -101,6 +101,80 @@
       } else {
         // Unknown colon — skip
         pos += 1
+      }
+      continue
+    }
+
+    // --- Chords: <note1 note2 ...>duration ---
+    if ch == "<" {
+      pos += 1
+      let chord-notes = ()
+      while pos < len and input.at(pos) != ">" {
+        let c = input.at(pos)
+        if c == " " or c == "\t" or c == "\r" or c == "\n" { pos += 1; continue }
+        if (c >= "a" and c <= "g") {
+          let cname = c
+          pos += 1
+          let caccidental = none
+          let coctave = base-octave
+          // Parse accidental
+          let cac = peek(pos)
+          if cac == "#" {
+            pos += 1
+            if peek(pos) == "#" { caccidental = "double-sharp"; pos += 1 }
+            else { caccidental = "sharp" }
+          } else if cac == "&" {
+            pos += 1
+            if peek(pos) == "&" { caccidental = "double-flat"; pos += 1 }
+            else { caccidental = "flat" }
+          } else if cac == "=" { caccidental = "natural"; pos += 1 }
+          // Parse octave markers
+          while peek(pos) == "'" { coctave += 1; pos += 1 }
+          while peek(pos) == "," { coctave -= 1; pos += 1 }
+          chord-notes.push((name: cname, accidental: caccidental, octave: coctave))
+        } else {
+          pos += 1
+        }
+      }
+      // Consume the closing ">"
+      if pos < len and input.at(pos) == ">" { pos += 1 }
+
+      // Parse duration
+      let duration = last-duration
+      let dur-str = ""
+      while peek(pos) != none and is-digit(peek(pos)) { dur-str += peek(pos); pos += 1 }
+      if dur-str.len() > 0 { duration = int(dur-str) }
+      // Parse dots
+      let dots = 0
+      while peek(pos) == "." { dots += 1; pos += 1 }
+      // Parse tie
+      let tie = false
+      if peek(pos) == "~" { tie = true; pos += 1 }
+      // Parse slur
+      let slur-start = false
+      let slur-end = false
+      if peek(pos) == "(" { slur-start = true; pos += 1 }
+      if peek(pos) == ")" { slur-end = true; pos += 1 }
+      // Parse beam markers
+      let beam-start = false
+      let beam-end = false
+      if peek(pos) == "[" { beam-start = true; pos += 1 }
+      if peek(pos) == "]" { beam-end = true; pos += 1 }
+
+      last-duration = duration
+      last-dots = dots
+
+      if chord-notes.len() > 0 {
+        events.push(make-chord(
+          chord-notes,
+          duration: duration,
+          dots: dots,
+          tie: tie,
+          slur-start: slur-start,
+          slur-end: slur-end,
+          beam-start: beam-start,
+          beam-end: beam-end,
+        ))
       }
       continue
     }

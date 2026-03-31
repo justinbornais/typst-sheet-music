@@ -6,7 +6,7 @@
 #import "constants.typ": *
 #import "render-staff.typ": draw-staff-lines, draw-barline, draw-system-line, draw-brace, draw-bracket
 #import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance
-#import "render-notes.typ": draw-note, draw-rest, note-stem-x
+#import "render-notes.typ": draw-note, draw-rest, note-stem-x, draw-chord-event
 #import "render-beams.typ": draw-beam-group
 #import "pitch.typ": compute-stem-end-y
 
@@ -129,7 +129,7 @@
   let cur-beam = ()
   for (i, item) in items.enumerate() {
     let ev = item.event
-    if ev.type == "note" and ev.duration >= 8 {
+    if (ev.type == "note" or ev.type == "chord") and ev.duration >= 8 {
       // Flush at 4 notes and start a new group
       if cur-beam.len() == 4 {
         raw-beam-groups.push(cur-beam)
@@ -188,7 +188,7 @@
   let cur-tup-m = 1
   for (i, item) in items.enumerate() {
     let ev = item.event
-    if ev.type == "note" or ev.type == "rest" {
+    if ev.type == "note" or ev.type == "rest" or ev.type == "chord" {
       let tn = ev.at("tuplet-n", default: 1)
       if tn > 1 {
         let tm = ev.at("tuplet-m", default: 1)
@@ -207,8 +207,26 @@
     }
   }
 
+  // Helper: draw one or more stacked fingering numbers at the given x position,
+  // placing the first (bottom) fingering just above base-y.
+  let draw-fingering = (x-pos, base-y, fng-val) => {
+    // Normalise: single value → single-element array
+    let fng-list = if type(fng-val) == array { fng-val } else { (fng-val,) }
+    let cur-y = base-y
+    for fng in fng-list {
+      if fng != none and fng != 0 {
+        content(
+          (x-pos, cur-y),
+          anchor: "south",
+          text(size: 7pt, weight: "regular", str(fng)),
+        )
+        cur-y += 0.9 * sp   // stack upward for each additional fingering
+      }
+    }
+  }
+
   // ── Draw all music events ────────────────────────────────────────────────
-  let note-idx = 0  // Track which note we're on for fingerings
+  let note-idx = 0  // one slot per note or chord event
   for (i, item) in items.enumerate() {
     let event = item.event
     let x = item-xs.at(i)
@@ -235,18 +253,50 @@
         beamed: is-beamed,
       )
 
-      // Draw fingering number above the note
+      // Draw fingering(s) above the note
       if fingerings != none and note-idx < fingerings.len() {
         let fng = fingerings.at(note-idx)
         if fng != none and fng != 0 {
-          let fng-str = str(fng)
           let note-center-y = y-top + y
-          let fng-y = calc.max(y-top + 1.5 * sp, note-center-y + 1.0 * sp)
-          content(
-            (x, fng-y),
-            anchor: "south",
-            text(size: 7pt, weight: "regular", fng-str),
-          )
+          let fng-base-y = calc.max(y-top + 1.5 * sp, note-center-y + 1.0 * sp)
+          draw-fingering(x, fng-base-y, fng)
+        }
+      }
+      note-idx += 1
+    } else if event.type == "chord" {
+      let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
+      let chord-staff-positions = item.chord-staff-positions
+      let stem-end-override = adj-stem-ends.at(str(i), default: none)
+      let stem-dir-override = adj-stem-dirs.at(str(i), default: none)
+      let actual-stem-end = if stem-end-override != none {
+        y-top + stem-end-override * sp
+      } else {
+        y-top + item.stem-y-end * sp
+      }
+      let actual-stem-dir = if stem-dir-override != none { stem-dir-override } else { item.stem-dir }
+      let is-beamed = stem-end-override != none
+
+      draw-chord-event(
+        x,
+        chord-ys-abs,
+        chord-staff-positions,
+        event,
+        actual-stem-dir,
+        actual-stem-end,
+        y-top,
+        clef: clef-name,
+        sp: sp,
+        beamed: is-beamed,
+      )
+
+      // Draw fingering(s) above the highest note of the chord
+      if fingerings != none and note-idx < fingerings.len() {
+        let fng = fingerings.at(note-idx)
+        if fng != none and fng != 0 {
+          // Place above the topmost note (maximum y-abs = highest in CeTZ)
+          let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+          let fng-base-y = calc.max(y-top + 1.5 * sp, top-y + 1.0 * sp)
+          draw-fingering(x, fng-base-y, fng)
         }
       }
       note-idx += 1
