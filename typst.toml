@@ -2,7 +2,7 @@
 name = "sheet-music"
 version = "0.1.0"
 entrypoint = "lib.typ"
-authors = ["justinbornais"]
+authors = ["Justin Bornais"]
 license = "MIT"
 description = "Render professional sheet music directly in Typst documents."
 repository = "https://github.com/justinbornais/typst-sheet-music"
