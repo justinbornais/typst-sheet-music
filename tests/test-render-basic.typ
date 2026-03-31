@@ -193,19 +193,39 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 18: Fingerings — skip a note (none) and multi-finger chord
+== Test 18: Fingerings — inline notation (above)
 
 // Fingerings: note 1 = finger 1, note 2 = skipped, note 3 = fingers (1,3) stacked, note 4 = finger 5
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 d e f",
-  fingerings: (1, none, (1, 3), 5),
+  music: "c4n[1] d en[1 3] fn[5]",
 )
 
 #v(1cm)
 
-== Test 19: Fingerings — chords with skip and stacked fingerings
+== Test 18b: Fingerings — below staff
+
+// Fingerings below: n_[digit] places fingering below the staff
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4n_[1] dn_[2] en_[3] fn_[4]",
+)
+
+#v(1cm)
+
+== Test 18c: Fingerings — mixed above and below
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4n[1] dn_[2] en[3] fn_[4] | gn_[5] an[4] bn_[3] c'n[2]",
+)
+
+#v(1cm)
+
+== Test 19: Fingerings — chords with stacked fingerings
 
 #score(
   key: "C",
@@ -213,8 +233,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
   staves: (
     (
       clef: "treble",
-      music: "<c e g>4 <d f a> <e g b> <f a c'>",
-      fingerings: ((1, 3, 5), none, (1, 3, 5), (1, 3)),
+      music: "<c e g>4n[1 3 5] <d f a> <e g b>n_[1 3 5] <f a c'>n[1 3]",
     ),
   ),
 )
@@ -223,66 +242,48 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 == Test 20: Chord Symbols — one chord per measure (4/4)
 
-One chord per measure places it on beat 1:
+One chord per measure on beat 1:
 
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 d e f | g a b c' | c'2 g | c'1",
-  chord-symbols: (
-    ("C",),
-    ("G",),
-    ("Am",),
-    ("C",),
-  ),
+  music: "c4[C] d e f | g[G] a b c' | c'2[Am] g | c'1[C]",
 )
 
 #v(1cm)
 
 == Test 21: Chord Symbols — two chords per measure (4/4)
 
-Two chords → beat 1 and beat 3 in 4/4:
+Two chords on beats 1 and 3 in 4/4:
 
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 d e f | g a b c'",
-  chord-symbols: (
-    ("C", "F"),
-    ("G", "C"),
-  ),
+  music: "c4[C] d e[F] f | g[G] a b[C] c'",
 )
 
 #v(1cm)
 
 == Test 22: Chord Symbols — three chords per measure (4/4)
 
-Three chords → beats 1, 2, 3 in 4/4:
+Three chords spread across 4/4 measure:
 
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 d e f | g a b c'",
-  chord-symbols: (
-    ("Am", "Dm", "G"),
-    ("C", "F", "G7"),
-  ),
+  music: "c4[Am] d[Dm] e f[G] | g[C] a[F] b c'[G7]",
 )
 
 #v(1cm)
 
 == Test 23: Chord Symbols — two chords per measure (3/4)
 
-Two chords → beat 1 and beat 2 in 3/4:
+Two chords in 3/4:
 
 #melody(
   key: "C",
   time: "3/4",
-  music: "c4 d e | f g a",
-  chord-symbols: (
-    ("C", "G"),
-    ("F", "Am"),
-  ),
+  music: "c4[C] d[G] e | f[F] g[Am] a",
 )
 
 #v(1cm)
@@ -292,11 +293,7 @@ Two chords → beat 1 and beat 2 in 3/4:
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 d e f | g a b c'",
-  chord-symbols: (
-    ("Bb/F",),
-    ("F#m7",),
-  ),
+  music: "c4[Bb/F] d e f | g[F#m7] a b c'",
 )
 
 #v(1cm)
@@ -308,53 +305,38 @@ Chord symbols should appear above fingering numbers:
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 d e f | g a b c'",
-  fingerings: (1, 2, 3, 4, 5, 4, 3, 2),
-  chord-symbols: (
-    ("C", "F"),
-    ("G", "C"),
-  ),
+  music: "c4n[1][C] dn[2] en[3][F] fn[4] | gn[5][G] an[4] bn[3][C] c'n[2]",
 )
 
 #v(1cm)
 
 == Test 26: Chord Symbols — four chords per measure (4/4, one per beat)
 
-Four chords in 4/4 → one per beat:
+Four chords in 4/4 — one per beat:
 
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 d e f | g a b c'",
-  chord-symbols: (
-    ("C", "Dm", "Em", "F"),
-    ("G", "Am", "Bdim", "C"),
-  ),
+  music: "c4[C] d[Dm] e[Em] f[F] | g[G] a[Am] b[Bdim] c'[C]",
 )
 
 #v(1cm)
 
-== Test 27: Chord Symbols — empty measures and none placeholders
+== Test 27: Chord Symbols — empty measures and inline placement
 
-Some measures have no chords (empty array):
+Some measures have no chords:
 
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 d e f | g a b c' | c'2 g | c'1",
-  chord-symbols: (
-    ("C",),
-    (),
-    ("Am", "G"),
-    ("C",),
-  ),
+  music: "c4[C] d e f | g a b c' | c'2[Am] g[G] | c'1[C]",
 )
 
 #v(1cm)
 
 == Test 28: Chord Symbols — 6/8 time, two chords
 
-Two chords in 6/8 → beat 1 and beat 4 (middle of compound time):
+Two chords in 6/8:
 
 #score(
   key: "C",
@@ -362,11 +344,7 @@ Two chords in 6/8 → beat 1 and beat 4 (middle of compound time):
   staves: (
     (
       clef: "treble",
-      music: "c8 d e f g a | b c' d' e' f' g'",
-      chord-symbols: (
-        ("C", "F"),
-        ("G", "C"),
-      ),
+      music: "c8[C] d e f[F] g a | b[G] c' d' e'[C] f' g'",
     ),
   ),
 )

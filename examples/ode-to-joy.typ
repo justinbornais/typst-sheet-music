@@ -17,38 +17,19 @@
     (
       clef: "treble",
       music: "
-        f#4 f# g a | a8 b g4 f# e | d d e f# | f#4. e8 e2 |
-        f#4 f# g a | a g f# e | d d e f# | e4. d8 d2 |
-        |: e4 e f# d | e f#8 g8 f#4 d | e f#8 g8 f#4 e | d e a4 d |
-        f#4 f# g a | a g f# e | d d e f# | e4. d8 d2 :|
+        f#4n[3][D] f# g a | a8[D/A] b g4 f#[A] e | d[D] d e f# | f#4.[A] e8 e2 |
+        f#4[D] f# g a | a[A] g f# e | d[D] d e f# | e4.[A] d8 d2[D] |
+        |: e4[A] e f#[D] d | e[A] f#8 g8 f#4[D] d | e[A] f#8 g8 f#4[F#] e | d[Bm] e[Em] a4[A] d |
+        f#4[D] f# g a | a[A] g f# e | d[D] d e f# | e4.[A] d8 d2[D] :|
       ",
-      fingerings: (
-        // Line 1: measures 1-4
-        2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  4, 2, 2,
-        // Line 2: measures 5-8
-        2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
-        // Line 3: measures 9-12
-        2, 2, 4, 1,  2, 4, 4, 1,  2, 4, 4, 2,  1, 2, 5,
-        // Line 4: measures 13-16
-        2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
-      ),
-      chord-symbols: (
-        // Line 1: measures 1-4
-        ("D",), ("D/A", "A"), ("D",), ("A",),
-        // Line 2: measures 5-8
-        ("D",), ("A",), ("D",), ("A", "D"),
-        // Line 3: measures 9-12
-        ("A", "D"), ("A", "D"), ("A", "F#"), ("Bm", "Em", "A"),
-        // Line 4: measures 13-16
-        ("D",), ("A",), ("D",), ("A", "D"),
-      ),
     ),
     (
       clef: "bass",
+      fingering-position: "below",
       music: "
-        d1 | a, | d | a, |
+        d1n[1] | a, | d | a, |
         d | a, | d | a,2 d4 r |
-        |: a,2 d | a, d | a, f#, | b,4 e, a,2 |
+        |: a,2 d | a, d | a, f#, | b,4 en[1], a,2 |
         d1 | a, | d | a,2 d :|"
     )
   ),
@@ -64,31 +45,11 @@
     (
       clef: "treble",
       music: "
-        f#4(mf) f# g a | a8 b g4 f# e | d d e f# | f#4. e8 e2 |
-        f#4(f) f# g a | a> g f# e | d d e f# | e4. d8 d2 |
-        e4(p) e f# d | e f#8 g8 f#4 d | e f#8 g8 f#4 e | d e a4_(ff) d |
-        f#4 f# g a | a> g* f# e | d d e f# | e4. d8 d2_
+        f#4(mf)[D] f# g a | a8[D/A] b g4 f#[A] e | d[D] d e f# | f#4.[A] e8 e2 |
+        f#4(f)[D] f# g a | a>[A] g f# e | d[D] d e f# | e4.[A] d8 d2[D] |
+        e4(p)[A] e f#[D] d | e[A] f#8 g8 f#4[D] d | e[A] f#8 g8 f#4[F#] e | d[Bm] e[Em] a4_(ff)[A] d |
+        f#4[D] f# g a | a>[A] g* f# e | d[D] d e f# | e4.[A] d8 d2_[D]
       ",
-      fingerings: (
-        // Line 1: measures 1-4
-        2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  4, 2, 2,
-        // Line 2: measures 5-8
-        2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
-        // Line 3: measures 9-12
-        2, 2, 4, 1,  2, 4, 4, 1,  2, 4, 4, 2,  1, 2, 5,
-        // Line 4: measures 13-16
-        2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
-      ),
-      chord-symbols: (
-        // Line 1: measures 1-4
-        ("D",), ("D/A", "A"), ("D",), ("A",),
-        // Line 2: measures 5-8
-        ("D",), ("A",), ("D",), ("A", "D"),
-        // Line 3: measures 9-12
-        ("A", "D"), ("A", "D"), ("A", "F#"), ("Bm", "Em", "A"),
-        // Line 4: measures 13-16
-        ("D",), ("A",), ("D",), ("A", "D"),
-      ),
     ),
     (
       clef: "bass",

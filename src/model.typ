@@ -18,6 +18,9 @@
 /// - beam-end: boolean
 /// - articulations: array of strings
 /// - dynamic: optional dynamic marking string (e.g., "f", "pp", "sfz")
+/// - fingering: optional fingering value (int, or array of ints for multiple fingers)
+/// - fingering-position: "above" or "below" (default: "above")
+/// - chord-symbol: optional chord symbol string (e.g., "C", "Am7", "Bb/F")
 #let make-note(
   name,
   accidental: none,
@@ -31,6 +34,9 @@
   beam-end: false,
   articulations: (),
   dynamic: none,
+  fingering: none,
+  fingering-position: "above",
+  chord-symbol: none,
   tuplet-n: 1,
   tuplet-m: 1,
   tuplet-start: false,
@@ -49,6 +55,9 @@
   beam-end: beam-end,
   articulations: articulations,
   dynamic: dynamic,
+  fingering: fingering,
+  fingering-position: fingering-position,
+  chord-symbol: chord-symbol,
   tuplet-n: tuplet-n,
   tuplet-m: tuplet-m,
   tuplet-start: tuplet-start,
@@ -151,6 +160,9 @@
   beam-end: false,
   articulations: (),
   dynamic: none,
+  fingering: none,
+  fingering-position: "above",
+  chord-symbol: none,
 ) = (
   type: "chord",
   notes: notes,
@@ -163,6 +175,9 @@
   beam-end: beam-end,
   articulations: articulations,
   dynamic: dynamic,
+  fingering: fingering,
+  fingering-position: fingering-position,
+  chord-symbol: chord-symbol,
 )
 
 // --- Staff description ---

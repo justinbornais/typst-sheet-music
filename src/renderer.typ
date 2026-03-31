@@ -8,10 +8,10 @@
 #import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance
 #import "render-notes.typ": draw-note, draw-rest, note-stem-x, draw-chord-event
 #import "render-beams.typ": draw-beam-group
-#import "render-chords.typ": format-chord-symbol, chord-beat-offsets
+#import "render-chords.typ": format-chord-symbol
 #import "render-articulations.typ": draw-articulations, draw-dynamic
 #import "pitch.typ": compute-stem-end-y
-#import "utils.typ": duration-to-beats
+
 
 /// Render a single system (one line of music) for one staff.
 ///
@@ -26,8 +26,6 @@
 /// - show-clef: whether to draw the clef
 /// - show-key: whether to draw the key sig
 /// - show-time: whether to draw the time sig
-/// - fingerings: optional array of fingering values (one per note in this system)
-/// - chord-symbols: optional array of arrays (one inner array per measure in this system)
 #let render-system(
   laid-out,
   key: "C",
@@ -39,10 +37,9 @@
   show-clef: true,
   show-key: true,
   show-time: true,
-  fingerings: none,
-  chord-symbols: none,
   forced-music-start-x: none,
   skip-barlines: false,
+  fingering-position: "above",
 ) = {
   import cetz.draw: *
 
@@ -254,7 +251,6 @@
   }
 
   // ── Draw all music events ────────────────────────────────────────────────
-  let note-idx = 0  // one slot per note or chord event
   for (i, item) in items.enumerate() {
     let event = item.event
     let x = item-xs.at(i)
@@ -288,14 +284,12 @@
 
       // Draw dynamic below the staff
       if event.dynamic != none {
-        // Compute how far below-staff articulations extend
         let dyn-extra = 0.0
         if actual-stem-dir == "up" {
           let below-arts = event.articulations.filter(a => a != "fermata")
           if below-arts.len() > 0 {
             let note-abs-y = y-top + y
             let art-bottom = note-abs-y + 1.0 * sp - below-arts.len() * 1.0 * sp
-            // Always push dynamic below the articulations
             let min-dyn-offset = below-arts.len() * 0.8 * sp
             if art-bottom < y-bottom {
               dyn-extra = calc.max(y-bottom - art-bottom, min-dyn-offset)
@@ -307,20 +301,58 @@
         draw-dynamic(x, y-bottom, event.dynamic, sp: sp, extra-offset: dyn-extra)
       }
 
-      // Draw fingering(s) above the note
-      if fingerings != none and note-idx < fingerings.len() {
-        let fng = fingerings.at(note-idx)
-        if fng != none and fng != 0 {
-          let note-center-y = y-top + y
+      // Draw inline fingering(s)
+      let fng = event.at("fingering", default: none)
+      let event-fng-pos = event.at("fingering-position", default: "above")
+      let fng-pos = if event-fng-pos == "below" { "below" } else { fingering-position }
+      let note-center-y = y-top + y
+      let fng-top = y-top + 1.5 * sp
+      if fng != none and fng != 0 {
+        if fng-pos == "below" {
+          // Place below the note / below staff bottom
+          let fng-base-y = calc.min(y-bottom - 0.5 * sp, note-center-y - 1.0 * sp)
+          // Clear dynamics if present
+          if event.dynamic != none {
+            fng-base-y -= 1.5 * sp
+          }
+          // Clear below-staff articulations
+          let below-arts = event.articulations.filter(a => a != "fermata")
+          if below-arts.len() > 0 {
+            fng-base-y -= below-arts.len() * 1.0 * sp
+          }
+          let fng-list = if type(fng) == array { fng } else { (fng,) }
+          let cur-y = fng-base-y
+          for f in fng-list {
+            if f != none and f != 0 {
+              cur-y -= 0.9 * sp
+              content(
+                (x, cur-y),
+                anchor: "north",
+                text(size: 7pt, weight: "regular", str(f)),
+              )
+            }
+          }
+        } else {
           let fng-base-y = calc.max(y-top + 1.5 * sp, note-center-y + 1.0 * sp)
-          // Push fingering higher if a fermata is present
           if event.articulations.contains("fermata") {
             fng-base-y = calc.max(fng-base-y, calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp)
           }
           draw-fingering(x, fng-base-y, fng)
+          fng-top = fingering-top-y(fng-base-y, fng)
         }
       }
-      note-idx += 1
+
+      // Draw inline chord symbol above fingerings
+      let csym = event.at("chord-symbol", default: none)
+      if csym != none and csym != "" {
+        let chord-base-y = calc.max(
+          y-top + 2.5 * sp,
+          fng-top + 0.8 * sp,
+          note-center-y + 1.5 * sp,
+        )
+        draw-chord-symbol(x, chord-base-y, csym)
+      }
+
     } else if event.type == "chord" {
       let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
       let chord-staff-positions = item.chord-staff-positions
@@ -349,18 +381,16 @@
 
       // Draw articulations near the outermost note of the chord
       if event.articulations.len() > 0 {
-        // Use the note on the articulation side (opposite stem)
         let art-note-y = if actual-stem-dir == "down" {
-          chord-ys-abs.fold(chord-ys-abs.at(0), calc.max) // topmost note
+          chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
         } else {
-          chord-ys-abs.fold(chord-ys-abs.at(0), calc.min) // bottommost note
+          chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
         }
         draw-articulations(x, art-note-y, event.articulations, actual-stem-dir, y-top, sp: sp)
       }
 
       // Draw dynamic below the staff
       if event.dynamic != none {
-        // Compute how far below-staff articulations extend
         let dyn-extra = 0.0
         if actual-stem-dir == "up" {
           let below-arts = event.articulations.filter(a => a != "fermata")
@@ -378,16 +408,53 @@
         draw-dynamic(x, y-bottom, event.dynamic, sp: sp, extra-offset: dyn-extra)
       }
 
-      // Draw fingering(s) above the highest note of the chord
-      if fingerings != none and note-idx < fingerings.len() {
-        let fng = fingerings.at(note-idx)
-        if fng != none and fng != 0 {
-          let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+      // Draw inline fingering(s)
+      let fng = event.at("fingering", default: none)
+      let event-fng-pos = event.at("fingering-position", default: "above")
+      let fng-pos = if event-fng-pos == "below" { "below" } else { fingering-position }
+      let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+      let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
+      let fng-top = y-top + 1.5 * sp
+      if fng != none and fng != 0 {
+        if fng-pos == "below" {
+          let fng-base-y = calc.min(y-bottom - 0.5 * sp, bottom-y - 1.0 * sp)
+          if event.dynamic != none {
+            fng-base-y -= 1.5 * sp
+          }
+          let below-arts = event.articulations.filter(a => a != "fermata")
+          if below-arts.len() > 0 {
+            fng-base-y -= below-arts.len() * 1.0 * sp
+          }
+          let fng-list = if type(fng) == array { fng } else { (fng,) }
+          let cur-y = fng-base-y
+          for f in fng-list {
+            if f != none and f != 0 {
+              cur-y -= 0.9 * sp
+              content(
+                (x, cur-y),
+                anchor: "north",
+                text(size: 7pt, weight: "regular", str(f)),
+              )
+            }
+          }
+        } else {
           let fng-base-y = calc.max(y-top + 1.5 * sp, top-y + 1.0 * sp)
           draw-fingering(x, fng-base-y, fng)
+          fng-top = fingering-top-y(fng-base-y, fng)
         }
       }
-      note-idx += 1
+
+      // Draw inline chord symbol above fingerings
+      let csym = event.at("chord-symbol", default: none)
+      if csym != none and csym != "" {
+        let chord-base-y = calc.max(
+          y-top + 2.5 * sp,
+          fng-top + 0.8 * sp,
+          top-y + 1.5 * sp,
+        )
+        draw-chord-symbol(x, chord-base-y, csym)
+      }
+
     } else if event.type == "rest" {
       draw-rest(x, y-top + y, event.duration, dots: event.dots, sp: sp)
     } else if event.type == "barline" {
@@ -416,113 +483,6 @@
       total-width * sp - default-barline-thickness / 2.0 * sp
     }
     draw-barline(final-x, y-top, y-bottom, style: final-style, sp: sp)
-  }
-
-  // ── Draw chord symbols (beat-based, per-measure) ─────────────────────────
-  if chord-symbols != none and chord-symbols.len() > 0 {
-    // 1. Build a beat→(x-pos, item-index, note-y) map per measure.
-    //    Walk through items tracking cumulative beat offset within
-    //    each measure. Barlines reset the per-measure beat counter
-    //    and advance the measure index.
-    let measure-beat-maps = ()  // array of arrays: ((beat, x, y, fng-top-y), ...)
-    let cur-measure-beats = ()
-    let beat-in-measure = 0.0
-    let note-idx-chord = 0  // track note index for fingering lookup
-
-    for (i, item) in items.enumerate() {
-      let ev = item.event
-      if ev.type == "note" or ev.type == "chord" or ev.type == "rest" or ev.type == "spacer" {
-        let x = item-xs.at(i)
-        let event-y = item.y * sp
-
-        // Compute the visual y for chord placement:
-        // For notes/chords, use position above note(s) and above any fingering
-        let note-top-y = y-top + event-y
-        if ev.type == "chord" {
-          let chord-ys-abs = item.at("chord-ys", default: (item.y,)).map(vy => y-top + vy * sp)
-          note-top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
-        }
-
-        // Check if this event has a fingering that might push chord symbol higher
-        let fng-top = y-top + 1.5 * sp
-        if (ev.type == "note" or ev.type == "chord") and fingerings != none and note-idx-chord < fingerings.len() {
-          let fng = fingerings.at(note-idx-chord)
-          if fng != none and fng != 0 {
-            let fng-base = calc.max(y-top + 1.5 * sp, note-top-y + 1.0 * sp)
-            fng-top = fingering-top-y(fng-base, fng)
-          }
-        }
-
-        cur-measure-beats.push((
-          beat: calc.round(beat-in-measure, digits: 6),
-          x: x,
-          note-top-y: note-top-y,
-          fng-top-y: fng-top,
-        ))
-
-        // Advance beat
-        let dur = ev.at("duration", default: 4)
-        let dots = ev.at("dots", default: 0)
-        let dur-beats = duration-to-beats(dur, dots: dots)
-        let tn = ev.at("tuplet-n", default: 1)
-        let tm = ev.at("tuplet-m", default: 1)
-        if tn > 1 { dur-beats = dur-beats * tm / tn }
-        beat-in-measure += dur-beats
-
-        if ev.type == "note" or ev.type == "chord" {
-          note-idx-chord += 1
-        }
-      } else if ev.type == "barline" {
-        // Flush current measure (only if it had note/rest events)
-        if cur-measure-beats.len() > 0 {
-          measure-beat-maps.push(cur-measure-beats)
-          cur-measure-beats = ()
-        }
-        beat-in-measure = 0.0
-      }
-    }
-    // Flush final measure (events after last barline or no barline at all)
-    if cur-measure-beats.len() > 0 {
-      measure-beat-maps.push(cur-measure-beats)
-    }
-
-    // 2. For each measure, resolve chord beat positions and find the nearest
-    //    event x to render each chord symbol at.
-    for (mi, measure-chords) in chord-symbols.enumerate() {
-      if mi >= measure-beat-maps.len() { break }
-      if measure-chords == none or measure-chords.len() == 0 { continue }
-
-      let beat-map = measure-beat-maps.at(mi)
-      if beat-map.len() == 0 { continue }
-
-      let offsets = chord-beat-offsets(measure-chords.len(), time-upper, time-lower)
-
-      for (ci, target-beat) in offsets.enumerate() {
-        if ci >= measure-chords.len() { break }
-        let sym = measure-chords.at(ci)
-        if sym == none or sym == "" { continue }
-
-        // Find the event in this measure whose beat is closest to (but ≤) target-beat.
-        // Fall back to the first event if target-beat is before any event.
-        let best-idx = 0
-        let best-diff = calc.abs(beat-map.at(0).beat - target-beat)
-        for (bi, entry) in beat-map.enumerate() {
-          let diff = calc.abs(entry.beat - target-beat)
-          if diff < best-diff or (diff == best-diff and entry.beat <= target-beat) {
-            best-idx = bi
-            best-diff = diff
-          }
-        }
-
-        let entry = beat-map.at(best-idx)
-        let chord-base-y = calc.max(
-          y-top + 2.5 * sp,
-          entry.fng-top-y + 0.8 * sp,
-          entry.note-top-y + 1.5 * sp,
-        )
-        draw-chord-symbol(entry.x, chord-base-y, sym)
-      }
-    }
   }
 
   // ── Draw beams ───────────────────────────────────────────────────────────
@@ -597,8 +557,7 @@
 /// - staff-group: "none", "grand" (piano brace), "bracket" (orchestral bracket)
 /// - title, subtitle, composer, arranger, lyricist: header fields
 /// - show-time: whether to render time signature
-/// - fingerings: optional array of fingering values (one per note, first staff only)
-/// - chord-symbols: optional array of arrays (one per measure, first staff only)
+/// - fingering-positions: optional array of fingering positions per staff
 #let render-score(
   laid-out-staves,
   key: "C",
@@ -615,8 +574,7 @@
   arranger: none,
   lyricist: none,
   show-time: true,
-  fingerings: none,
-  chord-symbols: none,
+  fingering-positions: (),
 ) = {
   let unit = sp / 1mm  // work in mm inside CeTZ (length: 1mm)
   let avail-width = if width == auto { none } else { width / 1mm }
@@ -672,10 +630,9 @@
           show-clef: true,
           show-key: true,
           show-time: show-time,
-          fingerings: if i == 0 { fingerings } else { none },
-          chord-symbols: if i == 0 { chord-symbols } else { none },
           forced-music-start-x: shared-music-start-x,
           skip-barlines: use-spanning-barlines,
+          fingering-position: if i < fingering-positions.len() { fingering-positions.at(i) } else { "above" },
         )
       }
 

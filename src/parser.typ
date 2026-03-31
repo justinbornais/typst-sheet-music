@@ -188,11 +188,55 @@
       let slur-end = false
       if peek(pos) == "(" { slur-start = true; pos += 1 }
       if peek(pos) == ")" { slur-end = true; pos += 1 }
-      // Parse beam markers
+      // Parse beam markers ([ is beam-start unless followed by A-G = chord symbol)
       let beam-start = false
       let beam-end = false
-      if peek(pos) == "[" { beam-start = true; pos += 1 }
+      if peek(pos) == "[" {
+        let nxt = if pos + 1 < len { input.at(pos + 1) } else { none }
+        if nxt == none or not (nxt >= "A" and nxt <= "G") {
+          beam-start = true
+          pos += 1
+        }
+      }
       if peek(pos) == "]" { beam-end = true; pos += 1 }
+
+      // Parse inline chord symbol [text] and fingering n[digits] or n_[digits]
+      let chord-symbol = none
+      let fingering = none
+      let fingering-position = "above"
+      while peek(pos) == "[" or (peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "["))) {
+        if peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "[")) {
+          if input.at(pos + 1) == "_" {
+            fingering-position = "below"
+            pos += 3
+          } else {
+            pos += 2
+          }
+          let fng-str = ""
+          while pos < len and input.at(pos) != "]" {
+            fng-str += input.at(pos)
+            pos += 1
+          }
+          if pos < len { pos += 1 }
+          let parts = fng-str.split(" ").filter(s => s.len() > 0)
+          if parts.len() == 1 {
+            fingering = int(parts.at(0))
+          } else if parts.len() > 1 {
+            fingering = parts.map(s => int(s))
+          }
+        } else if peek(pos) == "[" {
+          pos += 1
+          let sym-str = ""
+          while pos < len and input.at(pos) != "]" {
+            sym-str += input.at(pos)
+            pos += 1
+          }
+          if pos < len { pos += 1 }
+          if sym-str.len() > 0 {
+            chord-symbol = sym-str
+          }
+        }
+      }
 
       last-duration = duration
       last-dots = dots
@@ -209,6 +253,9 @@
           beam-end: beam-end,
           articulations: articulations,
           dynamic: dynamic,
+          fingering: fingering,
+          fingering-position: fingering-position,
+          chord-symbol: chord-symbol,
         ))
       }
       continue
@@ -326,16 +373,60 @@
         pos += 1
       }
 
-      // Parse beam markers
+      // Parse beam markers ([ is beam-start unless followed by A-G = chord symbol)
       let beam-start = false
       let beam-end = false
       if peek(pos) == "[" {
-        beam-start = true
-        pos += 1
+        let nxt = if pos + 1 < len { input.at(pos + 1) } else { none }
+        if nxt == none or not (nxt >= "A" and nxt <= "G") {
+          beam-start = true
+          pos += 1
+        }
       }
       if peek(pos) == "]" {
         beam-end = true
         pos += 1
+      }
+
+      // Parse inline chord symbol [text] and fingering n[digits] or n_[digits]
+      // These can appear in any order: c4[C/E]n[3] or c4n[3][C/E]
+      let chord-symbol = none
+      let fingering = none
+      let fingering-position = "above"
+      while peek(pos) == "[" or (peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "["))) {
+        if peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "[")) {
+          // Fingering: n[...] = above, n_[...] = below
+          if input.at(pos + 1) == "_" {
+            fingering-position = "below"
+            pos += 3 // skip "n_["
+          } else {
+            pos += 2 // skip "n["
+          }
+          let fng-str = ""
+          while pos < len and input.at(pos) != "]" {
+            fng-str += input.at(pos)
+            pos += 1
+          }
+          if pos < len { pos += 1 } // skip "]"
+          let parts = fng-str.split(" ").filter(s => s.len() > 0)
+          if parts.len() == 1 {
+            fingering = int(parts.at(0))
+          } else if parts.len() > 1 {
+            fingering = parts.map(s => int(s))
+          }
+        } else if peek(pos) == "[" {
+          // Chord symbol: [...]
+          pos += 1 // skip "["
+          let sym-str = ""
+          while pos < len and input.at(pos) != "]" {
+            sym-str += input.at(pos)
+            pos += 1
+          }
+          if pos < len { pos += 1 } // skip "]"
+          if sym-str.len() > 0 {
+            chord-symbol = sym-str
+          }
+        }
       }
 
       last-duration = duration
@@ -354,6 +445,9 @@
         beam-end: beam-end,
         articulations: articulations,
         dynamic: dynamic,
+        fingering: fingering,
+        fingering-position: fingering-position,
+        chord-symbol: chord-symbol,
       ))
       continue
     }
@@ -468,16 +562,57 @@
         pos += 1
       }
 
-      // Parse beam markers
+      // Parse beam markers ([ is beam-start unless followed by A-G = chord symbol)
       let beam-start = false
       let beam-end = false
       if peek(pos) == "[" {
-        beam-start = true
-        pos += 1
+        let nxt = if pos + 1 < len { input.at(pos + 1) } else { none }
+        if nxt == none or not (nxt >= "A" and nxt <= "G") {
+          beam-start = true
+          pos += 1
+        }
       }
       if peek(pos) == "]" {
         beam-end = true
         pos += 1
+      }
+
+      // Parse inline chord symbol [text] and fingering n[digits] or n_[digits]
+      let chord-symbol = none
+      let fingering = none
+      let fingering-position = "above"
+      while peek(pos) == "[" or (peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "["))) {
+        if peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "[")) {
+          if input.at(pos + 1) == "_" {
+            fingering-position = "below"
+            pos += 3
+          } else {
+            pos += 2
+          }
+          let fng-str = ""
+          while pos < len and input.at(pos) != "]" {
+            fng-str += input.at(pos)
+            pos += 1
+          }
+          if pos < len { pos += 1 }
+          let parts = fng-str.split(" ").filter(s => s.len() > 0)
+          if parts.len() == 1 {
+            fingering = int(parts.at(0))
+          } else if parts.len() > 1 {
+            fingering = parts.map(s => int(s))
+          }
+        } else if peek(pos) == "[" {
+          pos += 1
+          let sym-str = ""
+          while pos < len and input.at(pos) != "]" {
+            sym-str += input.at(pos)
+            pos += 1
+          }
+          if pos < len { pos += 1 }
+          if sym-str.len() > 0 {
+            chord-symbol = sym-str
+          }
+        }
       }
 
       last-duration = duration
@@ -496,6 +631,9 @@
         beam-end: beam-end,
         articulations: articulations,
         dynamic: dynamic,
+        fingering: fingering,
+        fingering-position: fingering-position,
+        chord-symbol: chord-symbol,
       ))
       continue
     }
