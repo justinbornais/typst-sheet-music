@@ -58,21 +58,49 @@
       // Look ahead for double, final, repeat barlines
       let next = peek(pos + 1)
       if next == "|" {
-        // "||" - double barline
-        events.push(make-barline(style: "double"))
+        if peek(pos + 2) == ":" {
+          // "||:" - repeat start
+          events.push(make-barline(style: "repeat-start"))
+          pos += 3
+        } else {
+          // "||" - double barline
+          events.push(make-barline(style: "double"))
+          pos += 2
+        }
+      } else if next == ":" {
+        // "|:" - repeat start
+        events.push(make-barline(style: "repeat-start"))
         pos += 2
-        continue
       } else if next == "." {
         // "|." - final barline
         events.push(make-barline(style: "final"))
         pos += 2
-        continue
       } else {
         // "|" - single barline
         events.push(make-barline(style: "single"))
         pos += 1
-        continue
       }
+      continue
+    }
+
+    // --- Repeat-end barlines starting with ":" ---
+    if ch == ":" {
+      let next = peek(pos + 1)
+      if next == "|" {
+        if peek(pos + 2) == "|" {
+          // ":||" - repeat end
+          events.push(make-barline(style: "repeat-end"))
+          pos += 3
+        } else {
+          // ":|" - repeat end
+          events.push(make-barline(style: "repeat-end"))
+          pos += 2
+        }
+      } else {
+        // Unknown colon — skip
+        pos += 1
+      }
+      continue
     }
 
     // --- Notes (a-g) ---
@@ -106,27 +134,14 @@
         pos += 1
       }
 
-      // If a single digit immediately follows (before any tick/comma) and the
-      // character after that digit is ' or ,, treat the digit as an absolute
-      // octave number.  Otherwise fall through to the relative-tick path.
-      let abs-oct-char = peek(pos)
-      if abs-oct-char != none and is-digit(abs-oct-char) {
-        let next-after = peek(pos + 1)
-        if next-after == "'" or next-after == "," {
-          octave = int(abs-oct-char)
-          pos += 1
-          // Absorb any following ticks/commas as visual separators (do not
-          // shift the octave since it was specified absolutely).
-          while peek(pos) == "'" or peek(pos) == "," { pos += 1 }
-        } else {
-          // No absolute octave - parse relative tick/comma modifiers.
-          while peek(pos) == "'" { octave += 1; pos += 1 }
-          while peek(pos) == "," { octave -= 1; pos += 1 }
-        }
-      } else {
-        // No digit at all - parse relative tick/comma modifiers.
-        while peek(pos) == "'" { octave += 1; pos += 1 }
-        while peek(pos) == "," { octave -= 1; pos += 1 }
+      // Parse octave markers
+      while peek(pos) == "'" {
+        octave += 1
+        pos += 1
+      }
+      while peek(pos) == "," {
+        octave -= 1
+        pos += 1
       }
 
       // Parse duration
@@ -146,6 +161,8 @@
         dots += 1
         pos += 1
       }
+      // If no dots specified but duration wasn't given, use last dots? No, dots don't stick.
+      // Actually per the spec, only duration is sticky. Dots are per-note.
 
       // Parse tie
       let tie = false
@@ -227,21 +244,14 @@
         pos += 1
       }
 
-      // Absolute octave: single digit before tick/comma → absolute octave.
-      let abs-oct-char = peek(pos)
-      if abs-oct-char != none and is-digit(abs-oct-char) {
-        let next-after = peek(pos + 1)
-        if next-after == "'" or next-after == "," {
-          octave = int(abs-oct-char)
-          pos += 1
-          while peek(pos) == "'" or peek(pos) == "," { pos += 1 }
-        } else {
-          while peek(pos) == "'" { octave += 1; pos += 1 }
-          while peek(pos) == "," { octave -= 1; pos += 1 }
-        }
-      } else {
-        while peek(pos) == "'" { octave += 1; pos += 1 }
-        while peek(pos) == "," { octave -= 1; pos += 1 }
+      // Parse octave markers
+      while peek(pos) == "'" {
+        octave += 1
+        pos += 1
+      }
+      while peek(pos) == "," {
+        octave -= 1
+        pos += 1
       }
 
       // Parse duration

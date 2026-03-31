@@ -129,7 +129,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
   key: "C",
   time: "4/4",
   staves: (
-    (clef: "bass", music: "b4 c' f, e,"),
+    (clef: "bass", music: "b4 c' f,,, e,,,"),
   ),
 )
 
@@ -141,4 +141,12 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
   key: "C",
   time: "4/4",
   music: "f#'4 g' a' b'",
+)
+
+== Test 13: 16th Notes
+
+#melody(
+  key: "C",
+  time: "5/4",
+  music: "c16 d e f g a b c' d' e' f' g' a' b' c'' d'' e''4",
 )

@@ -216,7 +216,7 @@
 #let default-beam-thickness = 0.5          // in staff spaces
 #let default-beam-spacing = 0.25           // gap between beams in staff spaces
 #let default-barline-thickness = 0.16      // in staff spaces
-#let default-thick-barline = 0.5           // in staff spaces
+#let default-thick-barline = 0.35          // in staff spaces
 #let default-min-stem-length = 3.5         // in staff spaces
 #let default-ledger-line-extension = 0.4   // how far ledger lines extend past the notehead
 

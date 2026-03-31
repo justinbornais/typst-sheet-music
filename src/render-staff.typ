@@ -39,7 +39,7 @@
     )
   } else if style == "double" {
     line(
-      (x - 0.3 * sp, y-top), (x - 0.3 * sp, y-bottom),
+      (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
       stroke: thin * 1mm + black,
     )
     line(
@@ -48,7 +48,7 @@
     )
   } else if style == "final" {
     line(
-      (x - 0.4 * sp, y-top), (x - 0.4 * sp, y-bottom),
+      (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
       stroke: thin * 1mm + black,
     )
     line(
@@ -61,22 +61,22 @@
       stroke: thick * 1mm + black,
     )
     line(
-      (x + 0.4 * sp, y-top), (x + 0.4 * sp, y-bottom),
+      (x + 0.5 * sp, y-top), (x + 0.5 * sp, y-bottom),
       stroke: thin * 1mm + black,
     )
     // Dots
     let dot-y1 = y-top - 1.5 * sp
     let dot-y2 = y-top - 2.5 * sp
-    circle((x + 0.8 * sp, dot-y1), radius: 0.15 * sp, fill: black, stroke: none)
-    circle((x + 0.8 * sp, dot-y2), radius: 0.15 * sp, fill: black, stroke: none)
+    circle((x + 1.0 * sp, dot-y1), radius: 0.15 * sp, fill: black, stroke: none)
+    circle((x + 1.0 * sp, dot-y2), radius: 0.15 * sp, fill: black, stroke: none)
   } else if style == "repeat-end" {
     // Dots
     let dot-y1 = y-top - 1.5 * sp
     let dot-y2 = y-top - 2.5 * sp
-    circle((x - 0.8 * sp, dot-y1), radius: 0.15 * sp, fill: black, stroke: none)
-    circle((x - 0.8 * sp, dot-y2), radius: 0.15 * sp, fill: black, stroke: none)
+    circle((x - 1.0 * sp, dot-y1), radius: 0.15 * sp, fill: black, stroke: none)
+    circle((x - 1.0 * sp, dot-y2), radius: 0.15 * sp, fill: black, stroke: none)
     line(
-      (x - 0.4 * sp, y-top), (x - 0.4 * sp, y-bottom),
+      (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
       stroke: thin * 1mm + black,
     )
     line(

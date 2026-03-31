@@ -8,6 +8,7 @@
 #import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance
 #import "render-notes.typ": draw-note, draw-rest, note-stem-x
 #import "render-beams.typ": draw-beam-group
+#import "pitch.typ": compute-stem-end-y
 
 /// Render a single system (one line of music) for one staff.
 ///
@@ -88,8 +89,10 @@
   // Draw staff lines across full width
   draw-staff-lines(0.0, total-width * sp, y-top, sp: sp)
 
-  // Draw opening (initial) barline flush with the left edge of the staff.
-  draw-barline(0.0, y-top, y-bottom, style: "single", sp: sp)
+  // Draw opening (initial) barline. Position so its LEFT edge is at x=0,
+  // i.e. center at thin/2, matching the same edge-flush convention used for
+  // the closing barline (whose RIGHT edge sits at total-width * sp).
+  draw-barline(default-barline-thickness / 2.0 * sp, y-top, y-bottom, style: "single", sp: sp)
 
   // Draw clef
   let cx = prefix-x
@@ -140,11 +143,21 @@
   let beam-groups-data = () // array of beam-note arrays for draw-beam-group
 
   for group in raw-beam-groups {
-    let stem-dir = items.at(group.first()).stem-dir
+    // ── Determine unified stem direction for the whole group ──────────────
+    // Use the average staff position: > 4 (below middle line) → up, else → down.
+    let avg-y = group.fold(0.0, (acc, idx) => acc + items.at(idx).y) / group.len()
+    // item.y is in staff-spaces: y = -staff_pos/2, so avg staff_pos = -2*avg_y
+    let avg-staff-pos = -2.0 * avg-y
+    let stem-dir = if avg-staff-pos > 4.0 { "up" } else { "down" }
+
+    // Recompute stem ends for first and last note with the unified direction
+    let first-item = items.at(group.first())
+    let last-item  = items.at(group.last())
+    let sy0 = compute-stem-end-y(first-item.y, calc.round(-2.0 * first-item.y), stem-dir, 1.0)
+    let syn = compute-stem-end-y(last-item.y,  calc.round(-2.0 * last-item.y),  stem-dir, 1.0)
+
     let x0 = item-xs.at(group.first())
     let xn = item-xs.at(group.last())
-    let sy0 = items.at(group.first()).stem-y-end   // staff-sp units
-    let syn = items.at(group.last()).stem-y-end
 
     let beam-note-data = ()
     for idx in group {
