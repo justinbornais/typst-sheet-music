@@ -162,24 +162,18 @@
         pos += 1
       }
 
-      // Parse dynamic: (text) where text contains only dynamic chars
-      // Must come before slur parsing so (mf) isn't misread as slur-start
+      // Parse dynamic: v[text] e.g. v[mf], v[ff]
       let dynamic = none
-      if peek(pos) == "(" {
-        let dyn-start = pos + 1
-        let dyn-end = dyn-start
-        let is-dynamic = true
-        while dyn-end < len and input.at(dyn-end) != ")" {
-          let dc = input.at(dyn-end)
-          if dc == " " or dc == "\t" or dc == "\n" or dc == "\r" or is-digit(dc) or (dc >= "a" and dc <= "g" and dc != "f") or dc == "<" {
-            is-dynamic = false
-            break
-          }
-          dyn-end += 1
+      if peek(pos) == "v" and pos + 1 < len and input.at(pos + 1) == "[" {
+        pos += 2 // skip "v["
+        let dyn-str = ""
+        while pos < len and input.at(pos) != "]" {
+          dyn-str += input.at(pos)
+          pos += 1
         }
-        if is-dynamic and dyn-end < len and input.at(dyn-end) == ")" and dyn-end > dyn-start {
-          dynamic = input.slice(dyn-start, dyn-end)
-          pos = dyn-end + 1
+        if pos < len { pos += 1 } // skip "]"
+        if dyn-str.len() > 0 {
+          dynamic = dyn-str
         }
       }
 
@@ -340,24 +334,18 @@
         pos += 1
       }
 
-      // Parse dynamic: (text) where text contains only dynamic chars (p,m,f,r,s,z)
-      // Must come before slur parsing so (mf) isn't misread as slur-start
+      // Parse dynamic: v[text] e.g. v[mf], v[ff]
       let dynamic = none
-      if peek(pos) == "(" {
-        let dyn-start = pos + 1
-        let dyn-end = dyn-start
-        let is-dynamic = true
-        while dyn-end < len and input.at(dyn-end) != ")" {
-          let dc = input.at(dyn-end)
-          if dc == " " or dc == "\t" or dc == "\n" or dc == "\r" or is-digit(dc) or (dc >= "a" and dc <= "g" and dc != "f") or dc == "<" {
-            is-dynamic = false
-            break
-          }
-          dyn-end += 1
+      if peek(pos) == "v" and pos + 1 < len and input.at(pos + 1) == "[" {
+        pos += 2 // skip "v["
+        let dyn-str = ""
+        while pos < len and input.at(pos) != "]" {
+          dyn-str += input.at(pos)
+          pos += 1
         }
-        if is-dynamic and dyn-end < len and input.at(dyn-end) == ")" and dyn-end > dyn-start {
-          dynamic = input.slice(dyn-start, dyn-end)
-          pos = dyn-end + 1
+        if pos < len { pos += 1 } // skip "]"
+        if dyn-str.len() > 0 {
+          dynamic = dyn-str
         }
       }
 
@@ -529,24 +517,18 @@
         pos += 1
       }
 
-      // Parse dynamic: (text) where text contains only dynamic chars
-      // Must come before slur parsing so (mf) isn't misread as slur-start
+      // Parse dynamic: v[text] e.g. v[mf], v[ff]
       let dynamic = none
-      if peek(pos) == "(" {
-        let dyn-start = pos + 1
-        let dyn-end = dyn-start
-        let is-dynamic = true
-        while dyn-end < len and input.at(dyn-end) != ")" {
-          let dc = input.at(dyn-end)
-          if dc == " " or dc == "\t" or dc == "\n" or dc == "\r" or is-digit(dc) or (dc >= "a" and dc <= "g" and dc != "f") or dc == "<" {
-            is-dynamic = false
-            break
-          }
-          dyn-end += 1
+      if peek(pos) == "v" and pos + 1 < len and input.at(pos + 1) == "[" {
+        pos += 2 // skip "v["
+        let dyn-str = ""
+        while pos < len and input.at(pos) != "]" {
+          dyn-str += input.at(pos)
+          pos += 1
         }
-        if is-dynamic and dyn-end < len and input.at(dyn-end) == ")" and dyn-end > dyn-start {
-          dynamic = input.slice(dyn-start, dyn-end)
-          pos = dyn-end + 1
+        if pos < len { pos += 1 } // skip "]"
+        if dyn-str.len() > 0 {
+          dynamic = dyn-str
         }
       }
 

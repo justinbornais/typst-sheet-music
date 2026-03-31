@@ -151,10 +151,10 @@ Example: `c4> d* e- f_ | g>* a b c'_`
 
 ### Dynamics
 
-Written in parentheses using standard dynamic characters (`p`, `m`, `f`, `s`, `r`, `z`):
+Written as `v[marking]` using standard dynamic characters (`p`, `m`, `f`, `s`, `r`, `z`):
 
 ```
-c4(pp) d e(mf) f | g(f) a b(ff) c'
+c4v[pp] d ev[mf] f | gv[f] a bv[ff] c'
 ```
 
 Supported markings include: `ppp`, `pp`, `p`, `mp`, `mf`, `f`, `ff`, `fff`, `sf`, `sfz`, `fp`, and more.

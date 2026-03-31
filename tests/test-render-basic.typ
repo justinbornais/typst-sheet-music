@@ -358,7 +358,7 @@ Dynamic markings rendered below the staff:
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4(pp) d e(mf) f | g(f) a b(ff) c'",
+  music: "c4v[pp] d ev[mf] f | gv[f] a bv[ff] c'",
 )
 
 #v(1cm)
@@ -370,7 +370,7 @@ Every standard dynamic marking:
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4(ppp) d(pp) e(p) f(mp) | g(mf) a(f) b(ff) c'(fff)",
+  music: "c4v[ppp] dv[pp] ev[p] fv[mp] | gv[mf] av[f] bv[ff] c'v[fff]",
 )
 
 #v(1cm)
@@ -382,7 +382,7 @@ Special dynamics:
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4(sf) d(sfz) e(fp) f",
+  music: "c4v[sf] dv[sfz] ev[fp] f",
 )
 
 #v(1cm)
@@ -454,7 +454,7 @@ Articulations and dynamics on the same note:
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4>*(f) d e(p) f_ | g>-(ff) a b c'_*(pp)",
+  music: "c4>*v[f] d ev[p] f_ | g>-v[ff] a b c'_*v[pp]",
 )
 
 #v(1cm)

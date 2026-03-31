@@ -45,9 +45,9 @@
     (
       clef: "treble",
       music: "
-        f#4(mf)[D] f# g a | a8[D/A] b g4 f#[A] e | d[D] d e f# | f#4.[A] e8 e2 |
-        f#4(f)[D] f# g a | a>[A] g f# e | d[D] d e f# | e4.[A] d8 d2[D] |
-        e4(p)[A] e f#[D] d | e[A] f#8 g8 f#4[D] d | e[A] f#8 g8 f#4[F#] e | d[Bm] e[Em] a4_(ff)[A] d |
+        f#4v[mf][D] f# g a | a8[D/A] b g4 f#[A] e | d[D] d e f# | f#4.[A] e8 e2 |
+        f#4v[f][D] f# g a | a>[A] g f# e | d[D] d e f# | e4.[A] d8 d2[D] |
+        e4v[p][A] e f#[D] d | e[A] f#8 g8 f#4[D] d | e[A] f#8 g8 f#4[F#] e | d[Bm] e[Em] a4_v[ff][A] d |
         f#4[D] f# g a | a>[A] g* f# e | d[D] d e f# | e4.[A] d8 d2_[D]
       ",
     ),
