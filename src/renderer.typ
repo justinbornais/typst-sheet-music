@@ -4,7 +4,7 @@
 
 #import "@preview/cetz:0.4.2"
 #import "constants.typ": *
-#import "render-staff.typ": draw-staff-lines, draw-barline
+#import "render-staff.typ": draw-staff-lines, draw-barline, draw-system-line, draw-brace, draw-bracket
 #import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance
 #import "render-notes.typ": draw-note, draw-rest, note-stem-x
 #import "render-beams.typ": draw-beam-group
@@ -36,6 +36,7 @@
   show-key: true,
   show-time: true,
   fingerings: none,
+  forced-music-start-x: none,
 ) = {
   import cetz.draw: *
 
@@ -63,12 +64,16 @@
     time-w = time-sig-advance(time-upper, time-lower, symbol: time-symbol, sp: sp)
   }
 
-  let music-start-x = prefix-x + clef-w + key-w + time-w + 1.0 * sp
-
-  // Add extra space if the first music event has an accidental
-  let first-note = items.find(item => item.event.type == "note")
-  if first-note != none and first-note.event.accidental != none {
-    music-start-x += 1.0 * sp
+  let music-start-x = if forced-music-start-x != none {
+    forced-music-start-x
+  } else {
+    let local-msX = prefix-x + clef-w + key-w + time-w + 1.0 * sp
+    // Add extra space if the first music event has an accidental
+    let first-note = items.find(item => item.event.type == "note")
+    if first-note != none and first-note.event.accidental != none {
+      local-msX += 1.0 * sp
+    }
+    local-msX
   }
 
   // Compute scaling: fit events into available width
@@ -340,10 +345,11 @@
 /// - key, time-upper, time-lower, time-symbol: initial signatures
 /// - sp: staff space (length, e.g., 1.75mm)
 /// - width: available width (length or auto)
-/// - staff-spacing: vertical space between staves
+/// - staff-spacing: vertical space between staves within this system
+/// - staff-group: "none", "grand" (piano brace), "bracket" (orchestral bracket)
 /// - title, subtitle, composer, arranger, lyricist: header fields
 /// - show-time: whether to render time signature
-/// - fingerings: optional array of fingering values (one per note)
+/// - fingerings: optional array of fingering values (one per note, first staff only)
 #let render-score(
   laid-out-staves,
   key: "C",
@@ -353,6 +359,7 @@
   sp: default-staff-space,
   width: auto,
   staff-spacing: 8mm,
+  staff-group: "none",
   title: none,
   subtitle: none,
   composer: none,
@@ -361,14 +368,10 @@
   show-time: true,
   fingerings: none,
 ) = {
-  // Use a unit staff-space internally for CeTZ coordinates
-  // Then scale the entire canvas
-  let unit = sp / 1mm  // Convert to mm number
-
-  // The available width in mm
+  let unit = sp / 1mm  // work in mm inside CeTZ (length: 1mm)
   let avail-width = if width == auto { none } else { width / 1mm }
 
-  // Render header (Typst content, not CeTZ)
+  // Render header (Typst content, outside CeTZ)
   import "render-header.typ": render-header
   render-header(
     title: title,
@@ -378,25 +381,35 @@
     lyricist: lyricist,
   )
 
-  // Render the music in a CeTZ canvas
   let num-staves = laid-out-staves.len()
-  // Total height: each staff is 4*sp, plus spacing between staves
   let staff-height-mm = 4.0 * unit
   let spacing-mm = staff-spacing / 1mm
-  let total-height-mm = num-staves * staff-height-mm + calc.max(0, num-staves - 1) * spacing-mm + 4.0 * unit  // Extra padding
+
+  // Pre-compute the maximum music-start-x across all staves so notes and
+  // barlines align horizontally in a grand staff / multi-staff system.
+  let shared-music-start-x = laid-out-staves.fold(0.0, (mx, laid-out) => {
+    let clef-name = laid-out.clef
+    let clef-w = clef-advance(clef-name: clef-name, sp: unit)
+    let key-w = key-sig-advance(key, sp: unit)
+    let time-w = if show-time { time-sig-advance(time-upper, time-lower, symbol: time-symbol, sp: unit) } else { 0.0 }
+    let prefix-x = 0.5 * unit
+    let msX = prefix-x + clef-w + key-w + time-w + 1.0 * unit
+    let first-note = laid-out.items.find(item => item.event.type == "note")
+    if first-note != none and first-note.event.accidental != none {
+      msX += 1.0 * unit
+    }
+    calc.max(mx, msX)
+  })
 
   cetz.canvas(
     length: 1mm,
     {
       import cetz.draw: *
 
+      // ── Draw each staff ─────────────────────────────────────────────────
       for (i, laid-out) in laid-out-staves.enumerate() {
-        // Y offset for this staff
         let y-offset = -i * (staff-height-mm + spacing-mm)
-
-        // Translate to staff position
         set-origin((0, y-offset))
-
         render-system(
           laid-out,
           key: key,
@@ -409,7 +422,30 @@
           show-key: true,
           show-time: show-time,
           fingerings: if i == 0 { fingerings } else { none },
+          forced-music-start-x: shared-music-start-x,
         )
+      }
+
+      // ── Draw system bracket / brace spanning all staves ─────────────────
+      if num-staves > 1 {
+        // After the staff loop, set-origin has been called (num-staves) times.
+        // The current local origin sits at canvas y = -(num-staves-1)*(H+S).
+        // We compute brace/system-line y values in this LOCAL frame so they
+        // map to the correct CANVAS coordinates:
+        //   sys-y-top    local = total-offset  → canvas y = 0              (first staff top)
+        //   sys-y-bottom local = -4*unit       → canvas y = -(offset+4*u)  (last staff bottom)
+        let total-offset = (num-staves - 1) * (staff-height-mm + spacing-mm)
+        let sys-y-top    =  total-offset
+        let sys-y-bottom = -(4.0 * unit)
+
+        // Connecting system line (always drawn for multi-staff)
+        draw-system-line(sys-y-top, sys-y-bottom, sp: unit)
+
+        if staff-group == "grand" {
+          draw-brace(sys-y-top, sys-y-bottom, sp: unit)
+        } else if staff-group == "bracket" {
+          draw-bracket(sys-y-top, sys-y-bottom, sp: unit)
+        }
       }
     },
   )

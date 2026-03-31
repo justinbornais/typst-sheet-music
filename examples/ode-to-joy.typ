@@ -10,6 +10,8 @@
   composer: "L. van Beethoven",
   key: "D",
   time: "4/4",
+  staff-group: "grand",
+  // staff-spacing: 6mm,
   staves: (
     (
       clef: "treble",
@@ -30,5 +32,13 @@
         2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
       ),
     ),
+    (
+      clef: "bass",
+      music: "
+        d1 | a, | d | a, |
+        d | a, | d | a,2 d |
+        a, d | a, d | a, f#, | b,4 e, a,2 |
+        d1 | a, | d | a,2 d"
+    )
   ),
 )

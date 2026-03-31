@@ -107,80 +107,121 @@
   let render-inner(avail-width-mm) = {
     let sp-unit = staff-size / 1mm
 
-    // For each staff, compute system breaks and lay out each system
-    // For Phase 1 (single staff), we break the first staff's events
-    let all-systems = ()  // array of arrays of laid-out staves
-
-    // Compute how much width is available for music content (in staff-space units)
+    // System-break decisions are driven by the first staff.
     let first-clef = staves.at(0).at("clef", default: "treble")
-    let first-system-prefix = prefix-width-sp(sp-unit, first-clef, true)
-    let continuation-prefix = prefix-width-sp(sp-unit, first-clef, false)
+    let prefix-first = prefix-width-sp(sp-unit, first-clef, true)
+    let prefix-cont  = prefix-width-sp(sp-unit, first-clef, false)
+    let first-avail  = if avail-width-mm != none { avail-width-mm / sp-unit - prefix-first - 1.0 } else { none }
+    let cont-avail   = if avail-width-mm != none { avail-width-mm / sp-unit - prefix-cont  - 1.0 } else { none }
 
-    // Break events using the first staff (Phase 1: single staff)
+    // Compute systems-events arrays for the first staff, then mirror the same
+    // break points onto every other staff.
     let first-events = staves-events.at(0)
-    let first-avail = if avail-width-mm != none { avail-width-mm / sp-unit - first-system-prefix - 1.0 } else { none }
-    let cont-avail = if avail-width-mm != none { avail-width-mm / sp-unit - continuation-prefix - 1.0 } else { none }
+    let systems-events-per-staff = staves-events.map(_ => ())  // will fill in below
 
-    let systems-events = ()
-
+    // Determine system event lists for staff 0
+    let staff0-systems = ()
     if has-line-breaks(first-events) {
-      // Newlines in the music string define system breaks
-      systems-events = split-at-line-breaks(first-events)
+      staff0-systems = split-at-line-breaks(first-events)
     } else if measures-per-line != none {
-      // Fixed measures per line: split by measure count
-      systems-events = compute-system-breaks(first-events, available-width: none, measures-per-line: measures-per-line)
-    } else {
-      // Width-based breaking
+      staff0-systems = compute-system-breaks(first-events, available-width: none, measures-per-line: measures-per-line)
+    } else if avail-width-mm != none {
       let remaining = first-events
-
-      // First system
-      let first-breaks = compute-system-breaks(remaining, available-width: first-avail)
-      if first-breaks.len() > 0 {
-        systems-events.push(first-breaks.at(0))
-        let rest-events = ()
-        for i in range(1, first-breaks.len()) {
-          rest-events += first-breaks.at(i)
-        }
-        remaining = rest-events
+      let fb = compute-system-breaks(remaining, available-width: first-avail)
+      if fb.len() > 0 {
+        staff0-systems.push(fb.at(0))
+        let rest = ()
+        for i in range(1, fb.len()) { rest += fb.at(i) }
+        remaining = rest
       }
-
-      // Continuation systems
       if remaining.len() > 0 {
-        let cont-breaks = compute-system-breaks(remaining, available-width: cont-avail)
-        systems-events += cont-breaks
+        staff0-systems += compute-system-breaks(remaining, available-width: cont-avail)
+      }
+    } else {
+      staff0-systems = (first-events,)
+    }
+
+    // Split every other staff into the same number of systems by counting measures.
+    // We count how many measures (barlines) fall in each staff-0 system and apply
+    // the identical measure counts to the other staves.
+    let measure-counts = staff0-systems.map(sys => {
+      sys.filter(ev => ev.type == "barline").len()
+    })
+
+    for si in range(staves-events.len()) {
+      if si == 0 {
+        systems-events-per-staff.at(si) = staff0-systems
+      } else {
+        let ev-list = staves-events.at(si)
+        let split = ()
+        let remaining = ev-list
+        for (mc-idx, mc) in measure-counts.enumerate() {
+          let is-last = mc-idx == measure-counts.len() - 1
+          // Grab `mc` barlines worth of events from remaining.
+          // On the last system, grab everything so trailing events after the
+          // final barline are not silently dropped.
+          let seg = ()
+          let bars-seen = 0
+          let j = 0
+          while j < remaining.len() and (is-last or bars-seen < mc or mc == 0) {
+            seg.push(remaining.at(j))
+            if remaining.at(j).type == "barline" { bars-seen += 1 }
+            j += 1
+          }
+          // Ensure j is at the end when mc == 0 or it's the last system
+          if mc == 0 or is-last { j = remaining.len() }
+          split.push(seg)
+          remaining = remaining.slice(j)
+        }
+        // Any leftover goes into a final system
+        if remaining.len() > 0 { split.push(remaining) }
+        systems-events-per-staff.at(si) = split
       }
     }
 
-    // Parse fingerings if provided
-    let fingering-list = staves.at(0).at("fingerings", default: none)
+    let num-systems = staff0-systems.len()
 
-    // Lay out and render each system
-    for (sys-idx, sys-events) in systems-events.enumerate() {
+    // Track per-staff note offsets for fingering extraction
+    let notes-before-per-staff = staves.map(_ => 0)
+
+    for sys-idx in range(num-systems) {
       let is-first = sys-idx == 0
-      let clef = staves.at(0).at("clef", default: "treble")
 
-      let laid-out = layout-staff(sys-events, clef: clef, staff-space: staff-size)
+      // Lay out each staff for this system
+      let laid-out-staves = ()
+      for si in range(staves.len()) {
+        let clef = staves.at(si).at("clef", default: "treble")
+        let sys-evs = if sys-idx < systems-events-per-staff.at(si).len() {
+          systems-events-per-staff.at(si).at(sys-idx)
+        } else { () }
+        laid-out-staves.push(layout-staff(sys-evs, clef: clef, staff-space: staff-size))
+      }
 
-      // Compute fingerings for this system's notes
+      // Fingerings: only for the first staff
       let sys-fingerings = none
+      let fingering-list = staves.at(0).at("fingerings", default: none)
       if fingering-list != none {
-        // Count how many notes came before this system
-        let notes-before = 0
-        for prev-idx in range(sys-idx) {
-          for ev in systems-events.at(prev-idx) {
-            if ev.type == "note" { notes-before += 1 }
-          }
-        }
-        // Extract fingerings for this system's notes
-        let sys-note-count = sys-events.filter(ev => ev.type == "note").len()
-        let end-idx = calc.min(notes-before + sys-note-count, fingering-list.len())
-        if notes-before < fingering-list.len() {
-          sys-fingerings = fingering-list.slice(notes-before, end-idx)
+        let nb = notes-before-per-staff.at(0)
+        let sys-evs = if sys-idx < systems-events-per-staff.at(0).len() {
+          systems-events-per-staff.at(0).at(sys-idx)
+        } else { () }
+        let nc = sys-evs.filter(ev => ev.type == "note").len()
+        let end-idx = calc.min(nb + nc, fingering-list.len())
+        if nb < fingering-list.len() {
+          sys-fingerings = fingering-list.slice(nb, end-idx)
         }
       }
 
+      // Update note-offset counters
+      for si in range(staves.len()) {
+        let sys-evs = if sys-idx < systems-events-per-staff.at(si).len() {
+          systems-events-per-staff.at(si).at(sys-idx)
+        } else { () }
+        notes-before-per-staff.at(si) += sys-evs.filter(ev => ev.type == "note").len()
+      }
+
       render-score(
-        (laid-out,),
+        laid-out-staves,
         key: key,
         time-upper: ts.upper,
         time-lower: ts.lower,
@@ -188,6 +229,7 @@
         sp: staff-size,
         width: if avail-width-mm != none { avail-width-mm * 1mm } else { auto },
         staff-spacing: staff-spacing,
+        staff-group: staff-group,
         title: if is-first { title } else { none },
         subtitle: if is-first { subtitle } else { none },
         composer: if is-first { composer } else { none },
