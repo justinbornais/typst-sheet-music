@@ -1,5 +1,5 @@
 // Ode to Joy - Full melody example
-// Demonstrates system breaks, key signatures, and fingering numbers.
+// Demonstrates system breaks, key signatures, fingering numbers, and chord symbols.
 
 #import "../lib.typ": score
 
@@ -26,10 +26,20 @@
         2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  4, 2, 2,
         // Line 2: measures 5-8
         2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
-        // Line 4: measures 9-12
+        // Line 3: measures 9-12
         2, 2, 4, 1,  2, 4, 4, 1,  2, 4, 4, 2,  1, 2, 5,
-        // Line 5: measures 14-16
+        // Line 4: measures 13-16
         2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
+      ),
+      chord-symbols: (
+        // Line 1: measures 1-4
+        ("D",), ("D/A", "A"), ("D",), ("A",),
+        // Line 2: measures 5-8
+        ("D",), ("A",), ("D",), ("A", "D"),
+        // Line 3: measures 9-12
+        ("A", "D"), ("A", "D"), ("A", "F#"), ("Bm", "Em", "A"),
+        // Line 4: measures 13-16
+        ("D",), ("A",), ("D",), ("A", "D"),
       ),
     ),
     (
@@ -63,10 +73,20 @@
         2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  4, 2, 2,
         // Line 2: measures 5-8
         2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
-        // Line 4: measures 9-12
+        // Line 3: measures 9-12
         2, 2, 4, 1,  2, 4, 4, 1,  2, 4, 4, 2,  1, 2, 5,
-        // Line 5: measures 14-16
+        // Line 4: measures 13-16
         2, 2, 4, 5,  5, 4, 2, 1,  1, 1, 2, 4,  2, 1, 1,
+      ),
+      chord-symbols: (
+        // Line 1: measures 1-4
+        ("D",), ("D/A", "A"), ("D",), ("A",),
+        // Line 2: measures 5-8
+        ("D",), ("A",), ("D",), ("A", "D"),
+        // Line 3: measures 9-12
+        ("A", "D"), ("A", "D"), ("A", "F#"), ("Bm", "Em", "A"),
+        // Line 4: measures 13-16
+        ("D",), ("A",), ("D",), ("A", "D"),
       ),
     ),
     (

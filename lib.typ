@@ -184,6 +184,8 @@
 
     // Track per-staff note offsets for fingering extraction
     let notes-before-per-staff = staves.map(_ => 0)
+    // Track measure offset for chord-symbol extraction (measures before this system)
+    let measures-before = 0
 
     for sys-idx in range(num-systems) {
       let is-first = sys-idx == 0
@@ -218,12 +220,59 @@
         }
       }
 
+      // Chord symbols: per-measure arrays, sliced for this system.
+      // Count measures by counting groups of note/rest/chord events between barlines.
+      let sys-chord-symbols = none
+      let chord-symbol-list = staves.at(0).at("chord-symbols", default: none)
+      if chord-symbol-list != none {
+        let sys-evs = if sys-idx < systems-events-per-staff.at(0).len() {
+          systems-events-per-staff.at(0).at(sys-idx)
+        } else { () }
+        // Count measures: each group of note/chord/rest events between barlines is one measure.
+        let n-measures = 0
+        let in-measure = false
+        for ev in sys-evs {
+          if ev.type == "note" or ev.type == "chord" or ev.type == "rest" or ev.type == "spacer" {
+            if not in-measure {
+              n-measures += 1
+              in-measure = true
+            }
+          } else if ev.type == "barline" {
+            in-measure = false
+          }
+        }
+        let end-idx = calc.min(measures-before + n-measures, chord-symbol-list.len())
+        if measures-before < chord-symbol-list.len() {
+          sys-chord-symbols = chord-symbol-list.slice(measures-before, end-idx)
+        }
+      }
+
       // Update note-offset counters
       for si in range(staves.len()) {
         let sys-evs = if sys-idx < systems-events-per-staff.at(si).len() {
           systems-events-per-staff.at(si).at(sys-idx)
         } else { () }
         notes-before-per-staff.at(si) += sys-evs.filter(ev => ev.type == "note").len()
+      }
+
+      // Update measure counter for chord-symbol slicing
+      {
+        let sys-evs = if sys-idx < systems-events-per-staff.at(0).len() {
+          systems-events-per-staff.at(0).at(sys-idx)
+        } else { () }
+        let n-measures = 0
+        let in-measure = false
+        for ev in sys-evs {
+          if ev.type == "note" or ev.type == "chord" or ev.type == "rest" or ev.type == "spacer" {
+            if not in-measure {
+              n-measures += 1
+              in-measure = true
+            }
+          } else if ev.type == "barline" {
+            in-measure = false
+          }
+        }
+        measures-before += n-measures
       }
 
       render-score(
@@ -243,6 +292,7 @@
         lyricist: if is-first { lyricist } else { none },
         show-time: is-first,
         fingerings: sys-fingerings,
+        chord-symbols: sys-chord-symbols,
       )
       v(system-spacing)
     }
@@ -271,10 +321,11 @@
   staff-size: default-staff-space,
   width: auto,
   fingerings: none,
+  chord-symbols: none,
   measures-per-line: none,
 ) = {
   score(
-    staves: ((clef: clef, music: music, fingerings: fingerings),),
+    staves: ((clef: clef, music: music, fingerings: fingerings, chord-symbols: chord-symbols),),
     key: key,
     time: time,
     title: title,
@@ -286,10 +337,9 @@
 }
 
 /// Lead sheet rendering (melody + chords + lyrics).
-/// Phase 4 stub - currently renders only the melody.
 #let lead-sheet(
   music: "",
-  chords: "",
+  chords: none,
   lyrics: "",
   key: "C",
   time: "4/4",
@@ -300,7 +350,7 @@
   width: auto,
 ) = {
   score(
-    staves: ((clef: clef, music: music),),
+    staves: ((clef: clef, music: music, chord-symbols: chords),),
     key: key,
     time: time,
     title: title,

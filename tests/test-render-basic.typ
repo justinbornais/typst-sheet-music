@@ -218,3 +218,155 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
     ),
   ),
 )
+
+#v(1cm)
+
+== Test 20: Chord Symbols — one chord per measure (4/4)
+
+One chord per measure places it on beat 1:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f | g a b c' | c'2 g | c'1",
+  chord-symbols: (
+    ("C",),
+    ("G",),
+    ("Am",),
+    ("C",),
+  ),
+)
+
+#v(1cm)
+
+== Test 21: Chord Symbols — two chords per measure (4/4)
+
+Two chords → beat 1 and beat 3 in 4/4:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f | g a b c'",
+  chord-symbols: (
+    ("C", "F"),
+    ("G", "C"),
+  ),
+)
+
+#v(1cm)
+
+== Test 22: Chord Symbols — three chords per measure (4/4)
+
+Three chords → beats 1, 2, 3 in 4/4:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f | g a b c'",
+  chord-symbols: (
+    ("Am", "Dm", "G"),
+    ("C", "F", "G7"),
+  ),
+)
+
+#v(1cm)
+
+== Test 23: Chord Symbols — two chords per measure (3/4)
+
+Two chords → beat 1 and beat 2 in 3/4:
+
+#melody(
+  key: "C",
+  time: "3/4",
+  music: "c4 d e | f g a",
+  chord-symbols: (
+    ("C", "G"),
+    ("F", "Am"),
+  ),
+)
+
+#v(1cm)
+
+== Test 24: Chord Symbols — slash chords and accidentals
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f | g a b c'",
+  chord-symbols: (
+    ("Bb/F",),
+    ("F#m7",),
+  ),
+)
+
+#v(1cm)
+
+== Test 25: Chord Symbols — with fingerings (chord above fingering)
+
+Chord symbols should appear above fingering numbers:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f | g a b c'",
+  fingerings: (1, 2, 3, 4, 5, 4, 3, 2),
+  chord-symbols: (
+    ("C", "F"),
+    ("G", "C"),
+  ),
+)
+
+#v(1cm)
+
+== Test 26: Chord Symbols — four chords per measure (4/4, one per beat)
+
+Four chords in 4/4 → one per beat:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f | g a b c'",
+  chord-symbols: (
+    ("C", "Dm", "Em", "F"),
+    ("G", "Am", "Bdim", "C"),
+  ),
+)
+
+#v(1cm)
+
+== Test 27: Chord Symbols — empty measures and none placeholders
+
+Some measures have no chords (empty array):
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f | g a b c' | c'2 g | c'1",
+  chord-symbols: (
+    ("C",),
+    (),
+    ("Am", "G"),
+    ("C",),
+  ),
+)
+
+#v(1cm)
+
+== Test 28: Chord Symbols — 6/8 time, two chords
+
+Two chords in 6/8 → beat 1 and beat 4 (middle of compound time):
+
+#score(
+  key: "C",
+  time: "6/8",
+  staves: (
+    (
+      clef: "treble",
+      music: "c8 d e f g a | b c' d' e' f' g'",
+      chord-symbols: (
+        ("C", "F"),
+        ("G", "C"),
+      ),
+    ),
+  ),
+)
