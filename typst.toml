@@ -1,6 +1,6 @@
 [package]
 name = "sheet-music"
-version = "0.1.0"
+version = "0.1.1"
 entrypoint = "lib.typ"
 authors = ["Justin Bornais"]
 license = "MIT"
