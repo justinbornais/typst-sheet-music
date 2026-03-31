@@ -1,9 +1,9 @@
-// parser-lyrics.typ - Lyrics string parser (Phase 4)
+// parser-lyrics.typ - Lyrics string parser
 //
-// Stub for Phase 1.
+// Stub - not yet implemented.
 
 /// Parse a lyrics string into an array of lyric events.
-/// Will be implemented in Phase 4.
+/// Not yet implemented.
 #let parse-lyrics(input) = {
   ()
 }

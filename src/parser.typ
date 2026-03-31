@@ -99,7 +99,7 @@
           pos += 2
         }
       } else {
-        // Unknown colon — skip
+        // Unknown colon - skip
         pos += 1
       }
       continue

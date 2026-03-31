@@ -4,7 +4,7 @@
 
 #set page(width: 210mm, height: 297mm, margin: 1.5cm)
 
-= Sheet Music Library - Phase 1 Tests
+= Sheet Music Library - Tests
 
 == Test 1: Simple C major scale (treble clef)
 
@@ -153,7 +153,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 14: Chords — basic block chords
+== Test 14: Chords - basic block chords
 
 #melody(
   key: "C",
@@ -163,7 +163,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 15: Chords — mixed with single notes
+== Test 15: Chords - mixed with single notes
 
 #melody(
   key: "C",
@@ -173,7 +173,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 16: Chords — dotted and eighth chords
+== Test 16: Chords - dotted and eighth chords
 
 #melody(
   key: "C",
@@ -183,7 +183,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 17: Chords — with accidentals
+== Test 17: Chords - with accidentals
 
 #melody(
   key: "C",
@@ -193,7 +193,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 18: Fingerings — inline notation (above)
+== Test 18: Fingerings - inline notation (above)
 
 // Fingerings: note 1 = finger 1, note 2 = skipped, note 3 = fingers (1,3) stacked, note 4 = finger 5
 #melody(
@@ -204,7 +204,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 18b: Fingerings — below staff
+== Test 18b: Fingerings - below staff
 
 // Fingerings below: n_[digit] places fingering below the staff
 #melody(
@@ -215,7 +215,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 18c: Fingerings — mixed above and below
+== Test 18c: Fingerings - mixed above and below
 
 #melody(
   key: "C",
@@ -225,7 +225,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 19: Fingerings — chords with stacked fingerings
+== Test 19: Fingerings - chords with stacked fingerings
 
 #score(
   key: "C",
@@ -240,7 +240,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
-== Test 20: Chord Symbols — one chord per measure (4/4)
+== Test 20: Chord Symbols - one chord per measure (4/4)
 
 One chord per measure on beat 1:
 
@@ -252,7 +252,7 @@ One chord per measure on beat 1:
 
 #v(1cm)
 
-== Test 21: Chord Symbols — two chords per measure (4/4)
+== Test 21: Chord Symbols - two chords per measure (4/4)
 
 Two chords on beats 1 and 3 in 4/4:
 
@@ -264,7 +264,7 @@ Two chords on beats 1 and 3 in 4/4:
 
 #v(1cm)
 
-== Test 22: Chord Symbols — three chords per measure (4/4)
+== Test 22: Chord Symbols - three chords per measure (4/4)
 
 Three chords spread across 4/4 measure:
 
@@ -276,7 +276,7 @@ Three chords spread across 4/4 measure:
 
 #v(1cm)
 
-== Test 23: Chord Symbols — two chords per measure (3/4)
+== Test 23: Chord Symbols - two chords per measure (3/4)
 
 Two chords in 3/4:
 
@@ -288,7 +288,7 @@ Two chords in 3/4:
 
 #v(1cm)
 
-== Test 24: Chord Symbols — slash chords and accidentals
+== Test 24: Chord Symbols - slash chords and accidentals
 
 #melody(
   key: "C",
@@ -298,7 +298,7 @@ Two chords in 3/4:
 
 #v(1cm)
 
-== Test 25: Chord Symbols — with fingerings (chord above fingering)
+== Test 25: Chord Symbols - with fingerings (chord above fingering)
 
 Chord symbols should appear above fingering numbers:
 
@@ -310,9 +310,9 @@ Chord symbols should appear above fingering numbers:
 
 #v(1cm)
 
-== Test 26: Chord Symbols — four chords per measure (4/4, one per beat)
+== Test 26: Chord Symbols - four chords per measure (4/4, one per beat)
 
-Four chords in 4/4 — one per beat:
+Four chords in 4/4 - one per beat:
 
 #melody(
   key: "C",
@@ -322,7 +322,7 @@ Four chords in 4/4 — one per beat:
 
 #v(1cm)
 
-== Test 27: Chord Symbols — empty measures and inline placement
+== Test 27: Chord Symbols - empty measures and inline placement
 
 Some measures have no chords:
 
@@ -334,7 +334,7 @@ Some measures have no chords:
 
 #v(1cm)
 
-== Test 28: Chord Symbols — 6/8 time, two chords
+== Test 28: Chord Symbols - 6/8 time, two chords
 
 Two chords in 6/8:
 
@@ -351,7 +351,7 @@ Two chords in 6/8:
 
 #v(1cm)
 
-== Test 29: Dynamics — basic markings
+== Test 29: Dynamics - basic markings
 
 Dynamic markings rendered below the staff:
 
@@ -363,7 +363,7 @@ Dynamic markings rendered below the staff:
 
 #v(1cm)
 
-== Test 30: Dynamics — all standard markings
+== Test 30: Dynamics - all standard markings
 
 Every standard dynamic marking:
 
@@ -375,7 +375,7 @@ Every standard dynamic marking:
 
 #v(1cm)
 
-== Test 31: Dynamics — sf, sfz, fp
+== Test 31: Dynamics - sf, sfz, fp
 
 Special dynamics:
 
@@ -387,7 +387,7 @@ Special dynamics:
 
 #v(1cm)
 
-== Test 32: Articulations — accent
+== Test 32: Articulations - accent
 
 Accent marks on notes:
 
@@ -399,7 +399,7 @@ Accent marks on notes:
 
 #v(1cm)
 
-== Test 33: Articulations — staccato
+== Test 33: Articulations - staccato
 
 Staccato dots on notes:
 
@@ -411,7 +411,7 @@ Staccato dots on notes:
 
 #v(1cm)
 
-== Test 34: Articulations — tenuto
+== Test 34: Articulations - tenuto
 
 Tenuto marks on notes:
 
@@ -423,7 +423,7 @@ Tenuto marks on notes:
 
 #v(1cm)
 
-== Test 35: Articulations — fermata
+== Test 35: Articulations - fermata
 
 Fermata on final note:
 
@@ -435,7 +435,7 @@ Fermata on final note:
 
 #v(1cm)
 
-== Test 36: Articulations — combined (accent + staccato)
+== Test 36: Articulations - combined (accent + staccato)
 
 Multiple articulations on the same note:
 

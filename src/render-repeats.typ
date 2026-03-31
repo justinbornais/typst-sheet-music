@@ -1,3 +1,3 @@
-// render-repeats.typ - Repeat barlines, volta brackets (Phase 6)
+// render-repeats.typ - Repeat barlines, volta brackets
 //
-// Stub for Phase 1.
+// Stub - not yet implemented.

@@ -37,8 +37,8 @@
 
   // Starting position: just outside the notehead
   // SMuFL glyphs have built-in whitespace, so the visual gap differs from the numeric offset.
-  // above: anchor "south" — glyph extends upward from anchor, so gap must clear the notehead top
-  // below: anchor "north" — glyph extends downward, built-in space makes it appear far, use tight offset
+  // above: anchor "south" - glyph extends upward from anchor, so gap must clear the notehead top
+  // below: anchor "north" - glyph extends downward, built-in space makes it appear far, use tight offset
   let gap = if art-above { 0.75 * sp } else { -1.0 * sp }
   let art-spacing = 1.0 * sp // spacing between stacked articulations
 

@@ -103,8 +103,6 @@
 }
 
 /// Layout an entire score (multiple staves).
-/// For Phase 1, this just lays out each staff independently.
-/// Phase 2 will add vertical beat alignment across staves.
 #let layout-score(
   staves-events,
   staves-config,

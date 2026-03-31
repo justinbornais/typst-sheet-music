@@ -37,8 +37,8 @@
 ///     - clef: "treble", "bass", "alto", "tenor", "treble-8", "percussion"
 ///     - music: music string (see syntax reference)
 ///     - label: optional staff label
-/// - lyrics: array of lyric dictionaries (Phase 4 - not yet implemented)
-/// - chords: array of chord symbol dictionaries (Phase 4 - not yet implemented)
+/// - lyrics: array of lyric dictionaries (not yet implemented)
+/// - chords: array of chord symbol dictionaries (not yet implemented)
 /// - key: key signature string ("C", "G", "D", "Bb", "f#", etc.)
 /// - time: time signature string ("4/4", "3/4", "6/8", "C", "C|")
 /// - tempo: tempo marking (not yet implemented)
@@ -48,13 +48,13 @@
 /// - arranger: arranger name
 /// - lyricist: lyricist name
 /// - copyright: copyright text (not yet implemented)
-/// - staff-group: "none", "grand", "choir", "orchestra" (Phase 2)
+/// - staff-group: "none", "grand", "choir", "orchestra"
 /// - staff-size: staff space distance (default 1.75mm)
-/// - system-spacing: vertical space between systems (Phase 2)
+/// - system-spacing: vertical space between systems
 /// - staff-spacing: vertical space between staves within a system
 /// - width: explicit width or auto
-/// - measure-numbers: "system", "every", "none" (Phase 2)
-/// - relative-octave: if true, use relative octave entry (Phase 2)
+/// - measure-numbers: "system", "every", "none"
+/// - relative-octave: if true, use relative octave entry
 /// - measures-per-line: if set, force this many measures per system line
 #let score(
   staves: (),
@@ -281,8 +281,7 @@
   )
 }
 
-/// Chord chart rendering.
-/// Phase 4 stub.
+/// Chord chart rendering (not yet implemented).
 #let chord-chart(
   chords: "",
   key: "C",
@@ -290,5 +289,5 @@
   title: none,
   width: auto,
 ) = {
-  // Stub - will be implemented in Phase 4
+  // Stub - not yet implemented
 }
