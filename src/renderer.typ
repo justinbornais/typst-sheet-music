@@ -8,6 +8,7 @@
 #import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance
 #import "render-notes.typ": draw-note, draw-rest, note-stem-x, draw-chord-event
 #import "render-beams.typ": draw-beam-group
+#import "render-slurs-ties.typ": draw-ties-and-slurs
 #import "render-chords.typ": format-chord-symbol
 #import "render-articulations.typ": draw-articulations, draw-dynamic
 #import "pitch.typ": compute-stem-end-y
@@ -544,6 +545,9 @@
       text(size: 7pt, weight: "regular", style: "italic", str(tn)),
     )
   }
+
+  // ── Draw ties and slurs ──────────────────────────────────────────────────
+  draw-ties-and-slurs(items, item-xs, y-top, sp: sp, adj-stem-dirs: adj-stem-dirs)
 }
 
 /// Render a complete score as a CeTZ canvas block.

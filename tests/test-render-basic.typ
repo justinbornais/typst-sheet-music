@@ -468,3 +468,207 @@ Fermata combined with other articulations:
   time: "4/4",
   music: "c4 d e f>_ | g a b c'>*_",
 )
+
+#v(1cm)
+
+== Test 39: Ties - basic tie between two notes
+
+A simple tie connecting two quarter notes of the same pitch:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4~ c4 e2",
+)
+
+#v(1cm)
+
+== Test 40: Ties - across a barline
+
+Tie that spans a barline:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e f~ | f e d c",
+)
+
+#v(1cm)
+
+== Test 41: Ties - half notes and whole notes
+
+Longer tied notes:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c2~ c2 | g2~ g4 e4",
+)
+
+#v(1cm)
+
+== Test 42: Ties - high and low notes (stem direction)
+
+Verify tie curves respect stem direction (above for stem-down, below for stem-up):
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "g'4~ g' c~ c",
+)
+
+#v(1cm)
+
+== Test 43: Ties - multiple ties in sequence
+
+Several ties in a row:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4~ c~ c~ c",
+)
+
+#v(1cm)
+
+== Test 44: Ties - with accidentals
+
+Tied notes with accidentals:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "f#4~ f# d&~ d&",
+)
+
+#v(1cm)
+
+== Test 45: Ties - chord blocks
+
+Tied chords:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "<c e g>4~ <c e g>4 <d f a>2",
+)
+
+#v(1cm)
+
+== Test 46: Slurs - basic two-note slur
+
+Simple slur over two notes:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4( d) e( f)",
+)
+
+#v(1cm)
+
+== Test 47: Slurs - multi-note phrase
+
+Slur spanning four notes:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4( d e f) g2",
+)
+
+#v(1cm)
+
+== Test 48: Slurs - ascending and descending
+
+Slurs over ascending and descending passages:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4( d e f) | g( f e d)",
+)
+
+#v(1cm)
+
+== Test 49: Slurs - across barline
+
+Slur that crosses a barline:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 d e( f | g) a b c'",
+)
+
+#v(1cm)
+
+== Test 50: Slurs - high notes (stem down, slur above)
+
+Slur on notes above the staff:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "g'4( a' b' c'')",
+)
+
+#v(1cm)
+
+== Test 51: Slurs - low notes (stem up, slur below)
+
+Slur on notes below the staff:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4( d e f)",
+)
+
+#v(1cm)
+
+== Test 52: Slurs + Ties combined
+
+A slurred passage with a tie inside:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4( d e~ e) | f2 g",
+)
+
+#v(1cm)
+
+== Test 53: Slurs + Articulations combined
+
+Slur with staccato and accent:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4>( d* e f*) | g a b c'",
+)
+
+#v(1cm)
+
+== Test 54: Ties + Dynamics combined
+
+Tied note with a dynamic marking:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4v[pp]~ c e2v[ff]",
+)
+
+#v(1cm)
+
+== Test 55: Slurs with eighth notes
+
+Slur over beamed eighth notes:
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c8( d e f) g( a b c')",
+)

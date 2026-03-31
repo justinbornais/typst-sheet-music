@@ -17,7 +17,7 @@
     (
       clef: "treble",
       music: "
-        f#4n[3][D] f# g a | a8[D/A] b g4 f#[A] e | d[D] d e f# | f#4.[A] e8 e2 |
+        f#4n[3][D]( f# g a) | a8[D/A] b g4 f#[A] e | d[D] d e f# | f#4.[A] e8 e2 |
         f#4[D] f# g a | a[A] g f# e | d[D] d e f# | e4.[A] d8 d2[D] |
         |: e4[A] e f#[D] d | e[A] f#8 g8 f#4[D] d | e[A] f#8 g8 f#4[F#] e | d[Bm] e[Em] a4[A] d |
         f#4[D] f# g a | a[A] g f# e | d[D] d e f# | e4.[A] d8 d2[D] :|

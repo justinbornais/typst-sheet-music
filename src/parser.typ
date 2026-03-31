@@ -177,6 +177,12 @@
         }
       }
 
+      // Allow tie after articulations/dynamics (e.g. c4v[pp]~ c)
+      if not tie and peek(pos) == "~" {
+        tie = true
+        pos += 1
+      }
+
       // Parse slur
       let slur-start = false
       let slur-end = false
@@ -347,6 +353,12 @@
         if dyn-str.len() > 0 {
           dynamic = dyn-str
         }
+      }
+
+      // Allow tie after articulations/dynamics (e.g. c4v[pp]~ c)
+      if not tie and peek(pos) == "~" {
+        tie = true
+        pos += 1
       }
 
       // Parse slur start/end
@@ -530,6 +542,12 @@
         if dyn-str.len() > 0 {
           dynamic = dyn-str
         }
+      }
+
+      // Allow tie after articulations/dynamics (e.g. b4v[pp]~ b)
+      if not tie and peek(pos) == "~" {
+        tie = true
+        pos += 1
       }
 
       // Parse slur
