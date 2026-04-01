@@ -57,8 +57,8 @@ scorify uses the [Bravura](https://github.com/steinbergmedia/bravura) SMuFL font
 
 1. Download the latest Bravura release from the [Bravura GitHub releases page](https://github.com/steinbergmedia/bravura/releases). The `.zip` archive contains `Bravura.otf`.
 2. Either:
-   - **System install (easiest):** Copy `Bravura.otf` into your system fonts folder. Typst will find it automatically and no extra flag is needed.
-   - **Project-local:** Keep `Bravura.otf` in a folder of your choice and pass `--font-path /path/to/that/folder/` when compiling.
+    - **System install (easiest):** Copy `Bravura.otf` into your system fonts folder. Typst will find it automatically and no extra flag is needed.
+    - **Project-local:** Keep `Bravura.otf` in a folder of your choice and pass `--font-path /path/to/that/folder/` when compiling.
 
 ## API Reference
 
@@ -186,15 +186,72 @@ Here is the Ode to Joy example demonstrating a grand staff with fingerings, chor
 )
 ```
 
+## Music String Syntax
+
+This section documents the inline music-string syntax accepted by `score()`, `melody()`, and related helpers. The parser is intentionally compact and expressive - here are the primary constructs and examples.
+
+- Notes: `name` + optional accidentals + octave markers + duration + optional dots.
+  - Examples: `c4`, `d8.`, `f#4`, `g'2`, `a,16` (comma lowers octave, apostrophe raises it).
+  - Accidentals: `#` (sharp), `##` (double-sharp), `&` (flat), `&&` (double-flat), `=` (natural).
+  - Duration is sticky: if omitted the note uses the last explicit duration (e.g., `c4 d e f` uses quarter notes for all).
+
+- Rests and spacers:
+  - Rest: `r4`, `r8.`
+  - Spacer (invisible rest): `s4`
+
+- Chords (simultaneous notes):
+  - Syntax: `<c e g>4` produces a C major chord as a quarter note.
+  - Chord-level articulations, dynamics, ties, slurs, and fingering can be applied to the chord as a whole (see examples below).
+
+- Articulations: appended as single-character markers after the duration
+  - `>` = accent, `*` = staccato, `-` = tenuto, `_` = fermata
+  - Example: `c4>*` (accent + staccato)
+
+- Ties and slurs:
+  - Tie: `~` connects the note to the following note of the same pitch (e.g., `c4~ c4`).
+  - Slurs: `(` and `)` mark slur start/end. They may appear immediately after a note, or on their own to attach to the previous note.
+    - Example: `c4( d e) f` or `c4 d( e f ) g`
+
+- Dynamics:
+  - Inline dynamic markers use `v[...]` where `[...]` is a dynamic text like `mf`, `f`, `pp`.
+  - Example: `c4v[pp] d4 v[ff]` - dynamics are rendered below the staff.
+
+- Fingering:
+  - Fingering numbers are attached with `n[...]` (above) or `n_[...]` (below).
+  - Multiple fingerings are supported by separating numbers with a space inside the brackets: `n[1 3]`.
+  - Example: `c4n[3]` or `d4n_[2]` (below the staff).
+
+- Inline chord symbols:
+  - Append a bracketed symbol after a note or chord: `[C]`, `[Am7]`, `[D/F#]`.
+  - Example: `c4[C]` or `<c e g>2[Dm]`.
+
+- Beams and grouping:
+  - Square brackets `[` and `]` can be used to force beam starts/ends when not interpreted as a chord symbol.
+  - Tuplets: `{n}` or `{n:m}` begin a tuplet block; `}` ends it. E.g. `{3` starts a triplet group.
+
+- Grand staff / multi-staff layout:
+  - Use the `staves` array passed to `#score` and set `staff-group: "grand"` to request grand-staff rendering (brace and shared barlines).
+  - Each staff can set `clef`, `music`, and `fingering-position` (`"above"` or `"below"`). See the full example above for a grand-staff sample.
+
+Examples (combined):
+
+```typ
+#melody(music: "<c e g>4n[1][C] d4>* f#4v[mp] g4~ g4")
+// chord with fingering and chord symbol, accent + staccato on next note,
+// dynamic marking, tie on the last two notes
+```
+
+Refer to the parser logic in `src/parser.typ` for the complete, definitive syntax and edge cases.
+
 ## Notes
 
-- scorify uses the Bravura SMuFL font for accurate music glyph placement. See [Font Setup](#font-setup) above for installation instructions.
+- Scorify uses the Bravura SMuFL font for accurate music glyph placement. See [Font Setup](#font-setup) above for installation instructions.
 - Spacing parameters (note spacing base, duration factors, accidental padding, dot size) are tunable in `src/constants.typ`.
 - The library requires Typst 0.14.0+ and CeTZ 0.4.2 (CeTZ is declared as a package dependency and is resolved automatically when using the Typst package manager).
 
 ## Contributing
 
-Bug reports, feature requests, and pull requests are welcome.
+Bug reports, feature requests, and pull requests are welcome in the [official repository](https://github.com/justinbornais/typst-sheet-music).
 
 ## License
 
