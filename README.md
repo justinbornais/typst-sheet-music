@@ -227,7 +227,6 @@ This section documents the inline music-string syntax accepted by `score()`, `me
 
 - Beams and grouping:
   - Square brackets `[` and `]` can be used to force beam starts/ends when not interpreted as a chord symbol.
-  - Tuplets: `{n}` or `{n:m}` begin a tuplet block; `}` ends it. E.g. `{3` starts a triplet group.
 
 - Grand staff / multi-staff layout:
   - Use the `staves` array passed to `#score` and set `staff-group: "grand"` to request grand-staff rendering (brace and shared barlines).
