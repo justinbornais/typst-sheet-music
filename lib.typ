@@ -1,4 +1,4 @@
-// lib.typ - Main entry point for the sheet-music package
+// lib.typ - Main entry point for the scorify package
 //
 // Exports the public API: score(), melody(), lead-sheet(), chord-chart()
 
@@ -30,7 +30,7 @@
 
 /// Render a complete music score.
 ///
-/// This is the primary entry point for the sheet-music library.
+/// This is the primary entry point for the scorify library.
 ///
 /// Parameters:
 /// - staves: array of staff dictionaries, each with:

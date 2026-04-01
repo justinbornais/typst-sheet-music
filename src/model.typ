@@ -1,4 +1,4 @@
-// model.typ - Internal data structures for the sheet-music library
+// model.typ - Internal data structures for the scorify library
 //
 // All music events are represented as Typst dictionaries with a "type" field.
 // The parser produces arrays of these events, and the layout/renderer consume them.
