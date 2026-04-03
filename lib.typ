@@ -10,6 +10,23 @@
 #import "src/render-clef-key-time.typ": clef-advance, key-sig-advance, time-sig-advance
 #import "src/constants.typ": default-staff-space
 
+#let repeated-score-title-state = state("scorify.repeated-score-title", none)
+
+#let with-repeated-score-title(title, body) = {
+  if title == none { return body }
+
+  set page(header: context {
+    let repeated-title = repeated-score-title-state.at(here())
+    if repeated-title != none {
+      align(center, text(size: 9pt, weight: "medium", repeated-title))
+    }
+  })
+
+  repeated-score-title-state.update(title)
+  body
+  repeated-score-title-state.update(none)
+}
+
 /// Parse a time signature string like "4/4", "3/4", "6/8" into (upper, lower, symbol).
 #let parse-time-sig(ts) = {
   if ts == "C" or ts == "c" {
@@ -218,17 +235,19 @@
         show-time: is-first,
         fingering-positions: staves.map(s => s.at("fingering-position", default: "above")),
       )
-      v(system-spacing)
+      if sys-idx < num-systems - 1 {
+        v(system-spacing, weak: true)
+      }
     }
   }
 
   // Resolve width
   if width == auto {
-    layout(size => {
+    with-repeated-score-title(title, layout(size => {
       render-inner(size.width / 1mm)
-    })
+    }))
   } else {
-    render-inner(width / 1mm)
+    with-repeated-score-title(title, render-inner(width / 1mm))
   }
 }
 

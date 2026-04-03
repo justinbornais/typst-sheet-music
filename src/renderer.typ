@@ -582,16 +582,7 @@
 ) = {
   let unit = sp / 1mm  // work in mm inside CeTZ (length: 1mm)
   let avail-width = if width == auto { none } else { width / 1mm }
-
-  // Render header (Typst content, outside CeTZ)
-  import "render-header.typ": render-header
-  render-header(
-    title: title,
-    subtitle: subtitle,
-    composer: composer,
-    arranger: arranger,
-    lyricist: lyricist,
-  )
+  let has-header = title != none or subtitle != none or composer != none or arranger != none or lyricist != none
 
   let num-staves = laid-out-staves.len()
   let staff-height-mm = 4.0 * unit
@@ -614,7 +605,7 @@
     calc.max(mx, msX)
   })
 
-  cetz.canvas(
+  let system-canvas = cetz.canvas(
     length: 1mm,
     {
       import cetz.draw: *
@@ -707,4 +698,23 @@
       }
     },
   )
+
+  if has-header {
+    import "render-header.typ": render-header
+    block(
+      breakable: false,
+      {
+        render-header(
+          title: title,
+          subtitle: subtitle,
+          composer: composer,
+          arranger: arranger,
+          lyricist: lyricist,
+        )
+        system-canvas
+      },
+    )
+  } else {
+    system-canvas
+  }
 }
