@@ -209,6 +209,12 @@
   }
 
   // Helper: compute the top-y after stacking fingerings (pure function, no drawing).
+  // Fingering font size scales with staff-space (`sp`). Base is 7.25pt at default staff space.
+  let default_sp_numeric = default-staff-space / 1mm
+  let fingering-font-size = 7.25pt * (sp / default_sp_numeric)
+  // Tuplet font size (scales with staff-space). Base is 7.75pt at default staff space.
+  let tuplet-font-size = 7.75pt * (sp / default_sp_numeric)
+  
   let fingering-top-y = (base-y, fng-val) => {
     let fng-list = if type(fng-val) == array { fng-val } else { (fng-val,) }
     let cur-y = base-y
@@ -231,7 +237,7 @@
         content(
           (x-pos, cur-y),
           anchor: "south",
-          text(size: 7pt, weight: "regular", str(fng)),
+          text(size: fingering-font-size, weight: "regular", str(fng)),
         )
         cur-y += 0.9 * sp   // stack upward for each additional fingering
       }
@@ -327,7 +333,7 @@
               content(
                 (x, cur-y),
                 anchor: "north",
-                text(size: 7pt, weight: "regular", str(f)),
+                text(size: fingering-font-size, weight: "regular", str(f)),
               )
             }
           }
@@ -432,7 +438,7 @@
               content(
                 (x, cur-y),
                 anchor: "north",
-                text(size: 7pt, weight: "regular", str(f)),
+                text(size: fingering-font-size, weight: "regular", str(f)),
               )
             }
           }
@@ -542,14 +548,14 @@
       content(
         (mid-x, num-y),
         anchor: "south",
-        text(size: 7.5pt, weight: "regular", style: "italic", str(tn)),
+        text(size: tuplet-font-size, weight: "regular", style: "italic", str(tn)),
       )
     } else {
       let num-y = bracket-y - num-offset
       content(
         (mid-x, num-y),
         anchor: "north",
-        text(size: 7.5pt, weight: "regular", style: "italic", str(tn)),
+        text(size: tuplet-font-size, weight: "regular", style: "italic", str(tn)),
       )
     }
   }
