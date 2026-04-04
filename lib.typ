@@ -243,6 +243,7 @@
   title: none,
   composer: none,
   staff-size: default-staff-space,
+  system-spacing: 12mm,
   width: auto,
   measures-per-line: none,
 ) = {
@@ -253,6 +254,7 @@
     title: title,
     composer: composer,
     staff-size: staff-size,
+    system-spacing: system-spacing,
     width: width,
     measures-per-line: measures-per-line,
   )
