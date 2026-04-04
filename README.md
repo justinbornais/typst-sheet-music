@@ -85,8 +85,8 @@ The primary entry point. Renders one or more staves with full layout control.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `staves` | array | `()` | Array of staff dicts (see below) |
-| `key` | string | `"C"` | Key signature (`"C"`, `"G"`, `"D"`, `"Bb"`, `"f#"`, etc.) |
-| `time` | string | `"4/4"` | Time signature (`"4/4"`, `"3/4"`, `"6/8"`, `"C"`, `"C\|"`) |
+| `key` | string | `none` | Key signature (`"C"`, `"G"`, `"D"`, `"Bb"`, `"f#"`, etc.) |
+| `time` | string | `none` | Time signature (`"4/4"`, `"3/4"`, `"6/8"`, `"C"`, `"C\|"`) |
 | `title` | string | `none` | Piece title |
 | `subtitle` | string | `none` | Subtitle |
 | `composer` | string | `none` | Composer name |
@@ -103,7 +103,7 @@ The primary entry point. Renders one or more staves with full layout control.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `clef` | string | `"treble"` | `"treble"`, `"bass"`, `"alto"`, `"tenor"`, `"treble-8"`, `"percussion"` |
+| `clef` | string | `none` | `"treble"`, `"bass"`, `"alto"`, `"tenor"`, `"treble-8"`, `"percussion"`; if `none`, no clef glyph is drawn (treble mapping is used for internal staff-position calculations) |
 | `music` | string | `""` | Music string (see syntax above) |
 | `fingering-position` | string | `"above"` | Default fingering position: `"above"` or `"below"` |
 
@@ -127,9 +127,9 @@ Convenience wrapper for a single-staff score.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `music` | string | `""` | Music string |
-| `key` | string | `"C"` | Key signature |
-| `time` | string | `"4/4"` | Time signature |
-| `clef` | string | `"treble"` | Clef |
+| `key` | string | `none` | Key signature (if `none`, no key glyph is drawn) |
+| `time` | string | `none` | Time signature (if `none`, no time glyph is drawn) |
+| `clef` | string | `none` | Clef (if `none`, no clef glyph is drawn; treble mapping used for positions) |
 | `title` | string | `none` | Title |
 | `composer` | string | `none` | Composer |
 | `staff-size` | length | `1.75mm` | Staff space |
