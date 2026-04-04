@@ -29,9 +29,13 @@
 /// each +1 = one half-space downward.
 /// Notes above the staff have negative positions.
 /// Notes below the staff have positions > 8.
-#let staff-position(name, octave, clef: "treble") = {
+#let staff-position(name, octave, clef: none) = {
+  // Accept `clef` possibly `none`. When no clef was provided, use
+  // treble mapping for layout calculations but do not assume a
+  // glyph will be drawn by the renderer.
+  let used = if clef == none { "treble" } else { clef }
   let diatonic = pitch-to-diatonic(name, octave)
-  let config = clef-config.at(clef)
+  let config = clef-config.at(used)
   config.top-line-diatonic - diatonic
 }
 

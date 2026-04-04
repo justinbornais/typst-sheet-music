@@ -12,6 +12,10 @@
 
 /// Parse a time signature string like "4/4", "3/4", "6/8" into (upper, lower, symbol).
 #let parse-time-sig(ts) = {
+  // If `ts` is omitted or explicitly `none`, return `none` to indicate
+  // that no time signature should be rendered.
+  if ts == none { return none }
+
   if ts == "C" or ts == "c" {
     (upper: 4, lower: 4, symbol: "common")
   } else if ts == "C|" or ts == "c|" {
@@ -22,8 +26,8 @@
     if parts.len() == 2 {
       (upper: int(parts.at(0).trim()), lower: int(parts.at(1).trim()), symbol: none)
     } else {
-      // Default fallback
-      (upper: 4, lower: 4, symbol: none)
+      // Unknown string → no explicit time signature
+      none
     }
   }
 }
@@ -61,7 +65,7 @@
   lyrics: (),
   chords: (),
   key: "C",
-  time: "4/4",
+  time: none,
   tempo: none,
   title: none,
   subtitle: none,
@@ -87,7 +91,7 @@
   // Parse music for each staff
   let staves-events = staves.map(s => {
     let music-str = s.at("music", default: "")
-    let clef-name = s.at("clef", default: "treble")
+    let clef-name = s.at("clef", default: none)
     let base-oct = if clef-name == "bass" { 3 } else { 4 }
     parse-music(music-str, base-octave: base-oct)
   })
@@ -95,7 +99,8 @@
   // Internal helper: compute prefix width in staff-space units for a given system
   let prefix-width-sp(sp-unit, clef-name, show-time) = {
     let pf = 0.5 // left margin
-    pf += clef-advance(clef-name: clef-name, sp: 1.0)
+    // Only include clef advance when an explicit clef is present.
+    if clef-name != none { pf += clef-advance(clef-name: clef-name, sp: 1.0) }
     pf += key-sig-advance(key, sp: 1.0)
     if show-time {
       pf += time-sig-advance(ts.upper, ts.lower, symbol: ts.symbol, sp: 1.0)
@@ -109,8 +114,10 @@
     let sp-unit = staff-size / 1mm
 
     // System-break decisions are driven by the first staff.
-    let first-clef = staves.at(0).at("clef", default: "treble")
-    let prefix-first = prefix-width-sp(sp-unit, first-clef, true)
+    let first-clef = staves.at(0).at("clef", default: none)
+    // If no time signature was specified, do not include it in the prefix width.
+    let show_time_prefix = ts != none
+    let prefix-first = prefix-width-sp(sp-unit, first-clef, show_time_prefix)
     let prefix-cont  = prefix-width-sp(sp-unit, first-clef, false)
     let first-avail  = if avail-width-mm != none { avail-width-mm / sp-unit - prefix-first - 1.0 } else { none }
     let cont-avail   = if avail-width-mm != none { avail-width-mm / sp-unit - prefix-cont  - 1.0 } else { none }
@@ -188,7 +195,7 @@
       // Lay out each staff for this system
       let laid-out-staves = ()
       for si in range(staves.len()) {
-        let clef = staves.at(si).at("clef", default: "treble")
+        let clef = staves.at(si).at("clef", default: none)
         let sys-evs = if sys-idx < systems-events-per-staff.at(si).len() {
           systems-events-per-staff.at(si).at(sys-idx)
         } else { () }
@@ -203,9 +210,9 @@
       render-score(
         laid-out-staves,
         key: key,
-        time-upper: ts.upper,
-        time-lower: ts.lower,
-        time-symbol: ts.symbol,
+        time-upper: if ts != none { ts.upper } else { none },
+        time-lower: if ts != none { ts.lower } else { none },
+        time-symbol: if ts != none { ts.symbol } else { none },
         sp: staff-size,
         width: if avail-width-mm != none { avail-width-mm * 1mm } else { auto },
         staff-spacing: staff-spacing,
@@ -215,7 +222,7 @@
         composer: if is-first { composer } else { none },
         arranger: if is-first { arranger } else { none },
         lyricist: if is-first { lyricist } else { none },
-        show-time: is-first,
+        show-time: is-first and ts != none,
         fingering-positions: staves.map(s => s.at("fingering-position", default: "above")),
       )
       v(system-spacing)
@@ -238,8 +245,8 @@
 #let melody(
   music: "",
   key: "C",
-  time: "4/4",
-  clef: "treble",
+  time: none,
+  clef: none,
   title: none,
   composer: none,
   staff-size: default-staff-space,

@@ -69,14 +69,16 @@
   let positions = ()
   let n = calc.abs(count)
 
+  // If no clef was provided, position accidentals using the treble mapping.
+  let use-clef = if clef-name == none { "treble" } else { clef-name }
   if count > 0 {
     acc-glyph = smufl-accidentals.sharp
     acc-smufl = "accidentalSharp"
-    positions = key-sig-sharp-positions.at(clef-name, default: key-sig-sharp-positions.treble)
+    positions = key-sig-sharp-positions.at(use-clef, default: key-sig-sharp-positions.treble)
   } else {
     acc-glyph = smufl-accidentals.flat
     acc-smufl = "accidentalFlat"
-    positions = key-sig-flat-positions.at(clef-name, default: key-sig-flat-positions.treble)
+    positions = key-sig-flat-positions.at(use-clef, default: key-sig-flat-positions.treble)
   }
 
   let acc-spacing = (advance-width(acc-smufl) + 0.2) * sp
@@ -90,6 +92,9 @@
 
 /// Draw a time signature at the given position (no return value).
 #let draw-time-signature(x, y-top, upper, lower, symbol: none, sp: 1.0) = {
+  // If no explicit time signature was provided, do nothing.
+  if upper == none and symbol == none { return }
+
   if symbol == "common" {
     place-glyph(x, y-top - 2.0 * sp, smufl-time-common, "timeSigCommon", sp)
     return

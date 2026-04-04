@@ -56,3 +56,12 @@
     staff-size: 2.5mm
   )
 ]
+
+== Hot Cross Buns (Melody Only)
+
+#align(center)[
+  #melody(
+    music: "e4n[3] d c2 | e4 d c2 | c8 c c c d d d d | e4 d c2",
+    staff-size: 2.5mm
+  )
+]

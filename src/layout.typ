@@ -21,13 +21,18 @@
 ///   - total-width: total width in staff spaces
 #let layout-staff(
   events,
-  clef: "treble",
+  clef: none,
   staff-space: default-staff-space,
   available-width: none,
 ) = {
   let positions = compute-event-positions(events)
   let items = ()
-  let current-clef = clef
+  // Use `treble` for internal layout calculations when no explicit
+  // initial clef was provided, but remember the original `clef` value
+  // so the renderer can decide whether to draw an opening clef glyph.
+  let initial-clef = clef
+  let layout-clef = if initial-clef == none { "treble" } else { initial-clef }
+  let current-clef = layout-clef
 
   for (i, event) in events.enumerate() {
     let pos-info = positions.at(i)
@@ -98,7 +103,7 @@
   (
     items: items,
     total-width: tw,
-    clef: clef,
+    clef: initial-clef,
   )
 }
 
@@ -113,7 +118,7 @@
 
   for (i, events) in staves-events.enumerate() {
     let config = staves-config.at(i)
-    let clef = config.at("clef", default: "treble")
+    let clef = config.at("clef", default: none)
     let result = layout-staff(
       events,
       clef: clef,

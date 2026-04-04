@@ -58,7 +58,7 @@
   let key-w = 0.0
   let time-w = 0.0
 
-  if show-clef {
+  if show-clef and clef-name != none {
     clef-w = clef-advance(clef-name: clef-name, sp: sp)
   }
   if show-key {
@@ -105,7 +105,7 @@
 
   // Draw clef
   let cx = prefix-x
-  if show-clef {
+  if show-clef and clef-name != none {
     draw-clef(cx, y-top, clef-name, sp: sp)
     cx += clef-w
   }
@@ -616,9 +616,9 @@
   // barlines align horizontally in a grand staff / multi-staff system.
   let shared-music-start-x = laid-out-staves.fold(0.0, (mx, laid-out) => {
     let clef-name = laid-out.clef
-    let clef-w = clef-advance(clef-name: clef-name, sp: unit)
+    let clef-w = if clef-name != none { clef-advance(clef-name: clef-name, sp: unit) } else { 0.0 }
     let key-w = key-sig-advance(key, sp: unit)
-    let time-w = if show-time { time-sig-advance(time-upper, time-lower, symbol: time-symbol, sp: unit) } else { 0.0 }
+    let time-w = if show-time and time-upper != none { time-sig-advance(time-upper, time-lower, symbol: time-symbol, sp: unit) } else { 0.0 }
     let prefix-x = 0.5 * unit
     let msX = prefix-x + clef-w + key-w + time-w + 1.0 * unit
     let first-note = laid-out.items.find(item => item.event.type == "note")
