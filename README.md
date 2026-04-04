@@ -228,6 +228,20 @@ This section documents the inline music-string syntax accepted by `score()`, `me
 - Beams and grouping:
   - Square brackets `[` and `]` can be used to force beam starts/ends when not interpreted as a chord symbol.
 
+- Tuplets:
+  - Syntax: `{n,m:notes}` where `n` is the number of beats the entire tuplet should occupy (used for spacing) and `m` is the number printed on the tuplet bracket (the tuplet count).
+  - `m` may be omitted; when omitted it defaults to the same value as `n`.
+  - Behavior: the contained events are laid out so the whole group occupies `n` beats; the group's width is distributed evenly across the contained events, so individual durations inside the tuplet do not affect its overall spacing.
+  - Examples:
+
+```typ
+// Triplet that spans two beats (prints a "3" above the bracket)
+{2,3:d4 e d}
+
+// Five whole notes that nevertheless take the space of 2 beats
+{2,3:c1 d e f g}
+```
+
 - Grand staff / multi-staff layout:
   - Use the `staves` array passed to `#score` and set `staff-group: "grand"` to request grand-staff rendering (brace and shared barlines).
   - Each staff can set `clef`, `music`, and `fingering-position` (`"above"` or `"below"`). See the full example above for a grand-staff sample.
