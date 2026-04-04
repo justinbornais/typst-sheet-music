@@ -69,7 +69,7 @@
     ),
     (
       clef: "treble-8b",
-      music: "g,4 a, b, c | d2 e2",
+      music: "g4 a b c' | d'2 e'2",
     ),
   ),
   key: "Bb",
