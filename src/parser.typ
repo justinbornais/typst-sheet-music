@@ -21,6 +21,11 @@
   let tuplet-n = none
   let tuplet-m = none
 
+  // Octave-line state: track open "n[a|b]{" blocks (e.g. 8a{...}, 15b{...})
+  let octline-start-idx = none
+  let octline-number = none
+  let octline-dir = none
+
   // Helper: peek at current character (returns none at end)
   let peek(p) = {
     if p < len { input.at(p) } else { none }
@@ -742,6 +747,29 @@
       continue
     }
 
+    // --- Octave-line start: "<number>a{" or "<number>b{" ---
+    // Examples: 8a{ ... }  15b{ ... }
+    if is-digit(ch) {
+      let p = pos
+      let nstr = ""
+      while p < len and is-digit(input.at(p)) { nstr += input.at(p); p += 1 }
+      if nstr.len() > 0 and p < len {
+        let suf = input.at(p)
+        if suf == "a" or suf == "b" {
+          // Allow optional whitespace between suffix and "{"
+          let q = p + 1
+          while q < len and (input.at(q) == " " or input.at(q) == "\t") { q += 1 }
+          if q < len and input.at(q) == "{" {
+            octline-start-idx = events.len()
+            octline-number = int(nstr)
+            octline-dir = if suf == "a" { "above" } else { "below" }
+            pos = q + 1
+            continue
+          }
+        }
+      }
+    }
+
     // --- Tuplet end: "}" ---
     if ch == "}" {
       if tuplet-start-idx != none {
@@ -757,6 +785,19 @@
         tuplet-start-idx = none
         tuplet-n = none
         tuplet-m = none
+      }
+      // Also allow closing octave-line blocks (started with e.g. 8a{ )
+      else if octline-start-idx != none {
+        let end-idx = events.len()
+        for i in range(octline-start-idx, end-idx) {
+          events.at(i).octave-line-number = octline-number
+          events.at(i).octave-line-direction = octline-dir
+          if i == octline-start-idx { events.at(i).octave-line-start = true }
+          if i == end-idx - 1 { events.at(i).octave-line-end = true }
+        }
+        octline-start-idx = none
+        octline-number = none
+        octline-dir = none
       }
       pos += 1
       continue

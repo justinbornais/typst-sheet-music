@@ -560,6 +560,149 @@
     }
   }
 
+  // ── Find octave-line groups (from octave-line markers) ────────────────
+  let octave-groups = ()
+  let cur-oct-indices = ()
+  for (i, item) in items.enumerate() {
+    let ev = item.event
+    if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+      let on = ev.at("octave-line-number", default: 0)
+      if on > 0 {
+        if cur-oct-indices.len() == 0 { cur-oct-indices = (i,) } else { cur-oct-indices.push(i) }
+      } else {
+        if cur-oct-indices.len() > 0 {
+          let first = cur-oct-indices.first()
+          let last = cur-oct-indices.last()
+          let number = items.at(first).event.at("octave-line-number", default: 0)
+          let direction = items.at(first).event.at("octave-line-direction", default: "above")
+          let starts_here = items.at(first).event.at("octave-line-start", default: false)
+          let ends_here = items.at(last).event.at("octave-line-end", default: false)
+          octave-groups.push((indices: cur-oct-indices, number: number, direction: direction, starts_here: starts_here, ends_here: ends_here))
+          cur-oct-indices = ()
+        }
+      }
+    } else {
+      if cur-oct-indices.len() > 0 {
+        let first = cur-oct-indices.first()
+        let last = cur-oct-indices.last()
+        let number = items.at(first).event.at("octave-line-number", default: 0)
+        let direction = items.at(first).event.at("octave-line-direction", default: "above")
+        let starts_here = items.at(first).event.at("octave-line-start", default: false)
+        let ends_here = items.at(last).event.at("octave-line-end", default: false)
+        octave-groups.push((indices: cur-oct-indices, number: number, direction: direction, starts_here: starts_here, ends_here: ends_here))
+        cur-oct-indices = ()
+      }
+    }
+  }
+  if cur-oct-indices.len() > 0 {
+    let first = cur-oct-indices.first()
+    let last = cur-oct-indices.last()
+    let number = items.at(first).event.at("octave-line-number", default: 0)
+    let direction = items.at(first).event.at("octave-line-direction", default: "above")
+    let starts_here = items.at(first).event.at("octave-line-start", default: false)
+    let ends_here = items.at(last).event.at("octave-line-end", default: false)
+    octave-groups.push((indices: cur-oct-indices, number: number, direction: direction, starts_here: starts_here, ends_here: ends_here))
+  }
+
+  // ── Draw octave lines ─────────────────────────────────────────────────
+  // Helper: draw a dashed horizontal line from x0 to x1 at y
+  let draw-dashed = (x0, x1, y) => {
+    let dash = 1.2 * sp
+    let gap = 0.8 * sp
+    let cur = x0
+    while cur < x1 {
+      let seg_end = calc.min(cur + dash, x1)
+      line((cur, y), (seg_end, y), stroke: (thickness: 0.12 * sp * 1mm, paint: black))
+      cur += dash + gap
+    }
+  }
+
+  for og in octave-groups {
+    let indices = og.indices
+    if indices.len() == 0 { continue }
+    let number = og.number
+    let direction = og.direction
+    let starts_here = og.starts_here
+    let ends_here = og.ends_here
+
+    let xs = indices.map(idx => item-xs.at(idx))
+    let x-first = xs.first()
+    let x-last = xs.last()
+    let x0 = if starts_here { x-first } else { music-start-x }
+    let x1 = if ends_here { x-last } else { total-width * sp - 1.0 * sp }
+
+    // Compute bracket Y (above or below content)
+    if direction == "above" {
+      let elem-ys = indices.map(idx => {
+        let override = adj-stem-ends.at(str(idx), default: none)
+        if override != none { y-top + override * sp }
+        else if items.at(idx).stem-y-end != none { y-top + items.at(idx).stem-y-end * sp }
+        else { y-top }
+      })
+      let top-y = elem-ys.fold(elem-ys.first(), calc.max)
+      let bracket-y = top-y + 1.6 * sp
+      let tick-len = 0.45 * sp
+
+      // Draw dashed main line
+      draw-dashed(x0, x1, bracket-y)
+
+      // Draw end ticks only at true start/end of the whole octave block
+      if starts_here {
+        line((x0, bracket-y), (x0, bracket-y - tick-len), stroke: (thickness: 0.12 * sp * 1mm, paint: black))
+      }
+      if ends_here {
+        line((x1, bracket-y), (x1, bracket-y - tick-len), stroke: (thickness: 0.12 * sp * 1mm, paint: black))
+      }
+
+      // Draw label only at the true start of the octave block
+      if starts_here {
+        let suffix = if number == 15 { "ma" } else { "va" }
+        let label-main-x = x0 + 0.3 * sp
+        let label-main-y = bracket-y + 0.45 * sp
+        let num-digits = str(number).len()
+        let suffix-x-offset = if num-digits > 1 { 1.3 * sp } else { 0.8 * sp }
+        let suffix-y-offset = 0.40 * sp
+        content((label-main-x, label-main-y), anchor: "south", text(size: tuplet-font-size, weight: "bold", str(str(number))))
+        content((label-main-x + suffix-x-offset, label-main-y + suffix-y-offset), anchor: "south", text(size: 0.55 * tuplet-font-size, weight: "bold", str(suffix)))
+      }
+
+    } else {
+      // below
+      let elem-ys = indices.map(idx => {
+        let override = adj-stem-ends.at(str(idx), default: none)
+        if override != none { y-top + override * sp }
+        else if items.at(idx).stem-y-end != none { y-top + items.at(idx).stem-y-end * sp }
+        else { y-bottom }
+      })
+      let bot-y = elem-ys.fold(elem-ys.first(), calc.min)
+      let bracket-y = bot-y - 1.6 * sp
+      let tick-len = 0.45 * sp
+
+      // Draw dashed main line
+      draw-dashed(x0, x1, bracket-y)
+
+      // Draw end ticks only at true start/end of the whole octave block
+      if starts_here {
+        line((x0, bracket-y), (x0, bracket-y + tick-len), stroke: (thickness: 0.12 * sp * 1mm, paint: black))
+      }
+      if ends_here {
+        line((x1, bracket-y), (x1, bracket-y + tick-len), stroke: (thickness: 0.12 * sp * 1mm, paint: black))
+      }
+
+      // Draw label only at the true start of the octave block
+      if starts_here {
+        let suffix = if number == 15 { "mb" } else { "vb" }
+        let label-main-x = x0 + 0.3 * sp
+        let label-main-y = bracket-y - 0.45 * sp
+        let num-digits = str(number).len()
+        let suffix-x-offset = if num-digits > 1 { 1.3 * sp } else { 0.8 * sp }
+        let suffix-y-offset = -0 * sp
+        content((label-main-x, label-main-y), anchor: "north", text(size: tuplet-font-size, weight: "bold", str(str(number))))
+        content((label-main-x + suffix-x-offset, label-main-y + suffix-y-offset), anchor: "north", text(size: 0.55 * tuplet-font-size, weight: "bold", str(suffix)))
+      }
+    }
+  }
+
   // ── Draw ties and slurs ──────────────────────────────────────────────────
   draw-ties-and-slurs(items, item-xs, y-top, sp: sp, adj-stem-dirs: adj-stem-dirs)
 }

@@ -42,6 +42,10 @@
   tuplet-count: 0,
   tuplet-start: false,
   tuplet-end: false,
+  octave-line-number: 0,
+  octave-line-direction: none,
+  octave-line-start: false,
+  octave-line-end: false,
 ) = (
   type: "note",
   name: name,
@@ -64,6 +68,10 @@
   tuplet-count: tuplet-count,
   tuplet-start: tuplet-start,
   tuplet-end: tuplet-end,
+  octave-line-number: octave-line-number,
+  octave-line-direction: octave-line-direction,
+  octave-line-start: octave-line-start,
+  octave-line-end: octave-line-end,
 )
 
 /// Create a rest event.
@@ -75,6 +83,10 @@
   tuplet-count: 0,
   tuplet-start: false,
   tuplet-end: false,
+  octave-line-number: 0,
+  octave-line-direction: none,
+  octave-line-start: false,
+  octave-line-end: false,
 ) = (
   type: "rest",
   duration: duration,
@@ -84,6 +96,10 @@
   tuplet-count: tuplet-count,
   tuplet-start: tuplet-start,
   tuplet-end: tuplet-end,
+  octave-line-number: octave-line-number,
+  octave-line-direction: octave-line-direction,
+  octave-line-start: octave-line-start,
+  octave-line-end: octave-line-end,
 )
 
 /// Create a spacer (invisible rest) event.
@@ -172,6 +188,10 @@
   tuplet-count: 0,
   tuplet-start: false,
   tuplet-end: false,
+  octave-line-number: 0,
+  octave-line-direction: none,
+  octave-line-start: false,
+  octave-line-end: false,
 ) = (
   type: "chord",
   notes: notes,
@@ -192,6 +212,10 @@
   tuplet-count: tuplet-count,
   tuplet-start: tuplet-start,
   tuplet-end: tuplet-end,
+  octave-line-number: octave-line-number,
+  octave-line-direction: octave-line-direction,
+  octave-line-start: octave-line-start,
+  octave-line-end: octave-line-end,
 )
 
 // --- Staff description ---
