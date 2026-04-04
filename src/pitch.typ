@@ -30,10 +30,25 @@
 /// Notes above the staff have negative positions.
 /// Notes below the staff have positions > 8.
 #let staff-position(name, octave, clef: none) = {
-  // Accept `clef` possibly `none`. When no clef was provided, use
-  // treble mapping for layout calculations but do not assume a
-  // glyph will be drawn by the renderer.
-  let used = if clef == none { "treble" } else { clef }
+  // Accept `clef` possibly `none`. Map variant clef names (8va/8vb, 15ma/15mb)
+  // to their base clef for internal layout so note positions are stable
+  // regardless of the visual clef glyph used.
+  let used = if clef == none { "treble" } else {
+    let map = (
+      // treble variants → treble
+      "treble-8a": "treble", "treble8a": "treble",
+      "treble-8b": "treble", "treble8b": "treble",
+      "treble-15a": "treble", "treble15a": "treble",
+      "treble-15b": "treble", "treble15b": "treble",
+      // bass variants → bass
+      "bass-8a": "bass", "bass8a": "bass",
+      "bass-8b": "bass", "bass8b": "bass",
+      "bass-15a": "bass", "bass15a": "bass",
+      "bass-15b": "bass", "bass15b": "bass",
+    )
+    let m = map.at(clef, default: none)
+    if m == none { clef } else { m }
+  }
   let diatonic = pitch-to-diatonic(name, octave)
   let config = clef-config.at(used)
   config.top-line-diatonic - diatonic

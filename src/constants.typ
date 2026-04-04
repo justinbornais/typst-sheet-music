@@ -14,8 +14,26 @@
   bass: "\u{E062}",
   alto: "\u{E05C}",
   tenor: "\u{E05C}",       // Same glyph as alto, positioned differently
-  treble-8: "\u{E052}",    // gClef8vb
-  treble8: "\u{E052}",     // alias
+  // Octave-clefs (8va / 8vb) - 'a' = alta (8 above), 'b' = bassa (8 below)
+  treble-8a: "\u{E053}",   // gClef8va
+  treble8a: "\u{E053}",    // alias
+  treble-8b: "\u{E052}",   // gClef8vb (previously treble-8)
+  treble8b: "\u{E052}",    // alias
+  bass-8a: "\u{E065}",     // fClef8va
+  bass8a: "\u{E065}",      // alias
+  bass-8b: "\u{E064}",     // fClef8vb
+  bass8b: "\u{E064}",      // alias
+
+  // Quindicesima clefs (15ma / 15mb) - two-octave variants
+  treble-15a: "\u{E054}",  // gClef15ma
+  treble-15b: "\u{E051}",  // gClef15mb
+  bass-15a: "\u{E066}",    // fClef15ma
+  bass-15b: "\u{E063}",    // fClef15mb
+
+  // Backwards-compatible aliases for older names
+  treble-8: "\u{E052}",    // alias → treble-8b
+  treble8: "\u{E052}",
+
   percussion: "\u{E069}",
 )
 
@@ -149,15 +167,71 @@
     glyph: "\u{E05C}",
     glyph-y-offset: 4,      // Anchor at C4 (4th line from bottom = 2nd from top => pos 2)... but tenor has C4 at pos 2
   ),
-  treble-8: (
-    top-line-diatonic: 31,  // F4 = 3 + 4*7 (one octave below treble)
+  // Octave clefs (8va/8vb) - adjust top-line diatonic to shift staff mapping
+  // Variants should NOT change internal pitch-to-staff mapping; keep the
+  // same top-line diatonic as the base clef so note positions remain stable.
+  treble-8a: (
+    top-line-diatonic: 38,
+    glyph: "\u{E053}",
+    glyph-y-offset: 3,
+  ),
+  treble8a: (
+    top-line-diatonic: 38,
+    glyph: "\u{E053}",
+    glyph-y-offset: 3,
+  ),
+  treble-8b: (
+    top-line-diatonic: 38,
     glyph: "\u{E052}",
     glyph-y-offset: 3,
   ),
-  treble8: (
-    top-line-diatonic: 31,
+  treble8b: (
+    top-line-diatonic: 38,
     glyph: "\u{E052}",
     glyph-y-offset: 3,
+  ),
+
+  bass-8a: (
+    top-line-diatonic: 26,
+    glyph: "\u{E065}",
+    glyph-y-offset: 1,
+  ),
+  bass8a: (
+    top-line-diatonic: 26,
+    glyph: "\u{E065}",
+    glyph-y-offset: 1,
+  ),
+  bass-8b: (
+    top-line-diatonic: 26,
+    glyph: "\u{E064}",
+    glyph-y-offset: 1,
+  ),
+  bass8b: (
+    top-line-diatonic: 26,
+    glyph: "\u{E064}",
+    glyph-y-offset: 1,
+  ),
+
+  // Quindicesima clefs (15ma/15mb) — two-octave variants, but keep base mapping
+  treble-15a: (
+    top-line-diatonic: 38,
+    glyph: "\u{E054}",
+    glyph-y-offset: 3,
+  ),
+  treble-15b: (
+    top-line-diatonic: 38,
+    glyph: "\u{E051}",
+    glyph-y-offset: 3,
+  ),
+  bass-15a: (
+    top-line-diatonic: 26,
+    glyph: "\u{E066}",
+    glyph-y-offset: 1,
+  ),
+  bass-15b: (
+    top-line-diatonic: 26,
+    glyph: "\u{E063}",
+    glyph-y-offset: 1,
   ),
   percussion: (
     top-line-diatonic: 38,  // Same as treble (arbitrary)
@@ -191,8 +265,12 @@
   bass:     (2, 5, 1, 4, 7, 3, 6),
   alto:     (1, 4, 0, 3, 6, 2, 5),
   tenor:    (3, 6, 2, 5, 1, 4, 7),
-  treble-8: (0, 3, -1, 2, 5, 1, 4),
-  treble8:  (0, 3, -1, 2, 5, 1, 4),
+  treble-8a: (0, 3, -1, 2, 5, 1, 4),
+  treble8a:  (0, 3, -1, 2, 5, 1, 4),
+  treble-8b: (0, 3, -1, 2, 5, 1, 4),
+  treble8b:  (0, 3, -1, 2, 5, 1, 4),
+  treble-15a: (0, 3, -1, 2, 5, 1, 4),
+  treble-15b: (0, 3, -1, 2, 5, 1, 4),
   percussion: (0, 3, -1, 2, 5, 1, 4),
 )
 
@@ -201,8 +279,12 @@
   bass:     (6, 3, 7, 4, 8, 5, 2),
   alto:     (5, 2, 6, 3, 7, 4, 1),
   tenor:    (7, 4, 1, 5, 2, 6, 3),
-  treble-8: (4, 1, 5, 2, 6, 3, 7),
-  treble8:  (4, 1, 5, 2, 6, 3, 7),
+  treble-8a: (4, 1, 5, 2, 6, 3, 7),
+  treble8a:  (4, 1, 5, 2, 6, 3, 7),
+  treble-8b: (4, 1, 5, 2, 6, 3, 7),
+  treble8b:  (4, 1, 5, 2, 6, 3, 7),
+  treble-15a: (4, 1, 5, 2, 6, 3, 7),
+  treble-15b: (4, 1, 5, 2, 6, 3, 7),
   percussion: (4, 1, 5, 2, 6, 3, 7),
 )
 
@@ -241,6 +323,21 @@
   bass: "fClef",
   alto: "cClef",
   tenor: "cClef",
+  // 8va / 8vb glyph name mappings
+  treble-8a: "gClef8va",
+  treble8a: "gClef8va",
+  treble-8b: "gClef8vb",
+  treble8b: "gClef8vb",
+  bass-8a: "fClef8va",
+  bass8a: "fClef8va",
+  bass-8b: "fClef8vb",
+  bass8b: "fClef8vb",
+  // 15ma / 15mb
+  treble-15a: "gClef15ma",
+  treble-15b: "gClef15mb",
+  bass-15a: "fClef15ma",
+  bass-15b: "fClef15mb",
+  // Backwards-compatible aliases
   treble-8: "gClef8vb",
   treble8: "gClef8vb",
   percussion: "unpitchedPercussionClef1",
@@ -256,6 +353,21 @@
   bass: 1.0,
   alto: 2.0,
   tenor: 1.0,
+  // 8va / 8vb use the same visual anchor offsets as the base clefs
+  treble-8a: 3.0,
+  treble8a: 3.0,
+  treble-8b: 3.0,
+  treble8b: 3.0,
+  bass-8a: 1.0,
+  bass8a: 1.0,
+  bass-8b: 1.0,
+  bass8b: 1.0,
+  // 15ma / 15mb
+  treble-15a: 3.0,
+  treble-15b: 3.0,
+  bass-15a: 1.0,
+  bass-15b: 1.0,
+  // Backwards-compat
   treble-8: 3.0,
   treble8: 3.0,
   percussion: 2.0,

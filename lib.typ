@@ -38,7 +38,7 @@
 ///
 /// Parameters:
 /// - staves: array of staff dictionaries, each with:
-///     - clef: "treble", "bass", "alto", "tenor", "treble-8", "percussion"
+///     - clef: "treble", "bass", "alto", "tenor", "treble-8a", "treble-8b", "treble-15a", "treble-15b", "bass-8a", "bass-8b", "bass-15a", "bass-15b", "percussion"
 ///     - music: music string (see syntax reference)
 ///     - label: optional staff label
 /// - lyrics: array of lyric dictionaries (not yet implemented)

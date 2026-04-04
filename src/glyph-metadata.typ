@@ -84,7 +84,8 @@
 /// - glyph-char: the Unicode character(s) to render
 /// - glyph-name: the SMuFL glyph name for looking up bbox in metadata
 /// - sp: staff-space size (dimensionless mm number)
-#let place-glyph(x, y, glyph-char, glyph-name, sp) = {
+/// - clamp-to-staff: if true, clamp vertical bbox to staff height (±4 sp) to prevent tall glyphs from creating extra space
+#let place-glyph(x, y, glyph-char, glyph-name, sp, clamp-to-staff: false) = {
   import cetz.draw: *
   let fsize = 4.0 * sp * 1mm
   let bb = bbox(glyph-name)
@@ -97,12 +98,23 @@
     )
     return
   }
+  
+  // Optionally clamp bounding box to staff height
+  let bb-to-use = if clamp-to-staff {
+    (
+      sw: (x: bb.sw.x, y: calc.max(bb.sw.y, -4.0)),
+      ne: (x: bb.ne.x, y: calc.min(bb.ne.y, 4.0)),
+    )
+  } else {
+    bb
+  }
+  
   // Offset so glyph origin lands at (x, y):
   // The "bounds" text box's SW corner corresponds to glyph ink's SW corner,
   // which is at (sw.x, sw.y) in staff-space units from the glyph origin.
   // So we place the box's SW corner at (x + sw.x*sp, y + sw.y*sp).
-  let px = x + bb.sw.x * sp
-  let py = y + bb.sw.y * sp
+  let px = x + bb-to-use.sw.x * sp
+  let py = y + bb-to-use.sw.y * sp
   content(
     (px, py),
     anchor: "south-west",

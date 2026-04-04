@@ -103,7 +103,7 @@ The primary entry point. Renders one or more staves with full layout control.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `clef` | string | `none` | `"treble"`, `"bass"`, `"alto"`, `"tenor"`, `"treble-8"`, `"percussion"`; if `none`, no clef glyph is drawn (treble mapping is used for internal staff-position calculations) |
+| `clef` | string | `none` | `"treble"`, `"bass"`, `"alto"`, `"tenor"`, `"treble-8a"`, `"treble-8b"`, `"treble-15a"`, `"treble-15b"`, `"bass-8a"`, `"bass-8b"`, `"bass-15a"`, `"bass-15b"`, `"percussion"`; if `none`, no clef glyph is drawn (treble mapping is used for internal staff-position calculations) |
 | `music` | string | `""` | Music string (see syntax above) |
 | `fingering-position` | string | `"above"` | Default fingering position: `"above"` or `"below"` |
 
@@ -198,7 +198,14 @@ The following clefs are supported and will render with proper key signature posi
 | `"bass"` | Bass clef (F3) | Cello, tuba, left hand on piano |
 | `"alto"` | Alto clef (C4 middle line) | Viola, trombone |
 | `"tenor"` | Tenor clef (C4 2nd line) | Bassoon, trombone, cello (sometimes) |
-| `"treble-8"` | Treble clef 8va basso | Guitar (sounds 1 octave lower) |
+| `"treble-8a"` | Treble clef 8va (ottava alta) | Notation with an '8' above the clef (sounds an octave higher) |
+| `"treble-8b"` | Treble clef 8vb (ottava bassa) | Notation with an '8' below the clef (sounds an octave lower) |
+| `"treble-15a"` | Treble clef 15ma (quindicesima alta) | Two-octave alta clef variant |
+| `"treble-15b"` | Treble clef 15mb (quindicesima bassa) | Two-octave bassa clef variant |
+| `"bass-8a"` | Bass clef 8va (ottava alta) | Bass clef with 8 above (sounds an octave higher) |
+| `"bass-8b"` | Bass clef 8vb (ottava bassa) | Bass clef with 8 below (sounds an octave lower) |
+| `"bass-15a"` | Bass clef 15ma | Two-octave alta bass clef |
+| `"bass-15b"` | Bass clef 15mb | Two-octave bassa bass clef |
 | `"percussion"` | Unpitched percussion clef | Percussion instruments |
 
 When specifying a staff, use the clef name in the staff dictionary:

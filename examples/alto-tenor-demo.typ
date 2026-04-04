@@ -23,8 +23,8 @@
       ",
     ),
   ),
-  key: "G",
-  time: "common",
+  key: "Cb",
+  time: "C",
 )
 
 // Test cut time in tenor clef
@@ -36,7 +36,7 @@
       music: "c4 d e f | g a b c'",
     ),
   ),
-  key: "D",
+  key: "C#",
   time: "cut",
 )
 
@@ -60,7 +60,7 @@
 
 // Multi-staff example with different clefs.
 #score(
-  title: "Grand Staff with Treble/Treble-8",
+  title: "Grand Staff with Treble / Treble-8b",
   staff-group: "grand",
   staves: (
     (
@@ -68,7 +68,7 @@
       music: "e4 f g a | b2 c'2",
     ),
     (
-      clef: "treble-8",
+      clef: "treble-8b",
       music: "g,4 a, b, c | d2 e2",
     ),
   ),
