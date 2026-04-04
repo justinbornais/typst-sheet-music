@@ -187,23 +187,21 @@
   // ── Find tuplet groups (from tuplet-start / tuplet-end flags) ────────────
   let tuplet-groups = ()
   let cur-tup-indices = ()
-  let cur-tup-n = 1
-  let cur-tup-m = 1
+  let cur-tup-number = 0
   for (i, item) in items.enumerate() {
     let ev = item.event
     if ev.type == "note" or ev.type == "rest" or ev.type == "chord" {
-      let tn = ev.at("tuplet-n", default: 1)
-      if tn > 1 {
-        let tm = ev.at("tuplet-m", default: 1)
+      let tb = ev.at("tuplet-beats", default: 0)
+      if tb > 0 {
+        let tn = ev.at("tuplet-number", default: 0)
         if ev.at("tuplet-start", default: false) {
           cur-tup-indices = (i,)
-          cur-tup-n = tn
-          cur-tup-m = tm
+          cur-tup-number = tn
         } else if cur-tup-indices.len() > 0 {
           cur-tup-indices.push(i)
         }
         if ev.at("tuplet-end", default: false) and cur-tup-indices.len() > 0 {
-          tuplet-groups.push((indices: cur-tup-indices, n: cur-tup-n, m: cur-tup-m))
+          tuplet-groups.push((indices: cur-tup-indices, number: cur-tup-number))
           cur-tup-indices = ()
         }
       }
@@ -494,7 +492,7 @@
   // ── Draw tuplet brackets ─────────────────────────────────────────────────
   for tup in tuplet-groups {
     let indices = tup.indices
-    let tn = tup.n
+    let tn = tup.number
     if indices.len() == 0 { continue }
 
     // Collect x positions and stem ends for the tuplet notes
@@ -536,14 +534,24 @@
       (x-last, bracket-y), (x-last, bracket-y + tick-dir * tick-len),
       stroke: (thickness: 0.12 * sp * 1mm, paint: black),
     )
-    // Tuplet number centered on bracket
+    // Tuplet number centered on bracket, slightly offset from the bracket line
     let mid-x = (x-first + x-last) / 2.0
-    let num-anchor = if stem-dir == "up" { "south" } else { "north" }
-    content(
-      (mid-x, bracket-y),
-      anchor: num-anchor,
-      text(size: 7pt, weight: "regular", style: "italic", str(tn)),
-    )
+    let num-offset = 0.25 * sp
+    if stem-dir == "up" {
+      let num-y = bracket-y + num-offset
+      content(
+        (mid-x, num-y),
+        anchor: "south",
+        text(size: 7.5pt, weight: "regular", style: "italic", str(tn)),
+      )
+    } else {
+      let num-y = bracket-y - num-offset
+      content(
+        (mid-x, num-y),
+        anchor: "north",
+        text(size: 7.5pt, weight: "regular", style: "italic", str(tn)),
+      )
+    }
   }
 
   // ── Draw ties and slurs ──────────────────────────────────────────────────

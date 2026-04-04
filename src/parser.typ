@@ -705,41 +705,39 @@
       continue
     }
 
-    // --- Tuplet start: "{n" or "{n:m" ---
+    // --- Tuplet start: "{n,m:" ---
+    // n = number of beats this tuplet occupies for spacing
+    // m = the tuplet number displayed on the bracket
     if ch == "{" {
       pos += 1
       // Skip optional whitespace
       while pos < len and (input.at(pos) == " " or input.at(pos) == "\t") { pos += 1 }
-      // Parse n (required digit string)
+      // Parse n (beats, required digit string)
       let n-str = ""
       while pos < len and is-digit(input.at(pos)) {
         n-str += input.at(pos)
         pos += 1
       }
       if n-str.len() > 0 {
-        let tn = int(n-str)
-        // Parse optional :m
-        let tm = none
-        if pos < len and input.at(pos) == ":" {
+        let tb = int(n-str)  // tuplet-beats
+        let tn = tb           // tuplet-number defaults to beats if not specified
+        // Parse ",m" (required comma then tuplet number)
+        if pos < len and input.at(pos) == "," {
           pos += 1
           let m-str = ""
           while pos < len and is-digit(input.at(pos)) {
             m-str += input.at(pos)
             pos += 1
           }
-          if m-str.len() > 0 { tm = int(m-str) }
+          if m-str.len() > 0 { tn = int(m-str) }
         }
-        if tm == none {
-          // Default m: largest power of 2 strictly less than n
-          let m = 1
-          while m * 2 < tn { m = m * 2 }
-          tm = m
-        }
+        // Skip colon separator
+        if pos < len and input.at(pos) == ":" { pos += 1 }
         // Skip whitespace after header
         while pos < len and (input.at(pos) == " " or input.at(pos) == "\t") { pos += 1 }
         tuplet-start-idx = events.len()
-        tuplet-n = tn
-        tuplet-m = tm
+        tuplet-n = tn    // tuplet number (displayed)
+        tuplet-m = tb     // tuplet beats (spacing)
       }
       continue
     }
@@ -748,9 +746,11 @@
     if ch == "}" {
       if tuplet-start-idx != none {
         let end-idx = events.len()
+        let count = end-idx - tuplet-start-idx
         for i in range(tuplet-start-idx, end-idx) {
-          events.at(i).tuplet-n = tuplet-n
-          events.at(i).tuplet-m = tuplet-m
+          events.at(i).tuplet-beats = tuplet-m
+          events.at(i).tuplet-number = tuplet-n
+          events.at(i).tuplet-count = count
           if i == tuplet-start-idx { events.at(i).tuplet-start = true }
           if i == end-idx - 1 { events.at(i).tuplet-end = true }
         }

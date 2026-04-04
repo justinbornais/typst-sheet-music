@@ -27,10 +27,14 @@
       let any-acc = event.at("notes", default: ()).any(n => n.at("accidental", default: none) != none)
       if any-acc { w += 0.5 }
     }
-    // Scale width for tuplet notes/rests (e.g. 3 notes in space of 2 → ×2/3)
-    let tn = event.at("tuplet-n", default: 1)
-    let tm = event.at("tuplet-m", default: 1)
-    if tn > 1 { w = w * tm / tn }
+    // Tuplet notes: total group width = width of tuplet-beats, divided among notes
+    let tb = event.at("tuplet-beats", default: 0)
+    let tc = event.at("tuplet-count", default: 0)
+    if tb > 0 and tc > 0 {
+      let equiv-dur = 4.0 / tb
+      let total-w = base-width * duration-spacing-factor(equiv-dur)
+      w = total-w / tc
+    }
     w
   }
 }
@@ -84,9 +88,12 @@
         let dur = ev.at("duration", default: 4)
         let dots = ev.at("dots", default: 0)
         let dur-beats = duration-to-beats(dur, dots: dots)
-        let tn = ev.at("tuplet-n", default: 1)
-        let tm = ev.at("tuplet-m", default: 1)
-        if tn > 1 { dur-beats = dur-beats * tm / tn }
+        // Tuplet: each note advances by tuplet-beats / tuplet-count
+        let tb = ev.at("tuplet-beats", default: 0)
+        let tc = ev.at("tuplet-count", default: 0)
+        if tb > 0 and tc > 0 {
+          dur-beats = tb / tc
+        }
         beat += dur-beats
       } else if ev.type == "barline" {
         beat += barline-epsilon

@@ -37,8 +37,9 @@
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
-  tuplet-n: 1,
-  tuplet-m: 1,
+  tuplet-beats: 0,
+  tuplet-number: 0,
+  tuplet-count: 0,
   tuplet-start: false,
   tuplet-end: false,
 ) = (
@@ -58,8 +59,9 @@
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
-  tuplet-n: tuplet-n,
-  tuplet-m: tuplet-m,
+  tuplet-beats: tuplet-beats,
+  tuplet-number: tuplet-number,
+  tuplet-count: tuplet-count,
   tuplet-start: tuplet-start,
   tuplet-end: tuplet-end,
 )
@@ -68,16 +70,18 @@
 #let make-rest(
   duration: 4,
   dots: 0,
-  tuplet-n: 1,
-  tuplet-m: 1,
+  tuplet-beats: 0,
+  tuplet-number: 0,
+  tuplet-count: 0,
   tuplet-start: false,
   tuplet-end: false,
 ) = (
   type: "rest",
   duration: duration,
   dots: dots,
-  tuplet-n: tuplet-n,
-  tuplet-m: tuplet-m,
+  tuplet-beats: tuplet-beats,
+  tuplet-number: tuplet-number,
+  tuplet-count: tuplet-count,
   tuplet-start: tuplet-start,
   tuplet-end: tuplet-end,
 )
@@ -163,6 +167,11 @@
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
+  tuplet-beats: 0,
+  tuplet-number: 0,
+  tuplet-count: 0,
+  tuplet-start: false,
+  tuplet-end: false,
 ) = (
   type: "chord",
   notes: notes,
@@ -178,6 +187,11 @@
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
+  tuplet-beats: tuplet-beats,
+  tuplet-number: tuplet-number,
+  tuplet-count: tuplet-count,
+  tuplet-start: tuplet-start,
+  tuplet-end: tuplet-end,
 )
 
 // --- Staff description ---
