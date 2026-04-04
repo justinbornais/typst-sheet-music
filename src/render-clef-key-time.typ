@@ -56,8 +56,7 @@
   let origin-offset = clef-origin-offset.at(clef-name, default: 3.0)
   let glyph = clef-config.at(clef-name).glyph
   let origin-y = y-top - origin-offset * sp
-  // Clamp clef glyphs to staff height to prevent tall variants (15ma/15mb) from forcing extra vertical space
-  place-glyph(x, origin-y, glyph, smufl, sp, clamp-to-staff: true)
+  place-glyph(x, origin-y, glyph, smufl, sp)
 }
 
 /// Draw a key signature at the given position (no return value).
