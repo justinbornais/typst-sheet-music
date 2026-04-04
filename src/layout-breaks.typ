@@ -29,7 +29,12 @@
 #let measure-width(events) = {
   let w = 0.0
   for ev in events {
-    w += event-width(ev)
+    // Only rhythmic events contribute to measure width for breaking.
+    let et = ev.type
+    if et == "note" or et == "rest" or et == "spacer" or et == "chord" or et == "barline" {
+      w += event-width(ev)
+    }
+    // non-rhythmic events (clef/key/time) are ignored here
   }
   w
 }
