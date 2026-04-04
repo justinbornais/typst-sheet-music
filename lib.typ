@@ -10,15 +10,15 @@
 #import "src/render-clef-key-time.typ": clef-advance, key-sig-advance, time-sig-advance
 #import "src/constants.typ": default-staff-space
 
-/// Parse a time signature string like "4/4", "3/4", "6/8" into (upper, lower, symbol).
+/// Parse a time signature string like "4/4", "3/4", "6/8", "common", or "cut" into (upper, lower, symbol).
 #let parse-time-sig(ts) = {
   // If `ts` is omitted or explicitly `none`, return `none` to indicate
   // that no time signature should be rendered.
   if ts == none { return none }
 
-  if ts == "C" or ts == "c" {
+  if ts == "C" or ts == "c" or ts == "common" {
     (upper: 4, lower: 4, symbol: "common")
-  } else if ts == "C|" or ts == "c|" {
+  } else if ts == "C|" or ts == "c|" or ts == "cut" {
     (upper: 2, lower: 2, symbol: "cut")
   } else {
     // Parse "N/D" format
@@ -44,7 +44,7 @@
 /// - lyrics: array of lyric dictionaries (not yet implemented)
 /// - chords: array of chord symbol dictionaries (not yet implemented)
 /// - key: key signature string ("C", "G", "D", "Bb", "f#", etc.)
-/// - time: time signature string ("4/4", "3/4", "6/8", "C", "C|")
+/// - time: time signature string ("4/4", "3/4", "6/8", "C"/"common", "C|"/"cut")
 /// - tempo: tempo marking (not yet implemented)
 /// - title: piece title
 /// - subtitle: subtitle

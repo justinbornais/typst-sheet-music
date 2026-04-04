@@ -86,7 +86,7 @@ The primary entry point. Renders one or more staves with full layout control.
 |-----------|------|---------|-------------|
 | `staves` | array | `()` | Array of staff dicts (see below) |
 | `key` | string | `none` | Key signature (`"C"`, `"G"`, `"D"`, `"Bb"`, `"f#"`, etc.) |
-| `time` | string | `none` | Time signature (`"4/4"`, `"3/4"`, `"6/8"`, `"C"`, `"C\|"`) |
+| `time` | string | `none` | Time signature (`"4/4"`, `"3/4"`, `"6/8"`, `"common"`/`"C"`, `"cut"`/`"C|"`) |
 | `title` | string | `none` | Piece title |
 | `subtitle` | string | `none` | Subtitle |
 | `composer` | string | `none` | Composer name |
@@ -184,6 +184,54 @@ Here is the Ode to Joy example demonstrating a grand staff with fingerings, chor
     ),
   ),
 )
+```
+
+## Clefs and Time Signatures
+
+### Supported Clefs
+
+The following clefs are supported and will render with proper key signature positioning:
+
+| Clef | Usage | Common Use |
+|------|-------|-----------|
+| `"treble"` | Default treble clef (G4) | Melody, flute, clarinet, trumpet, violin |
+| `"bass"` | Bass clef (F3) | Cello, tuba, left hand on piano |
+| `"alto"` | Alto clef (C4 middle line) | Viola, trombone |
+| `"tenor"` | Tenor clef (C4 2nd line) | Bassoon, trombone, cello (sometimes) |
+| `"treble-8"` | Treble clef 8va basso | Guitar (sounds 1 octave lower) |
+| `"percussion"` | Unpitched percussion clef | Percussion instruments |
+
+When specifying a staff, use the clef name in the staff dictionary:
+
+```typ
+#score(
+  staves: (
+    (clef: "alto", music: "c4 d e f"),
+    (clef: "tenor", music: "g,4 a b c"),
+  ),
+)
+```
+
+### Time Signatures
+
+Time signatures can be specified as either traditional notation or by name:
+
+| Input | Result | Meaning |
+|-------|--------|---------|
+| `"4/4"` | Standard 4/4 | Four quarter notes per measure |
+| `"3/4"` | Waltz time | Three quarter notes per measure |
+| `"6/8"` | Compound duple | Six eighth notes per measure |
+| `"2/2"` | Cut time (alla breve) | Two half notes per measure |
+| `"common"` or `"C"` | Common time (₵) | Equivalent to 4/4 |
+| `"cut"` or `"C|"` | Cut time (₵) | Equivalent to 2/2 |
+
+Examples:
+
+```typ
+#melody(music: "c4 d e f", time: "common")     // Common time symbol
+#melody(music: "c4 d e f", time: "C")          // Same as above
+#melody(music: "c2 d", time: "cut")            // Cut time symbol
+#melody(music: "c2 d", time: "C|")             // Same as above
 ```
 
 ## Music String Syntax
