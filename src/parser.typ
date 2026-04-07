@@ -27,6 +27,10 @@
   let octline-number = none
   let octline-dir = none
 
+  // Hairpin state: track open "cresc[...]" / "decresc[...]" spans
+  let hairpin-start-idx = none
+  let hairpin-kind = none
+
   // Helper: peek at current character (returns none at end)
   let peek(p) = {
     if p < len { input.at(p) } else { none }
@@ -155,7 +159,7 @@
     )
   }
 
-  let parse-note-attachments(p) = {
+  let parse-note-attachments(p, hairpin-open: false) = {
     let next-pos = p
     let tie = false
     if peek(next-pos) == "~" {
@@ -215,8 +219,11 @@
       }
     }
     if peek(next-pos) == "]" {
-      beam-end = true
-      next-pos += 1
+      let closes-hairpin = hairpin-open and peek(next-pos + 1) != "]"
+      if not closes-hairpin {
+        beam-end = true
+        next-pos += 1
+      }
     }
 
     let chord-symbol = none
@@ -258,10 +265,10 @@
     (accidental: accidental.accidental, octave: octave.octave, pos: octave.pos)
   }
 
-  let parse-note-event-data(p, base-octave: current-base-octave, sticky-duration: last-duration) = {
+  let parse-note-event-data(p, base-octave: current-base-octave, sticky-duration: last-duration, hairpin-open: false) = {
     let pitch = parse-note-pitch(p, base-octave: base-octave)
     let rhythm = parse-duration-dots(pitch.pos, sticky-duration: sticky-duration)
-    let attachments = parse-note-attachments(rhythm.pos)
+    let attachments = parse-note-attachments(rhythm.pos, hairpin-open: hairpin-open)
     (
       accidental: pitch.accidental,
       octave: pitch.octave,
@@ -389,7 +396,7 @@
       if pos < len and input.at(pos) == ">" { pos += 1 }
 
       let rhythm = parse-duration-dots(pos, sticky-duration: last-duration)
-      let attachments = parse-note-attachments(rhythm.pos)
+      let attachments = parse-note-attachments(rhythm.pos, hairpin-open: hairpin-start-idx != none)
       pos = attachments.pos
       last-duration = rhythm.duration
 
@@ -420,6 +427,30 @@
         word-end += 1
       }
       let token = input.slice(pos, word-end)
+      if word-end < len and input.at(word-end) == "[" and (token == "cresc" or token == "decresc") {
+        if hairpin-start-idx != none {
+          let anchors = ()
+          for i in range(hairpin-start-idx, events.len()) {
+            let ev = events.at(i)
+            if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+              anchors.push(i)
+            }
+          }
+          if anchors.len() > 0 {
+            let first = anchors.first()
+            let last = anchors.last()
+            for i in anchors {
+              events.at(i).hairpin = hairpin-kind
+              if i == first { events.at(i).hairpin-start = true }
+              if i == last { events.at(i).hairpin-end = true }
+            }
+          }
+        }
+        hairpin-start-idx = events.len()
+        hairpin-kind = token
+        pos = word-end + 1
+        continue
+      }
       let time-event = parse-time-token(token)
       if time-event != none {
         events.push(time-event)
@@ -431,6 +462,29 @@
         pos = word-end
         continue
       }
+    }
+
+    if ch == "]" and hairpin-start-idx != none {
+      let anchors = ()
+      for i in range(hairpin-start-idx, events.len()) {
+        let ev = events.at(i)
+        if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+          anchors.push(i)
+        }
+      }
+      if anchors.len() > 0 {
+        let first = anchors.first()
+        let last = anchors.last()
+        for i in anchors {
+          events.at(i).hairpin = hairpin-kind
+          if i == first { events.at(i).hairpin-start = true }
+          if i == last { events.at(i).hairpin-end = true }
+        }
+      }
+      hairpin-start-idx = none
+      hairpin-kind = none
+      pos += 1
+      continue
     }
 
     // --- Inline time signatures with uppercase shorthand ---
@@ -450,7 +504,12 @@
     if ch >= "a" and ch <= "g" {
       let name = ch
       pos += 1
-      let note = parse-note-event-data(pos, base-octave: current-base-octave, sticky-duration: last-duration)
+      let note = parse-note-event-data(
+        pos,
+        base-octave: current-base-octave,
+        sticky-duration: last-duration,
+        hairpin-open: hairpin-start-idx != none,
+      )
       pos = note.pos
       last-duration = note.duration
 
@@ -625,6 +684,25 @@
 
     // --- Unknown character: skip ---
     pos += 1
+  }
+
+  if hairpin-start-idx != none {
+    let anchors = ()
+    for i in range(hairpin-start-idx, events.len()) {
+      let ev = events.at(i)
+      if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+        anchors.push(i)
+      }
+    }
+    if anchors.len() > 0 {
+      let first = anchors.first()
+      let last = anchors.last()
+      for i in anchors {
+        events.at(i).hairpin = hairpin-kind
+        if i == first { events.at(i).hairpin-start = true }
+        if i == last { events.at(i).hairpin-end = true }
+      }
+    }
   }
 
   events

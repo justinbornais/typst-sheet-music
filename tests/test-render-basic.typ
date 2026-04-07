@@ -753,3 +753,13 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
   staff-group: "grand",
   measures-per-line: 1,
 )
+
+#v(1cm)
+
+== Test 59: Crescendo and decrescendo hairpins
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4 e g c | cresc[c e g c] | decresc[c' b a g]",
+)

@@ -10,7 +10,7 @@
 #import "render-beams.typ": draw-beam-group
 #import "render-slurs-ties.typ": draw-ties-and-slurs
 #import "render-chords.typ": format-chord-symbol
-#import "render-articulations.typ": draw-articulations, draw-dynamic
+#import "render-articulations.typ": draw-articulations, draw-dynamic, draw-hairpin
 #import "pitch.typ": compute-stem-end-y
 
 
@@ -521,6 +521,117 @@
   }
 
   // ── Find octave-line groups (from octave-line markers) ────────────────
+  // ── Find crescendo / decrescendo groups ────────────────────────────────
+  let hairpin-groups = ()
+  let cur-hairpin-indices = ()
+  let cur-hairpin-kind = none
+  let first-hairpin-anchor = none
+  for (i, item) in items.enumerate() {
+    let ev = item.event
+    let hairpin = ev.at("hairpin", default: none)
+    let anchor = ev.type == "note" or ev.type == "chord" or ev.type == "rest"
+    if not anchor { continue }
+    if first-hairpin-anchor == none {
+      first-hairpin-anchor = i
+    }
+
+    if hairpin != none {
+      if cur-hairpin-indices.len() == 0 or hairpin == cur-hairpin-kind {
+        cur-hairpin-indices.push(i)
+        cur-hairpin-kind = hairpin
+      } else {
+        let first = cur-hairpin-indices.first()
+        let last = cur-hairpin-indices.last()
+        hairpin-groups.push((
+          indices: cur-hairpin-indices,
+          kind: cur-hairpin-kind,
+          starts_here: items.at(first).event.at("hairpin-start", default: false),
+          ends_here: items.at(last).event.at("hairpin-end", default: false),
+        ))
+        cur-hairpin-indices = (i,)
+        cur-hairpin-kind = hairpin
+      }
+      if ev.at("hairpin-end", default: false) and cur-hairpin-indices.len() > 0 {
+        let first = cur-hairpin-indices.first()
+        let last = cur-hairpin-indices.last()
+        hairpin-groups.push((
+          indices: cur-hairpin-indices,
+          kind: cur-hairpin-kind,
+          starts_here: items.at(first).event.at("hairpin-start", default: false),
+          ends_here: items.at(last).event.at("hairpin-end", default: false),
+        ))
+        cur-hairpin-indices = ()
+        cur-hairpin-kind = none
+      }
+    } else if cur-hairpin-indices.len() > 0 {
+      let first = cur-hairpin-indices.first()
+      let last = cur-hairpin-indices.last()
+      hairpin-groups.push((
+        indices: cur-hairpin-indices,
+        kind: cur-hairpin-kind,
+        starts_here: items.at(first).event.at("hairpin-start", default: false),
+        ends_here: items.at(last).event.at("hairpin-end", default: false),
+      ))
+      cur-hairpin-indices = ()
+      cur-hairpin-kind = none
+    }
+  }
+  if cur-hairpin-indices.len() > 0 {
+    let first = cur-hairpin-indices.first()
+    let last = cur-hairpin-indices.last()
+    hairpin-groups.push((
+      indices: cur-hairpin-indices,
+      kind: cur-hairpin-kind,
+      starts_here: items.at(first).event.at("hairpin-start", default: false),
+      ends_here: items.at(last).event.at("hairpin-end", default: false),
+    ))
+  }
+
+  // ── Draw crescendo / decrescendo hairpins ──────────────────────────────
+  for hg in hairpin-groups {
+    let indices = hg.indices
+    let continuation = not hg.starts_here
+    if indices.len() == 0 { continue }
+    if continuation and indices.first() != first-hairpin-anchor { continue }
+
+    let xs = indices.map(idx => item-xs.at(idx))
+    let x-first = xs.first()
+    let x-last = xs.last()
+    let raw-x0 = if continuation { music-start-x } else { x-first + 0.25 * sp }
+    let raw-x1 = if hg.ends_here { x-last + 0.95 * sp } else { total-width * sp - 1.0 * sp }
+    let x0 = calc.min(raw-x0, raw-x1)
+    let x1 = calc.max(raw-x1, x0 + 1.5 * sp)
+    let span-lowest-y = indices.fold(y-bottom, (lowest, idx) => {
+      let item = items.at(idx)
+      let event = item.event
+      let stem-data = stem-render-data(idx, item)
+      let reference-y = if event.type == "chord" {
+        item.chord-ys.map(vy => y-top + vy * sp).fold(y-top + item.y * sp, calc.min)
+      } else {
+        y-top + item.y * sp
+      }
+      let note-bottom = if event.type == "rest" { y-bottom } else { reference-y - 0.9 * sp }
+      let lowest-y = calc.min(lowest, note-bottom)
+
+      let below-arts = below-articulations(event.at("articulations", default: ()))
+      if stem-data.actual-stem-dir == "up" and below-arts.len() > 0 {
+        let art-bottom = reference-y + 1.0 * sp - below-arts.len() * 1.0 * sp
+        lowest-y = calc.min(lowest-y, art-bottom - 0.55 * sp)
+      }
+
+      if event.at("dynamic", default: none) != none {
+        let dyn-y = y-bottom - 1.0 * sp - dynamic-extra-offset(reference-y, event.at("articulations", default: ()), stem-data.actual-stem-dir)
+        lowest-y = calc.min(lowest-y, dyn-y - 0.75 * sp)
+      }
+
+      lowest-y
+    })
+    let baseline-y = y-bottom - 1.9 * sp
+    let y-center = calc.min(baseline-y, span-lowest-y - 0.75 * sp)
+    let start-half-height = if continuation { 0.28 * sp } else { none }
+    draw-hairpin(x0, x1, y-center, hg.kind, sp: sp, start-half-height: start-half-height)
+  }
+
   let octave-groups = ()
   let cur-oct-indices = ()
   for (i, item) in items.enumerate() {

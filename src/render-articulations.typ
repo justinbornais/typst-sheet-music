@@ -130,3 +130,41 @@
     )
   }
 }
+
+/// Draw a crescendo / decrescendo hairpin below the staff.
+///
+/// Parameters:
+/// - x-start: horizontal start of the span
+/// - x-end: horizontal end of the span
+/// - y-center: vertical centre line of the hairpin
+/// - kind: "cresc" or "decresc"
+/// - sp: staff space in absolute units
+#let draw-hairpin(x-start, x-end, y-center, kind, sp: 1.0, start-half-height: none, end-half-height: none) = {
+  import "@preview/cetz:0.4.2"
+  import cetz.draw: *
+
+  if kind == none or x-end <= x-start { return }
+
+  let full-half-height = 0.55 * sp
+  let start-h = if start-half-height != none {
+    start-half-height
+  } else if kind == "cresc" {
+    0.0
+  } else {
+    full-half-height
+  }
+  let end-h = if end-half-height != none {
+    end-half-height
+  } else if kind == "cresc" {
+    full-half-height
+  } else {
+    0.0
+  }
+  let thickness = 0.14 * sp
+  let stroke = (thickness: thickness * 1mm, paint: black, cap: "butt")
+
+  if kind == "cresc" or kind == "decresc" {
+    line((x-start, y-center + start-h), (x-end, y-center + end-h), stroke: stroke)
+    line((x-start, y-center - start-h), (x-end, y-center - end-h), stroke: stroke)
+  }
+}

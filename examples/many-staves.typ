@@ -22,9 +22,9 @@ This includes tuplets.
       e f# g# a | b c#' d#' e' | e' d#' c#' b | a g# f# e
       f g a b& | c' d' e' f' | f' e' d' c' | b& a g f
       {8,5:c3 d e& c d} e= f | g a b c' | c' b a g | f e d c
-      d e f# g | a b c#' d' | d' c' b a | g f# e d
-      e f# g# a | b c#' d#' e' | e' d#' c#' b | a g# f# e
-      f g a b& | c' d' e' f' | f' e' d' c' | b& a g f
+      cresc[d e f# g | a b c#' d'] | decresc[d' c' b a | g f# e d]
+      cresc[e f# g# a | b c#' d#' e'] | decresc[e' d#' c#' b | a g# f# e
+      f g a b& | c' d' e' f'] | f' e' d' c' | b& a g f
       c4 d e f | g a b c' | c' b a g | f e d c
       d e f# g | a b c#' d' | d' c' b a | g f# e d
       e f# g# a | b c#' d#' e' | e' d#' c#' b | a g# f# e

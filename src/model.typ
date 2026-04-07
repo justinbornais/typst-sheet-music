@@ -18,6 +18,7 @@
 /// - beam-end: boolean
 /// - articulations: array of strings
 /// - dynamic: optional dynamic marking string (e.g., "f", "pp", "sfz")
+/// - hairpin: optional span type ("cresc" or "decresc")
 /// - fingering: optional fingering value (int, or array of ints for multiple fingers)
 /// - fingering-position: "above" or "below" (default: "above")
 /// - chord-symbol: optional chord symbol string (e.g., "C", "Am7", "Bb/F")
@@ -34,6 +35,9 @@
   beam-end: false,
   articulations: (),
   dynamic: none,
+  hairpin: none,
+  hairpin-start: false,
+  hairpin-end: false,
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
@@ -60,6 +64,9 @@
   beam-end: beam-end,
   articulations: articulations,
   dynamic: dynamic,
+  hairpin: hairpin,
+  hairpin-start: hairpin-start,
+  hairpin-end: hairpin-end,
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
@@ -87,6 +94,9 @@
   octave-line-direction: none,
   octave-line-start: false,
   octave-line-end: false,
+  hairpin: none,
+  hairpin-start: false,
+  hairpin-end: false,
 ) = (
   type: "rest",
   duration: duration,
@@ -100,6 +110,9 @@
   octave-line-direction: octave-line-direction,
   octave-line-start: octave-line-start,
   octave-line-end: octave-line-end,
+  hairpin: hairpin,
+  hairpin-start: hairpin-start,
+  hairpin-end: hairpin-end,
 )
 
 /// Create a spacer (invisible rest) event.
@@ -180,6 +193,9 @@
   beam-end: false,
   articulations: (),
   dynamic: none,
+  hairpin: none,
+  hairpin-start: false,
+  hairpin-end: false,
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
@@ -204,6 +220,9 @@
   beam-end: beam-end,
   articulations: articulations,
   dynamic: dynamic,
+  hairpin: hairpin,
+  hairpin-start: hairpin-start,
+  hairpin-end: hairpin-end,
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
