@@ -22,6 +22,8 @@
 #let layout-staff(
   events,
   clef: none,
+  time: none,
+  show-time-prefix: false,
   staff-space: default-staff-space,
   available-width: none,
 ) = {
@@ -104,6 +106,8 @@
     items: items,
     total-width: tw,
     clef: initial-clef,
+    time: time,
+    show-time-prefix: show-time-prefix,
   )
 }
 
@@ -119,9 +123,13 @@
   for (i, events) in staves-events.enumerate() {
     let config = staves-config.at(i)
     let clef = config.at("clef", default: none)
+    let time = config.at("time", default: none)
+    let show-time-prefix = config.at("show-time-prefix", default: false)
     let result = layout-staff(
       events,
       clef: clef,
+      time: time,
+      show-time-prefix: show-time-prefix,
       staff-space: staff-space,
       available-width: available-width,
     )

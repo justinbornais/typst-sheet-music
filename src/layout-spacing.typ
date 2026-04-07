@@ -3,17 +3,42 @@
 // Converts event durations into horizontal spacing values.
 
 #import "utils.typ": duration-to-beats, duration-spacing-factor
-#import "constants.typ": default-note-spacing-base
-#import "render-clef-key-time.typ": clef-advance
+#import "constants.typ": default-note-spacing-base, default-time-sig-padding
+#import "render-clef-key-time.typ": clef-advance, time-sig-advance
+
+#let inline-time-sig-width(event, prev-event: none, next-event: none) = {
+  let glyph-w = calc.max(
+    time-sig-advance(event.upper, event.lower, symbol: event.symbol, sp: 1.0) - default-time-sig-padding,
+    0.0,
+  )
+  let extra = if prev-event != none and prev-event.type == "barline" {
+    0.18
+  } else if next-event != none and next-event.type == "barline" {
+    0.0
+  } else {
+    0.12
+  }
+  glyph-w + extra
+}
 
 /// Compute the horizontal width (in staff-spaces) for an event's duration.
-#let event-width(event, base-width: default-note-spacing-base) = {
+#let event-width(event, base-width: default-note-spacing-base, prev-event: none, next-event: none) = {
   if event.type == "barline" {
-    // Barlines have padding on both sides
-    2.5
+    // Tighten barlines when they are adjacent to inline boundary changes.
+    let touches-inline-boundary = (
+      (prev-event != none and (prev-event.type == "clef" or prev-event.type == "time-sig"))
+      or (next-event != none and (next-event.type == "clef" or next-event.type == "time-sig"))
+    )
+    if touches-inline-boundary {
+      0.6
+    } else {
+      2.5
+    }
   } else if event.type == "clef" {
     clef-advance(clef-name: event.clef, sp: 1.0)
-  } else if event.type == "key-sig" or event.type == "time-sig" {
+  } else if event.type == "time-sig" {
+    inline-time-sig-width(event, prev-event: prev-event, next-event: next-event)
+  } else if event.type == "key-sig" {
     // Non-rhythmic events: fixed width
     2.0
   } else {
@@ -47,8 +72,10 @@
 #let compute-event-positions(events, base-width: default-note-spacing-base) = {
   let positions = ()
   let x = 0.0
-  for event in events {
-    let w = event-width(event, base-width: base-width)
+  for (i, event) in events.enumerate() {
+    let prev-event = if i > 0 { events.at(i - 1) } else { none }
+    let next-event = if i + 1 < events.len() { events.at(i + 1) } else { none }
+    let w = event-width(event, base-width: base-width, prev-event: prev-event, next-event: next-event)
     positions.push((x: x, width: w))
     x += w
   }
@@ -58,8 +85,10 @@
 /// Compute total width of all events.
 #let total-events-width(events, base-width: default-note-spacing-base) = {
   let total = 0.0
-  for event in events {
-    total += event-width(event, base-width: base-width)
+  for (i, event) in events.enumerate() {
+    let prev-event = if i > 0 { events.at(i - 1) } else { none }
+    let next-event = if i + 1 < events.len() { events.at(i + 1) } else { none }
+    total += event-width(event, base-width: base-width, prev-event: prev-event, next-event: next-event)
   }
   total
 }
@@ -81,8 +110,12 @@
   let is-boundary-event(ev) = {
     ev.type == "barline" or ev.type == "clef" or ev.type == "key-sig" or ev.type == "time-sig"
   }
-  let is-pre-barline-clef(items, idx) = {
-    idx + 1 < items.len() and items.at(idx).event.type == "clef" and items.at(idx + 1).event.type == "barline"
+  let is-pre-barline-boundary(items, idx) = {
+    (
+      idx + 1 < items.len()
+      and (items.at(idx).event.type == "clef" or items.at(idx).event.type == "time-sig")
+      and items.at(idx + 1).event.type == "barline"
+    )
   }
   let rounded-beat(beat) = calc.round(beat, digits: 6)
   let beat-key(beat) = str(rounded-beat(beat))
@@ -97,7 +130,7 @@
     for (ii, item) in items.enumerate() {
       let ev = item.event
       let key = beat-key(beat)
-      if is-pre-barline-clef(items, ii) {
+      if is-pre-barline-boundary(items, ii) {
         continue
       } else if is-boundary-event(ev) {
         boundary-count += 1
@@ -145,7 +178,7 @@
       let rb = rounded-beat(beat)
       let boundary-width = beat-boundary-widths.at(beat-key(beat), default: 0)
 
-      if is-pre-barline-clef(items, ii) {
+      if is-pre-barline-boundary(items, ii) {
         beats.push(calc.round(rb - barline-epsilon, digits: 6))
       } else if is-boundary-event(ev) {
         beats.push(calc.round(rb + boundary-phase * barline-epsilon, digits: 6))
@@ -200,7 +233,9 @@
         start-col + 1
       }
       let span = calc.max(end-col - start-col, 1)
-      let w = event-width(item.event)
+      let prev-event = if ii > 0 { items.at(ii - 1).event } else { none }
+      let next-event = if ii + 1 < items.len() { items.at(ii + 1).event } else { none }
+      let w = event-width(item.event, prev-event: prev-event, next-event: next-event)
       let distributed = w / span
       for c in range(start-col, calc.min(end-col, n-cols)) {
         if distributed > col-widths.at(c) {
@@ -245,6 +280,8 @@
       items: new-items,
       total-width: total-w,
       clef: laid-out.clef,
+      time: laid-out.at("time", default: none),
+      show-time-prefix: laid-out.at("show-time-prefix", default: false),
     ))
   }
 

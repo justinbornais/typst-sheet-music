@@ -3,7 +3,7 @@
 // Converts a music string like "c'4 d' e' f' | g'2 g'" into an array
 // of event dictionaries (notes, rests, barlines, etc.)
 
-#import "model.typ": make-note, make-rest, make-spacer, make-barline, make-line-break, make-chord, make-clef
+#import "model.typ": make-note, make-rest, make-spacer, make-barline, make-line-break, make-chord, make-clef, make-time-sig
 #import "constants.typ": supported-clefs, clef-default-base-octave
 #import "utils.typ": is-digit, is-lower, is-whitespace
 
@@ -35,6 +35,23 @@
 
   let is-word-char(ch) = {
     ch != none and (is-lower(ch) or is-digit(ch) or ch == "-")
+  }
+
+  let parse-time-token(token) = {
+    if token == "common" or token == "C" {
+      make-time-sig(4, 4, symbol: "common")
+    } else if token == "cut" or token == "C|" {
+      make-time-sig(2, 2, symbol: "cut")
+    } else if token.contains("/") {
+      let parts = token.split("/")
+      if parts.len() == 2 and parts.at(0).len() > 0 and parts.at(1).len() > 0 {
+        make-time-sig(int(parts.at(0)), int(parts.at(1)))
+      } else {
+        none
+      }
+    } else {
+      none
+    }
   }
 
   while pos < len {
@@ -279,10 +296,28 @@
         word-end += 1
       }
       let token = input.slice(pos, word-end)
-      if supported-clefs.contains(token) {
+      let time-event = parse-time-token(token)
+      if time-event != none {
+        events.push(time-event)
+        pos = word-end
+        continue
+      } else if supported-clefs.contains(token) {
         events.push(make-clef(token))
         current-base-octave = clef-default-base-octave(token)
         pos = word-end
+        continue
+      }
+    }
+
+    // --- Inline time signatures with uppercase shorthand ---
+    if ch == "C" {
+      let token = if pos + 1 < len and input.at(pos + 1) == "|" { "C|" } else { "C" }
+      let time-event = parse-time-token(token)
+      let end-pos = if token == "C|" { pos + 2 } else { pos + 1 }
+      let next = peek(end-pos)
+      if time-event != none and (next == none or is-whitespace(next) or next == "|" or next == "\n") {
+        events.push(time-event)
+        pos = end-pos
         continue
       }
     }
@@ -774,6 +809,19 @@
       let p = pos
       let nstr = ""
       while p < len and is-digit(input.at(p)) { nstr += input.at(p); p += 1 }
+      if nstr.len() > 0 and p < len and input.at(p) == "/" {
+        let q = p + 1
+        let dstr = ""
+        while q < len and is-digit(input.at(q)) { dstr += input.at(q); q += 1 }
+        if dstr.len() > 0 {
+          let next = peek(q)
+          if next == none or is-whitespace(next) or next == "|" or next == "\n" {
+            events.push(make-time-sig(int(nstr), int(dstr)))
+            pos = q
+            continue
+          }
+        }
+      }
       if nstr.len() > 0 and p < len {
         let suf = input.at(p)
         if suf == "a" or suf == "b" {

@@ -28,11 +28,13 @@
 /// Calculate the total layout width of a group of events.
 #let measure-width(events) = {
   let w = 0.0
-  for ev in events {
+  for (i, ev) in events.enumerate() {
     // Only rhythmic events contribute to measure width for breaking.
     let et = ev.type
     if et == "note" or et == "rest" or et == "spacer" or et == "chord" or et == "barline" {
-      w += event-width(ev)
+      let prev-event = if i > 0 { events.at(i - 1) } else { none }
+      let next-event = if i + 1 < events.len() { events.at(i + 1) } else { none }
+      w += event-width(ev, prev-event: prev-event, next-event: next-event)
     }
     // non-rhythmic events (clef/key/time) are ignored here
   }

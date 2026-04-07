@@ -93,6 +93,18 @@
 #assert-eq(events12.at(4).type, "clef", msg: "treble clef change inserted")
 #assert-eq(events12.at(5).octave, 4, msg: "treble clef raises default octave")
 
+== Inline Time Signature Changes
+
+#let events13 = parse-music("c e g c' 3/4 g g c")
+#assert-eq(events13.len(), 8, msg: "inline time signature event count")
+#assert-eq(events13.at(4).type, "time-sig", msg: "inline time signature type")
+#assert-eq(events13.at(4).upper, 3, msg: "inline time signature upper")
+#assert-eq(events13.at(4).lower, 4, msg: "inline time signature lower")
+
+#let events14 = parse-music("c e | 2/4 g a")
+#assert-eq(events14.at(3).type, "time-sig", msg: "post-barline time signature type")
+#assert-eq(events14.at(3).upper, 2, msg: "post-barline time signature upper")
+
 == Pitch Calculations
 
 #assert-eq(pitch-to-diatonic("c", 4), 28, msg: "C4 diatonic")

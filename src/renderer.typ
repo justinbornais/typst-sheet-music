@@ -38,6 +38,7 @@
   show-clef: true,
   show-key: true,
   show-time: true,
+  forced-time-signature-x: none,
   forced-music-start-x: none,
   skip-barlines: false,
   fingering-position: "above",
@@ -45,6 +46,11 @@
   import cetz.draw: *
 
   let clef-name = laid-out.clef
+  let opening-time = laid-out.at("time", default: none)
+  let opening-time-upper = if opening-time != none { opening-time.upper } else { time-upper }
+  let opening-time-lower = if opening-time != none { opening-time.lower } else { time-lower }
+  let opening-time-symbol = if opening-time != none { opening-time.symbol } else { time-symbol }
+  let show-opening-time = laid-out.at("show-time-prefix", default: show-time)
   let items = laid-out.items
   let total-layout-width = laid-out.total-width
 
@@ -64,8 +70,8 @@
   if show-key {
     key-w = key-sig-advance(key, sp: sp)
   }
-  if show-time {
-    time-w = time-sig-advance(time-upper, time-lower, symbol: time-symbol, sp: sp)
+  if show-opening-time and opening-time-upper != none {
+    time-w = time-sig-advance(opening-time-upper, opening-time-lower, symbol: opening-time-symbol, sp: sp)
   }
 
   let music-start-x = if forced-music-start-x != none {
@@ -117,9 +123,10 @@
   }
 
   // Draw time signature
-  if show-time {
-    draw-time-signature(cx, y-top, time-upper, time-lower, symbol: time-symbol, sp: sp)
-    cx += time-w
+  if show-opening-time {
+    let time-x = if forced-time-signature-x != none { forced-time-signature-x } else { cx }
+    draw-time-signature(time-x, y-top, opening-time-upper, opening-time-lower, symbol: opening-time-symbol, sp: sp)
+    cx = time-x + time-w
   }
 
   // ── Pre-compute per-item x positions (needed for beam geometry) ─────────
@@ -265,6 +272,8 @@
     if event.type == "clef" {
       draw-clef(x, y-top, event.clef, sp: sp)
       current-clef = event.clef
+    } else if event.type == "time-sig" {
+      draw-time-signature(x, y-top, event.upper, event.lower, symbol: event.symbol, sp: sp)
     } else if event.type == "note" {
       // Use beam-adjusted stem end and direction if this note is beamed
       let stem-end-override = adj-stem-ends.at(str(i), default: none)
@@ -759,21 +768,44 @@
   let spacing-mm = staff-spacing / 1mm
   let use-spanning-barlines = staff-group == "grand" and num-staves > 1
 
-  // Pre-compute the maximum music-start-x across all staves so notes and
-  // barlines align horizontally in a grand staff / multi-staff system.
-  let shared-music-start-x = laid-out-staves.fold(0.0, (mx, laid-out) => {
+  // Pre-compute shared prefix columns so opening time signatures, notes,
+  // and barlines align horizontally across staves.
+  let shared-prefix-data = laid-out-staves.fold((
+    time-signature-x: 0.0,
+    music-start-x: 0.0,
+  ), (acc, laid-out) => {
     let clef-name = laid-out.clef
     let clef-w = if clef-name != none { clef-advance(clef-name: clef-name, sp: unit) } else { 0.0 }
     let key-w = key-sig-advance(key, sp: unit)
-    let time-w = if show-time and time-upper != none { time-sig-advance(time-upper, time-lower, symbol: time-symbol, sp: unit) } else { 0.0 }
+    let laid-out-time = laid-out.at("time", default: none)
+    let laid-out-show-time = laid-out.at("show-time-prefix", default: show-time)
+    let time-w = if laid-out-show-time and laid-out-time != none {
+      time-sig-advance(laid-out-time.upper, laid-out-time.lower, symbol: laid-out-time.symbol, sp: unit)
+    } else { 0.0 }
     let prefix-x = 0.5 * unit
-    let msX = prefix-x + clef-w + key-w + time-w + 1.0 * unit
+    let local-time-x = prefix-x + clef-w + key-w
+    let shared-time-x = if laid-out-show-time {
+      calc.max(acc.at("time-signature-x"), local-time-x)
+    } else {
+      acc.at("time-signature-x")
+    }
+    let prefix-end-x = if laid-out-show-time { shared-time-x + time-w } else { local-time-x }
+    let msX = prefix-end-x + 1.0 * unit
     let first-note = laid-out.items.find(item => item.event.type == "note")
     if first-note != none and first-note.event.accidental != none {
       msX += 1.0 * unit
     }
-    calc.max(mx, msX)
+    (
+      time-signature-x: shared-time-x,
+      music-start-x: calc.max(acc.at("music-start-x"), msX),
+    )
   })
+  let shared-time-signature-x = if shared-prefix-data.at("time-signature-x") > 0.0 {
+    shared-prefix-data.at("time-signature-x")
+  } else {
+    none
+  }
+  let shared-music-start-x = shared-prefix-data.at("music-start-x")
 
   cetz.canvas(
     length: 1mm,
@@ -795,6 +827,7 @@
           show-clef: true,
           show-key: true,
           show-time: show-time,
+          forced-time-signature-x: shared-time-signature-x,
           forced-music-start-x: shared-music-start-x,
           skip-barlines: use-spanning-barlines,
           fingering-position: if i < fingering-positions.len() { fingering-positions.at(i) } else { "above" },

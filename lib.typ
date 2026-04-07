@@ -96,24 +96,65 @@
     parse-music(music-str, base-octave: base-oct)
   })
 
-  let prepare-staff-systems(systems, initial-clef) = {
+  let prepare-staff-systems(systems, initial-clef, initial-time, show-initial-time: false) = {
     let prepared = ()
     let current-clef = initial-clef
+    let current-time = initial-time
+    let repeat-time-on-next = false
     for sys in systems {
       let system-clef = current-clef
+      let system-time = current-time
+      let show-time-prefix = repeat-time-on-next or (prepared.len() == 0 and show-initial-time and system-time != none)
+      repeat-time-on-next = false
       let start = 0
-      while start < sys.len() and sys.at(start).type == "clef" {
-        system-clef = sys.at(start).clef
+      while start < sys.len() and sys.at(start).type == "line-break" {
+        start += 1
+      }
+      while start < sys.len() and (sys.at(start).type == "clef" or sys.at(start).type == "time-sig") {
+        if sys.at(start).type == "clef" {
+          system-clef = sys.at(start).clef
+        } else if sys.at(start).type == "time-sig" {
+          system-time = (
+            upper: sys.at(start).upper,
+            lower: sys.at(start).lower,
+            symbol: sys.at(start).symbol,
+          )
+          show-time-prefix = true
+        }
         start += 1
       }
       let cleaned = sys.slice(start)
-      prepared.push((events: cleaned, clef: system-clef))
+      prepared.push((
+        events: cleaned,
+        clef: system-clef,
+        time: system-time,
+        show-time-prefix: show-time-prefix,
+      ))
 
       current-clef = system-clef
+      current-time = system-time
       for ev in cleaned {
         if ev.type == "clef" {
           current-clef = ev.clef
+        } else if ev.type == "time-sig" {
+          current-time = (
+            upper: ev.upper,
+            lower: ev.lower,
+            symbol: ev.symbol,
+          )
         }
+      }
+
+      let last-rhythm = cleaned.len() - 1
+      while last-rhythm >= 0 and (
+        cleaned.at(last-rhythm).type == "clef"
+          or cleaned.at(last-rhythm).type == "time-sig"
+          or cleaned.at(last-rhythm).type == "key-sig"
+      ) {
+        if cleaned.at(last-rhythm).type == "time-sig" {
+          repeat-time-on-next = true
+        }
+        last-rhythm -= 1
       }
     }
     prepared
@@ -181,8 +222,14 @@
 
     for si in range(staves-events.len()) {
       let initial-clef = staves.at(si).at("clef", default: none)
+      let initial-time = ts
       if si == 0 {
-        systems-events-per-staff.at(si) = prepare-staff-systems(staff0-systems, initial-clef)
+        systems-events-per-staff.at(si) = prepare-staff-systems(
+          staff0-systems,
+          initial-clef,
+          initial-time,
+          show-initial-time: ts != none,
+        )
       } else {
         let ev-list = staves-events.at(si)
         let split = ()
@@ -207,7 +254,12 @@
         }
         // Any leftover goes into a final system
         if remaining.len() > 0 { split.push(remaining) }
-        systems-events-per-staff.at(si) = prepare-staff-systems(split, initial-clef)
+        systems-events-per-staff.at(si) = prepare-staff-systems(
+          split,
+          initial-clef,
+          initial-time,
+          show-initial-time: ts != none,
+        )
       }
     }
 
@@ -222,9 +274,20 @@
         let sys-info = if sys-idx < systems-events-per-staff.at(si).len() {
           systems-events-per-staff.at(si).at(sys-idx)
         } else {
-          (events: (), clef: staves.at(si).at("clef", default: none))
+          (
+            events: (),
+            clef: staves.at(si).at("clef", default: none),
+            time: ts,
+            show-time-prefix: is-first and ts != none,
+          )
         }
-        laid-out-staves.push(layout-staff(sys-info.events, clef: sys-info.clef, staff-space: staff-size))
+        laid-out-staves.push(layout-staff(
+          sys-info.events,
+          clef: sys-info.clef,
+          time: sys-info.time,
+          show-time-prefix: sys-info.show-time-prefix,
+          staff-space: staff-size,
+        ))
       }
 
       // Beat-align across staves so notes at the same beat share x positions.
