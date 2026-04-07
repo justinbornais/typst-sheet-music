@@ -8,7 +8,7 @@
 #import "src/layout-breaks.typ": compute-system-breaks, split-at-line-breaks, has-line-breaks
 #import "src/renderer.typ": render-score
 #import "src/render-clef-key-time.typ": clef-advance, key-sig-advance, time-sig-advance
-#import "src/constants.typ": default-staff-space
+#import "src/constants.typ": default-staff-space, clef-default-base-octave
 
 /// Parse a time signature string like "4/4", "3/4", "6/8", "common", or "cut" into (upper, lower, symbol).
 #let parse-time-sig(ts) = {
@@ -92,9 +92,32 @@
   let staves-events = staves.map(s => {
     let music-str = s.at("music", default: "")
     let clef-name = s.at("clef", default: none)
-    let base-oct = if clef-name == "bass" { 3 } else { 4 }
+    let base-oct = clef-default-base-octave(clef-name)
     parse-music(music-str, base-octave: base-oct)
   })
+
+  let prepare-staff-systems(systems, initial-clef) = {
+    let prepared = ()
+    let current-clef = initial-clef
+    for sys in systems {
+      let system-clef = current-clef
+      let start = 0
+      while start < sys.len() and sys.at(start).type == "clef" {
+        system-clef = sys.at(start).clef
+        start += 1
+      }
+      let cleaned = sys.slice(start)
+      prepared.push((events: cleaned, clef: system-clef))
+
+      current-clef = system-clef
+      for ev in cleaned {
+        if ev.type == "clef" {
+          current-clef = ev.clef
+        }
+      }
+    }
+    prepared
+  }
 
   // Internal helper: compute prefix width in staff-space units for a given system
   let prefix-width-sp(sp-unit, clef-name, show-time) = {
@@ -157,8 +180,9 @@
     })
 
     for si in range(staves-events.len()) {
+      let initial-clef = staves.at(si).at("clef", default: none)
       if si == 0 {
-        systems-events-per-staff.at(si) = staff0-systems
+        systems-events-per-staff.at(si) = prepare-staff-systems(staff0-systems, initial-clef)
       } else {
         let ev-list = staves-events.at(si)
         let split = ()
@@ -183,7 +207,7 @@
         }
         // Any leftover goes into a final system
         if remaining.len() > 0 { split.push(remaining) }
-        systems-events-per-staff.at(si) = split
+        systems-events-per-staff.at(si) = prepare-staff-systems(split, initial-clef)
       }
     }
 
@@ -195,11 +219,12 @@
       // Lay out each staff for this system
       let laid-out-staves = ()
       for si in range(staves.len()) {
-        let clef = staves.at(si).at("clef", default: none)
-        let sys-evs = if sys-idx < systems-events-per-staff.at(si).len() {
+        let sys-info = if sys-idx < systems-events-per-staff.at(si).len() {
           systems-events-per-staff.at(si).at(sys-idx)
-        } else { () }
-        laid-out-staves.push(layout-staff(sys-evs, clef: clef, staff-space: staff-size))
+        } else {
+          (events: (), clef: staves.at(si).at("clef", default: none))
+        }
+        laid-out-staves.push(layout-staff(sys-info.events, clef: sys-info.clef, staff-space: staff-size))
       }
 
       // Beat-align across staves so notes at the same beat share x positions.

@@ -3,7 +3,8 @@
 // Converts a music string like "c'4 d' e' f' | g'2 g'" into an array
 // of event dictionaries (notes, rests, barlines, etc.)
 
-#import "model.typ": make-note, make-rest, make-spacer, make-barline, make-line-break, make-chord
+#import "model.typ": make-note, make-rest, make-spacer, make-barline, make-line-break, make-chord, make-clef
+#import "constants.typ": supported-clefs, clef-default-base-octave
 #import "utils.typ": is-digit, is-lower, is-whitespace
 
 /// Main entry: parse a music string into an array of events.
@@ -15,6 +16,7 @@
   let len = input.len()
   let last-duration = 4   // sticky duration
   let last-dots = 0
+  let current-base-octave = base-octave
 
   // Tuplet state: track open "{n" blocks
   let tuplet-start-idx = none
@@ -29,6 +31,10 @@
   // Helper: peek at current character (returns none at end)
   let peek(p) = {
     if p < len { input.at(p) } else { none }
+  }
+
+  let is-word-char(ch) = {
+    ch != none and (is-lower(ch) or is-digit(ch) or ch == "-")
   }
 
   while pos < len {
@@ -121,7 +127,7 @@
           let cname = c
           pos += 1
           let caccidental = none
-          let coctave = base-octave
+          let coctave = current-base-octave
           // Parse accidental
           let cac = peek(pos)
           if cac == "#" {
@@ -266,13 +272,28 @@
       continue
     }
 
+    // --- Inline clef changes ---
+    if is-lower(ch) {
+      let word-end = pos
+      while word-end < len and is-word-char(input.at(word-end)) {
+        word-end += 1
+      }
+      let token = input.slice(pos, word-end)
+      if supported-clefs.contains(token) {
+        events.push(make-clef(token))
+        current-base-octave = clef-default-base-octave(token)
+        pos = word-end
+        continue
+      }
+    }
+
     // --- Notes (a-g) ---
     if ch >= "a" and ch <= "g" and ch != "b" {
       // Definitely a note (a, c, d, e, f, g)
       let name = ch
       pos += 1
       let accidental = none
-      let octave = base-octave
+      let octave = current-base-octave
 
       // Parse accidental
       let ac = peek(pos)
@@ -463,7 +484,7 @@
       let name = "b"
       pos += 1
       let accidental = none
-      let octave = base-octave
+      let octave = current-base-octave
 
       // Parse accidental
       let ac = peek(pos)

@@ -81,6 +81,18 @@
 #assert-eq(events10.at(0).accidental, "flat", msg: "b flat")
 #assert-eq(events10.at(1).accidental, "flat", msg: "e flat")
 
+== Inline Clef Changes
+
+#let events11 = parse-music("f e d c bass b a g")
+#assert-eq(events11.len(), 8, msg: "inline clef event count")
+#assert-eq(events11.at(4).type, "clef", msg: "inline clef type")
+#assert-eq(events11.at(4).clef, "bass", msg: "inline clef value")
+#assert-eq(events11.at(5).octave, 3, msg: "bass clef resets default octave")
+
+#let events12 = parse-music("g a b c' treble d e f g", base-octave: 3)
+#assert-eq(events12.at(4).type, "clef", msg: "treble clef change inserted")
+#assert-eq(events12.at(5).octave, 4, msg: "treble clef raises default octave")
+
 == Pitch Calculations
 
 #assert-eq(pitch-to-diatonic("c", 4), 28, msg: "C4 diatonic")

@@ -256,12 +256,16 @@
   }
 
   // ── Draw all music events ────────────────────────────────────────────────
+  let current-clef = if clef-name == none { "treble" } else { clef-name }
   for (i, item) in items.enumerate() {
     let event = item.event
     let x = item-xs.at(i)
     let y = item.y * sp
 
-    if event.type == "note" {
+    if event.type == "clef" {
+      draw-clef(x, y-top, event.clef, sp: sp)
+      current-clef = event.clef
+    } else if event.type == "note" {
       // Use beam-adjusted stem end and direction if this note is beamed
       let stem-end-override = adj-stem-ends.at(str(i), default: none)
       let stem-dir-override = adj-stem-dirs.at(str(i), default: none)
@@ -277,7 +281,7 @@
         x, y-top + y, event,
         actual-stem-dir, actual-stem-end,
         y-top,
-        clef: clef-name,
+        clef: current-clef,
         sp: sp,
         beamed: is-beamed,
       )
@@ -379,7 +383,7 @@
         actual-stem-dir,
         actual-stem-end,
         y-top,
-        clef: clef-name,
+        clef: current-clef,
         sp: sp,
         beamed: is-beamed,
       )

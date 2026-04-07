@@ -146,6 +146,41 @@
   c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, b: 6,
 )
 
+#let supported-clefs = (
+  "treble",
+  "bass",
+  "alto",
+  "tenor",
+  "treble-8a",
+  "treble8a",
+  "treble-8b",
+  "treble8b",
+  "treble-15a",
+  "treble-15b",
+  "treble-8",
+  "treble8",
+  "bass-8a",
+  "bass8a",
+  "bass-8b",
+  "bass8b",
+  "bass-15a",
+  "bass-15b",
+  "percussion",
+)
+
+#let clef-default-base-octave(clef) = {
+  let bass-clefs = (
+    "bass",
+    "bass-8a",
+    "bass8a",
+    "bass-8b",
+    "bass8b",
+    "bass-15a",
+    "bass-15b",
+  )
+  if bass-clefs.contains(clef) { 3 } else { 4 }
+}
+
 #let clef-config = (
   treble: (
     top-line-diatonic: 38,  // F5 = 3 + 5*7

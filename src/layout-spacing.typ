@@ -4,13 +4,16 @@
 
 #import "utils.typ": duration-to-beats, duration-spacing-factor
 #import "constants.typ": default-note-spacing-base
+#import "render-clef-key-time.typ": clef-advance
 
 /// Compute the horizontal width (in staff-spaces) for an event's duration.
 #let event-width(event, base-width: default-note-spacing-base) = {
   if event.type == "barline" {
     // Barlines have padding on both sides
     2.5
-  } else if event.type == "clef" or event.type == "key-sig" or event.type == "time-sig" {
+  } else if event.type == "clef" {
+    clef-advance(clef-name: event.clef, sp: 1.0)
+  } else if event.type == "key-sig" or event.type == "time-sig" {
     // Non-rhythmic events: fixed width
     2.0
   } else {
@@ -62,47 +65,112 @@
 }
 
 /// Align multiple staves' layouts so events at the same beat position share
-/// the same x coordinate.  Uses a distributed-width approach: each event's
+/// the same x coordinate. Uses a distributed-width approach: each event's
 /// width is spread evenly across the beat columns it spans, so a whole note
 /// sharing beat 0 with a quarter note does not inflate that column.
 ///
-/// Takes an array of layout results (from layout-staff) and returns a new
-/// array with adjusted item x positions and a unified total-width.
+/// Boundary events like barlines and inline clefs reserve a shared column
+/// across all staves, even if only one staff contains the event.
 #let align-staves-by-beat(laid-out-staves) = {
   if laid-out-staves.len() <= 1 { return laid-out-staves }
 
   let barline-epsilon = 0.000001
+  let is-rhythmic-event(ev) = {
+    ev.type == "note" or ev.type == "rest" or ev.type == "spacer" or ev.type == "chord"
+  }
+  let is-boundary-event(ev) = {
+    ev.type == "barline" or ev.type == "clef" or ev.type == "key-sig" or ev.type == "time-sig"
+  }
+  let is-pre-barline-clef(items, idx) = {
+    idx + 1 < items.len() and items.at(idx).event.type == "clef" and items.at(idx + 1).event.type == "barline"
+  }
+  let rounded-beat(beat) = calc.round(beat, digits: 6)
+  let beat-key(beat) = str(rounded-beat(beat))
 
-  // 1. Compute cumulative beat offset for every item in every staff.
-  //    Barlines get a tiny epsilon bump so the next note occupies a separate
-  //    column (barline and first note of the next measure share the same
-  //    rhythmic beat but need distinct x positions).
-  let staves-beats = ()
+  // 1. For each beat boundary, compute the maximum number of non-rhythmic
+  //    columns that occur before the next rhythmic event on any staff.
+  let beat-boundary-widths = (:)
   for laid-out in laid-out-staves {
-    let beats = ()
     let beat = 0.0
-    for item in laid-out.items {
-      beats.push(calc.round(beat, digits: 6))
+    let boundary-count = 0
+    let items = laid-out.items
+    for (ii, item) in items.enumerate() {
       let ev = item.event
-      if ev.type == "note" or ev.type == "rest" or ev.type == "spacer" or ev.type == "chord" {
+      let key = beat-key(beat)
+      if is-pre-barline-clef(items, ii) {
+        continue
+      } else if is-boundary-event(ev) {
+        boundary-count += 1
+        let current = beat-boundary-widths.at(key, default: 0)
+        if boundary-count > current {
+          beat-boundary-widths.insert(key, boundary-count)
+        }
+      } else if is-rhythmic-event(ev) {
+        let current = beat-boundary-widths.at(key, default: 0)
+        if boundary-count > current {
+          beat-boundary-widths.insert(key, boundary-count)
+        }
+        boundary-count = 0
+
         let dur = ev.at("duration", default: 4)
         let dots = ev.at("dots", default: 0)
         let dur-beats = duration-to-beats(dur, dots: dots)
-        // Tuplet: each note advances by tuplet-beats / tuplet-count
         let tb = ev.at("tuplet-beats", default: 0)
         let tc = ev.at("tuplet-count", default: 0)
         if tb > 0 and tc > 0 {
           dur-beats = tb / tc
         }
         beat += dur-beats
-      } else if ev.type == "barline" {
-        beat += barline-epsilon
+      }
+    }
+
+    let final-key = beat-key(beat)
+    let current = beat-boundary-widths.at(final-key, default: 0)
+    if boundary-count > current {
+      beat-boundary-widths.insert(final-key, boundary-count)
+    }
+  }
+
+  // 2. Compute cumulative beat offsets for every item in every staff.
+  //    Rhythmic events start after the maximum boundary width at that beat,
+  //    so a clef on one staff reserves space on every other staff too.
+  let staves-beats = ()
+  for laid-out in laid-out-staves {
+    let beats = ()
+    let beat = 0.0
+    let boundary-phase = 0
+    let items = laid-out.items
+    for (ii, item) in items.enumerate() {
+      let ev = item.event
+      let rb = rounded-beat(beat)
+      let boundary-width = beat-boundary-widths.at(beat-key(beat), default: 0)
+
+      if is-pre-barline-clef(items, ii) {
+        beats.push(calc.round(rb - barline-epsilon, digits: 6))
+      } else if is-boundary-event(ev) {
+        beats.push(calc.round(rb + boundary-phase * barline-epsilon, digits: 6))
+        boundary-phase += 1
+      } else if is-rhythmic-event(ev) {
+        beats.push(calc.round(rb + boundary-width * barline-epsilon, digits: 6))
+
+        let dur = ev.at("duration", default: 4)
+        let dots = ev.at("dots", default: 0)
+        let dur-beats = duration-to-beats(dur, dots: dots)
+        let tb = ev.at("tuplet-beats", default: 0)
+        let tc = ev.at("tuplet-count", default: 0)
+        if tb > 0 and tc > 0 {
+          dur-beats = tb / tc
+        }
+        beat += dur-beats
+        boundary-phase = 0
+      } else {
+        beats.push(calc.round(rb + boundary-width * barline-epsilon, digits: 6))
       }
     }
     staves-beats.push(beats)
   }
 
-  // 2. Sorted unique beat positions.
+  // 3. Sorted unique beat positions.
   let beat-set = (:)
   for staff-beats in staves-beats {
     for b in staff-beats {
@@ -111,17 +179,14 @@
   }
   let all-beats = beat-set.values().sorted()
 
-  // 3. Beat → column index map.
+  // 4. Beat -> column index map.
   let beat-to-col = (:)
   for (ci, b) in all-beats.enumerate() {
     beat-to-col.insert(str(b), ci)
   }
   let n-cols = all-beats.len()
 
-  // 4. Compute column widths using the distributed-width approach.
-  //    Each event's width is distributed evenly across the columns from its
-  //    start to the next event's start on the same staff.  The per-column
-  //    width is then the max across all staves.
+  // 5. Compute column widths using the distributed-width approach.
   let col-widths = range(n-cols).map(_ => 0.0)
 
   for (si, laid-out) in laid-out-staves.enumerate() {
@@ -145,7 +210,7 @@
     }
   }
 
-  // 5. Cumulative x positions per column.
+  // 6. Cumulative x positions per column.
   let col-xs = ()
   let x = 0.0
   for w in col-widths {
@@ -154,20 +219,27 @@
   }
   let total-w = x
 
-  // 6. Reassign x to each item based on its column.
+  // 7. Reassign x to each item based on its column.
   let result = ()
   for (si, laid-out) in laid-out-staves.enumerate() {
     let staff-beats = staves-beats.at(si)
     let new-items = ()
     for (ii, item) in laid-out.items.enumerate() {
       let ci = beat-to-col.at(str(staff-beats.at(ii)))
-      new-items.push((
+      let new-item = (
         event: item.event,
         x: col-xs.at(ci),
         y: item.y,
         stem-dir: item.stem-dir,
         stem-y-end: item.stem-y-end,
-      ))
+      )
+      let chord-ys = item.at("chord-ys", default: none)
+      let chord-staff-positions = item.at("chord-staff-positions", default: none)
+      if chord-ys != none { new-item.insert("chord-ys", chord-ys) }
+      if chord-staff-positions != none {
+        new-item.insert("chord-staff-positions", chord-staff-positions)
+      }
+      new-items.push(new-item)
     }
     result.push((
       items: new-items,

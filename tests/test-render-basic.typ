@@ -672,3 +672,20 @@ Slur over beamed eighth notes:
   time: "4/4",
   music: "c8( d e f) g( a b c')",
 )
+
+#v(1cm)
+
+== Test 56: Inline clef changes
+
+Treble to bass and bass to treble switches within a single staff:
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "f4 e d c bass b a g | g a b c treble d e f g",
+    ),
+  ),
+)
