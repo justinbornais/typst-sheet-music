@@ -15,7 +15,6 @@
   let pos = 0
   let len = input.len()
   let last-duration = 4   // sticky duration
-  let last-dots = 0
   let current-base-octave = base-octave
 
   // Tuplet state: track open "{n" blocks
@@ -52,6 +51,234 @@
     } else {
       none
     }
+  }
+
+  let parse-accidental(p) = {
+    let next-pos = p
+    let accidental = none
+    let ac = peek(next-pos)
+    if ac == "#" {
+      next-pos += 1
+      if peek(next-pos) == "#" {
+        accidental = "double-sharp"
+        next-pos += 1
+      } else {
+        accidental = "sharp"
+      }
+    } else if ac == "&" {
+      next-pos += 1
+      if peek(next-pos) == "&" {
+        accidental = "double-flat"
+        next-pos += 1
+      } else {
+        accidental = "flat"
+      }
+    } else if ac == "=" {
+      accidental = "natural"
+      next-pos += 1
+    }
+    (accidental: accidental, pos: next-pos)
+  }
+
+  let parse-octave-markers(p, octave) = {
+    let next-pos = p
+    let next-octave = octave
+    while peek(next-pos) == "'" {
+      next-octave += 1
+      next-pos += 1
+    }
+    while peek(next-pos) == "," {
+      next-octave -= 1
+      next-pos += 1
+    }
+    (octave: next-octave, pos: next-pos)
+  }
+
+  let parse-duration-dots(p, sticky-duration: last-duration) = {
+    let next-pos = p
+    let duration = sticky-duration
+    let dur-str = ""
+    while peek(next-pos) != none and is-digit(peek(next-pos)) {
+      dur-str += peek(next-pos)
+      next-pos += 1
+    }
+    if dur-str.len() > 0 {
+      duration = int(dur-str)
+    }
+
+    let dots = 0
+    while peek(next-pos) == "." {
+      dots += 1
+      next-pos += 1
+    }
+    (duration: duration, dots: dots, pos: next-pos)
+  }
+
+  let read-bracketed-text(p) = {
+    let next-pos = p
+    let value = ""
+    while next-pos < len and input.at(next-pos) != "]" {
+      value += input.at(next-pos)
+      next-pos += 1
+    }
+    if next-pos < len {
+      next-pos += 1
+    }
+    (value: value, pos: next-pos)
+  }
+
+  let is-fingering-start(p) = {
+    (
+      peek(p) == "n"
+      and p + 1 < len
+      and (
+        input.at(p + 1) == "["
+        or (input.at(p + 1) == "_" and p + 2 < len and input.at(p + 2) == "[")
+      )
+    )
+  }
+
+  let parse-fingering(p) = {
+    let below = p + 1 < len and input.at(p + 1) == "_"
+    let parsed = read-bracketed-text(p + (if below { 3 } else { 2 }))
+    let parts = parsed.value.split(" ").filter(s => s.len() > 0)
+    let fingering = none
+    if parts.len() == 1 {
+      fingering = int(parts.at(0))
+    } else if parts.len() > 1 {
+      fingering = parts.map(s => int(s))
+    }
+    (
+      fingering: fingering,
+      fingering-position: if below { "below" } else { "above" },
+      pos: parsed.pos,
+    )
+  }
+
+  let parse-note-attachments(p) = {
+    let next-pos = p
+    let tie = false
+    if peek(next-pos) == "~" {
+      tie = true
+      next-pos += 1
+    }
+
+    let articulations = ()
+    while peek(next-pos) == ">" or peek(next-pos) == "*" or peek(next-pos) == "-" or peek(next-pos) == "_" {
+      let ac = peek(next-pos)
+      articulations.push(
+        if ac == ">" {
+          "accent"
+        } else if ac == "*" {
+          "staccato"
+        } else if ac == "-" {
+          "tenuto"
+        } else {
+          "fermata"
+        }
+      )
+      next-pos += 1
+    }
+
+    let dynamic = none
+    if peek(next-pos) == "v" and next-pos + 1 < len and input.at(next-pos + 1) == "[" {
+      let parsed = read-bracketed-text(next-pos + 2)
+      if parsed.value.len() > 0 {
+        dynamic = parsed.value
+      }
+      next-pos = parsed.pos
+    }
+
+    if not tie and peek(next-pos) == "~" {
+      tie = true
+      next-pos += 1
+    }
+
+    let slur-start = false
+    let slur-end = false
+    if peek(next-pos) == "(" {
+      slur-start = true
+      next-pos += 1
+    }
+    if peek(next-pos) == ")" {
+      slur-end = true
+      next-pos += 1
+    }
+
+    let beam-start = false
+    let beam-end = false
+    if peek(next-pos) == "[" {
+      let nxt = if next-pos + 1 < len { input.at(next-pos + 1) } else { none }
+      if nxt == none or not (nxt >= "A" and nxt <= "G") {
+        beam-start = true
+        next-pos += 1
+      }
+    }
+    if peek(next-pos) == "]" {
+      beam-end = true
+      next-pos += 1
+    }
+
+    let chord-symbol = none
+    let fingering = none
+    let fingering-position = "above"
+    while peek(next-pos) == "[" or is-fingering-start(next-pos) {
+      if is-fingering-start(next-pos) {
+        let parsed = parse-fingering(next-pos)
+        fingering = parsed.fingering
+        fingering-position = parsed.fingering-position
+        next-pos = parsed.pos
+      } else {
+        let parsed = read-bracketed-text(next-pos + 1)
+        if parsed.value.len() > 0 {
+          chord-symbol = parsed.value
+        }
+        next-pos = parsed.pos
+      }
+    }
+
+    (
+      tie: tie,
+      articulations: articulations,
+      dynamic: dynamic,
+      slur-start: slur-start,
+      slur-end: slur-end,
+      beam-start: beam-start,
+      beam-end: beam-end,
+      chord-symbol: chord-symbol,
+      fingering: fingering,
+      fingering-position: fingering-position,
+      pos: next-pos,
+    )
+  }
+
+  let parse-note-pitch(p, base-octave: current-base-octave) = {
+    let accidental = parse-accidental(p)
+    let octave = parse-octave-markers(accidental.pos, base-octave)
+    (accidental: accidental.accidental, octave: octave.octave, pos: octave.pos)
+  }
+
+  let parse-note-event-data(p, base-octave: current-base-octave, sticky-duration: last-duration) = {
+    let pitch = parse-note-pitch(p, base-octave: base-octave)
+    let rhythm = parse-duration-dots(pitch.pos, sticky-duration: sticky-duration)
+    let attachments = parse-note-attachments(rhythm.pos)
+    (
+      accidental: pitch.accidental,
+      octave: pitch.octave,
+      duration: rhythm.duration,
+      dots: rhythm.dots,
+      tie: attachments.tie,
+      articulations: attachments.articulations,
+      dynamic: attachments.dynamic,
+      slur-start: attachments.slur-start,
+      slur-end: attachments.slur-end,
+      beam-start: attachments.beam-start,
+      beam-end: attachments.beam-end,
+      chord-symbol: attachments.chord-symbol,
+      fingering: attachments.fingering,
+      fingering-position: attachments.fingering-position,
+      pos: attachments.pos,
+    )
   }
 
   while pos < len {
@@ -147,27 +374,13 @@
       let chord-notes = ()
       while pos < len and input.at(pos) != ">" {
         let c = input.at(pos)
-        if c == " " or c == "\t" or c == "\r" or c == "\n" { pos += 1; continue }
+        if is-whitespace(c) { pos += 1; continue }
         if (c >= "a" and c <= "g") {
           let cname = c
           pos += 1
-          let caccidental = none
-          let coctave = current-base-octave
-          // Parse accidental
-          let cac = peek(pos)
-          if cac == "#" {
-            pos += 1
-            if peek(pos) == "#" { caccidental = "double-sharp"; pos += 1 }
-            else { caccidental = "sharp" }
-          } else if cac == "&" {
-            pos += 1
-            if peek(pos) == "&" { caccidental = "double-flat"; pos += 1 }
-            else { caccidental = "flat" }
-          } else if cac == "=" { caccidental = "natural"; pos += 1 }
-          // Parse octave markers
-          while peek(pos) == "'" { coctave += 1; pos += 1 }
-          while peek(pos) == "," { coctave -= 1; pos += 1 }
-          chord-notes.push((name: cname, accidental: caccidental, octave: coctave))
+          let pitch = parse-note-pitch(pos, base-octave: current-base-octave)
+          pos = pitch.pos
+          chord-notes.push((name: cname, accidental: pitch.accidental, octave: pitch.octave))
         } else {
           pos += 1
         }
@@ -175,123 +388,26 @@
       // Consume the closing ">"
       if pos < len and input.at(pos) == ">" { pos += 1 }
 
-      // Parse duration
-      let duration = last-duration
-      let dur-str = ""
-      while peek(pos) != none and is-digit(peek(pos)) { dur-str += peek(pos); pos += 1 }
-      if dur-str.len() > 0 { duration = int(dur-str) }
-      // Parse dots
-      let dots = 0
-      while peek(pos) == "." { dots += 1; pos += 1 }
-      // Parse tie
-      let tie = false
-      if peek(pos) == "~" { tie = true; pos += 1 }
-
-      // Parse articulations: > (accent), * (staccato), - (tenuto), _ (fermata)
-      let articulations = ()
-      while peek(pos) == ">" or peek(pos) == "*" or peek(pos) == "-" or peek(pos) == "_" {
-        let ac = peek(pos)
-        if ac == ">" { articulations.push("accent") }
-        else if ac == "*" { articulations.push("staccato") }
-        else if ac == "-" { articulations.push("tenuto") }
-        else if ac == "_" { articulations.push("fermata") }
-        pos += 1
-      }
-
-      // Parse dynamic: v[text] e.g. v[mf], v[ff]
-      let dynamic = none
-      if peek(pos) == "v" and pos + 1 < len and input.at(pos + 1) == "[" {
-        pos += 2 // skip "v["
-        let dyn-str = ""
-        while pos < len and input.at(pos) != "]" {
-          dyn-str += input.at(pos)
-          pos += 1
-        }
-        if pos < len { pos += 1 } // skip "]"
-        if dyn-str.len() > 0 {
-          dynamic = dyn-str
-        }
-      }
-
-      // Allow tie after articulations/dynamics (e.g. c4v[pp]~ c)
-      if not tie and peek(pos) == "~" {
-        tie = true
-        pos += 1
-      }
-
-      // Parse slur
-      let slur-start = false
-      let slur-end = false
-      if peek(pos) == "(" { slur-start = true; pos += 1 }
-      if peek(pos) == ")" { slur-end = true; pos += 1 }
-      // Parse beam markers ([ is beam-start unless followed by A-G = chord symbol)
-      let beam-start = false
-      let beam-end = false
-      if peek(pos) == "[" {
-        let nxt = if pos + 1 < len { input.at(pos + 1) } else { none }
-        if nxt == none or not (nxt >= "A" and nxt <= "G") {
-          beam-start = true
-          pos += 1
-        }
-      }
-      if peek(pos) == "]" { beam-end = true; pos += 1 }
-
-      // Parse inline chord symbol [text] and fingering n[digits] or n_[digits]
-      let chord-symbol = none
-      let fingering = none
-      let fingering-position = "above"
-      while peek(pos) == "[" or (peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "["))) {
-        if peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "[")) {
-          if input.at(pos + 1) == "_" {
-            fingering-position = "below"
-            pos += 3
-          } else {
-            pos += 2
-          }
-          let fng-str = ""
-          while pos < len and input.at(pos) != "]" {
-            fng-str += input.at(pos)
-            pos += 1
-          }
-          if pos < len { pos += 1 }
-          let parts = fng-str.split(" ").filter(s => s.len() > 0)
-          if parts.len() == 1 {
-            fingering = int(parts.at(0))
-          } else if parts.len() > 1 {
-            fingering = parts.map(s => int(s))
-          }
-        } else if peek(pos) == "[" {
-          pos += 1
-          let sym-str = ""
-          while pos < len and input.at(pos) != "]" {
-            sym-str += input.at(pos)
-            pos += 1
-          }
-          if pos < len { pos += 1 }
-          if sym-str.len() > 0 {
-            chord-symbol = sym-str
-          }
-        }
-      }
-
-      last-duration = duration
-      last-dots = dots
+      let rhythm = parse-duration-dots(pos, sticky-duration: last-duration)
+      let attachments = parse-note-attachments(rhythm.pos)
+      pos = attachments.pos
+      last-duration = rhythm.duration
 
       if chord-notes.len() > 0 {
         events.push(make-chord(
           chord-notes,
-          duration: duration,
-          dots: dots,
-          tie: tie,
-          slur-start: slur-start,
-          slur-end: slur-end,
-          beam-start: beam-start,
-          beam-end: beam-end,
-          articulations: articulations,
-          dynamic: dynamic,
-          fingering: fingering,
-          fingering-position: fingering-position,
-          chord-symbol: chord-symbol,
+          duration: rhythm.duration,
+          dots: rhythm.dots,
+          tie: attachments.tie,
+          slur-start: attachments.slur-start,
+          slur-end: attachments.slur-end,
+          beam-start: attachments.beam-start,
+          beam-end: attachments.beam-end,
+          articulations: attachments.articulations,
+          dynamic: attachments.dynamic,
+          fingering: attachments.fingering,
+          fingering-position: attachments.fingering-position,
+          chord-symbol: attachments.chord-symbol,
         ))
       }
       continue
@@ -331,378 +447,29 @@
     }
 
     // --- Notes (a-g) ---
-    if ch >= "a" and ch <= "g" and ch != "b" {
-      // Definitely a note (a, c, d, e, f, g)
+    if ch >= "a" and ch <= "g" {
       let name = ch
       pos += 1
-      let accidental = none
-      let octave = current-base-octave
-
-      // Parse accidental
-      let ac = peek(pos)
-      if ac == "#" {
-        pos += 1
-        if peek(pos) == "#" {
-          accidental = "double-sharp"
-          pos += 1
-        } else {
-          accidental = "sharp"
-        }
-      } else if ac == "&" {
-        pos += 1
-        if peek(pos) == "&" {
-          accidental = "double-flat"
-          pos += 1
-        } else {
-          accidental = "flat"
-        }
-      } else if ac == "=" {
-        accidental = "natural"
-        pos += 1
-      }
-
-      // Parse octave markers
-      while peek(pos) == "'" {
-        octave += 1
-        pos += 1
-      }
-      while peek(pos) == "," {
-        octave -= 1
-        pos += 1
-      }
-
-      // Parse duration
-      let duration = last-duration
-      let dur-str = ""
-      while peek(pos) != none and is-digit(peek(pos)) {
-        dur-str += peek(pos)
-        pos += 1
-      }
-      if dur-str.len() > 0 {
-        duration = int(dur-str)
-      }
-
-      // Parse dots
-      let dots = 0
-      while peek(pos) == "." {
-        dots += 1
-        pos += 1
-      }
-      // If no dots specified but duration wasn't given, use last dots? No, dots don't stick.
-      // Actually per the spec, only duration is sticky. Dots are per-note.
-
-      // Parse tie
-      let tie = false
-      if peek(pos) == "~" {
-        tie = true
-        pos += 1
-      }
-
-      // Parse articulations: > (accent), * (staccato), - (tenuto), _ (fermata)
-      let articulations = ()
-      while peek(pos) == ">" or peek(pos) == "*" or peek(pos) == "-" or peek(pos) == "_" {
-        let ac = peek(pos)
-        if ac == ">" { articulations.push("accent") }
-        else if ac == "*" { articulations.push("staccato") }
-        else if ac == "-" { articulations.push("tenuto") }
-        else if ac == "_" { articulations.push("fermata") }
-        pos += 1
-      }
-
-      // Parse dynamic: v[text] e.g. v[mf], v[ff]
-      let dynamic = none
-      if peek(pos) == "v" and pos + 1 < len and input.at(pos + 1) == "[" {
-        pos += 2 // skip "v["
-        let dyn-str = ""
-        while pos < len and input.at(pos) != "]" {
-          dyn-str += input.at(pos)
-          pos += 1
-        }
-        if pos < len { pos += 1 } // skip "]"
-        if dyn-str.len() > 0 {
-          dynamic = dyn-str
-        }
-      }
-
-      // Allow tie after articulations/dynamics (e.g. c4v[pp]~ c)
-      if not tie and peek(pos) == "~" {
-        tie = true
-        pos += 1
-      }
-
-      // Parse slur start/end
-      let slur-start = false
-      let slur-end = false
-      if peek(pos) == "(" {
-        slur-start = true
-        pos += 1
-      }
-      if peek(pos) == ")" {
-        slur-end = true
-        pos += 1
-      }
-
-      // Parse beam markers ([ is beam-start unless followed by A-G = chord symbol)
-      let beam-start = false
-      let beam-end = false
-      if peek(pos) == "[" {
-        let nxt = if pos + 1 < len { input.at(pos + 1) } else { none }
-        if nxt == none or not (nxt >= "A" and nxt <= "G") {
-          beam-start = true
-          pos += 1
-        }
-      }
-      if peek(pos) == "]" {
-        beam-end = true
-        pos += 1
-      }
-
-      // Parse inline chord symbol [text] and fingering n[digits] or n_[digits]
-      // These can appear in any order: c4[C/E]n[3] or c4n[3][C/E]
-      let chord-symbol = none
-      let fingering = none
-      let fingering-position = "above"
-      while peek(pos) == "[" or (peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "["))) {
-        if peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "[")) {
-          // Fingering: n[...] = above, n_[...] = below
-          if input.at(pos + 1) == "_" {
-            fingering-position = "below"
-            pos += 3 // skip "n_["
-          } else {
-            pos += 2 // skip "n["
-          }
-          let fng-str = ""
-          while pos < len and input.at(pos) != "]" {
-            fng-str += input.at(pos)
-            pos += 1
-          }
-          if pos < len { pos += 1 } // skip "]"
-          let parts = fng-str.split(" ").filter(s => s.len() > 0)
-          if parts.len() == 1 {
-            fingering = int(parts.at(0))
-          } else if parts.len() > 1 {
-            fingering = parts.map(s => int(s))
-          }
-        } else if peek(pos) == "[" {
-          // Chord symbol: [...]
-          pos += 1 // skip "["
-          let sym-str = ""
-          while pos < len and input.at(pos) != "]" {
-            sym-str += input.at(pos)
-            pos += 1
-          }
-          if pos < len { pos += 1 } // skip "]"
-          if sym-str.len() > 0 {
-            chord-symbol = sym-str
-          }
-        }
-      }
-
-      last-duration = duration
-      last-dots = dots
+      let note = parse-note-event-data(pos, base-octave: current-base-octave, sticky-duration: last-duration)
+      pos = note.pos
+      last-duration = note.duration
 
       events.push(make-note(
         name,
-        accidental: accidental,
-        octave: octave,
-        duration: duration,
-        dots: dots,
-        tie: tie,
-        slur-start: slur-start,
-        slur-end: slur-end,
-        beam-start: beam-start,
-        beam-end: beam-end,
-        articulations: articulations,
-        dynamic: dynamic,
-        fingering: fingering,
-        fingering-position: fingering-position,
-        chord-symbol: chord-symbol,
-      ))
-      continue
-    }
-
-    // --- Handle "b" which is ambiguous (note B or flat indicator) ---
-    if ch == "b" {
-      // "b" is the note B - flats use "&" prefix in this syntax
-      let name = "b"
-      pos += 1
-      let accidental = none
-      let octave = current-base-octave
-
-      // Parse accidental
-      let ac = peek(pos)
-      if ac == "#" {
-        pos += 1
-        if peek(pos) == "#" {
-          accidental = "double-sharp"
-          pos += 1
-        } else {
-          accidental = "sharp"
-        }
-      } else if ac == "&" {
-        pos += 1
-        if peek(pos) == "&" {
-          accidental = "double-flat"
-          pos += 1
-        } else {
-          accidental = "flat"
-        }
-      } else if ac == "=" {
-        accidental = "natural"
-        pos += 1
-      }
-
-      // Parse octave markers
-      while peek(pos) == "'" {
-        octave += 1
-        pos += 1
-      }
-      while peek(pos) == "," {
-        octave -= 1
-        pos += 1
-      }
-
-      // Parse duration
-      let duration = last-duration
-      let dur-str = ""
-      while peek(pos) != none and is-digit(peek(pos)) {
-        dur-str += peek(pos)
-        pos += 1
-      }
-      if dur-str.len() > 0 {
-        duration = int(dur-str)
-      }
-
-      // Parse dots
-      let dots = 0
-      while peek(pos) == "." {
-        dots += 1
-        pos += 1
-      }
-
-      // Parse tie
-      let tie = false
-      if peek(pos) == "~" {
-        tie = true
-        pos += 1
-      }
-
-      // Parse articulations: > (accent), * (staccato), - (tenuto), _ (fermata)
-      let articulations = ()
-      while peek(pos) == ">" or peek(pos) == "*" or peek(pos) == "-" or peek(pos) == "_" {
-        let ac = peek(pos)
-        if ac == ">" { articulations.push("accent") }
-        else if ac == "*" { articulations.push("staccato") }
-        else if ac == "-" { articulations.push("tenuto") }
-        else if ac == "_" { articulations.push("fermata") }
-        pos += 1
-      }
-
-      // Parse dynamic: v[text] e.g. v[mf], v[ff]
-      let dynamic = none
-      if peek(pos) == "v" and pos + 1 < len and input.at(pos + 1) == "[" {
-        pos += 2 // skip "v["
-        let dyn-str = ""
-        while pos < len and input.at(pos) != "]" {
-          dyn-str += input.at(pos)
-          pos += 1
-        }
-        if pos < len { pos += 1 } // skip "]"
-        if dyn-str.len() > 0 {
-          dynamic = dyn-str
-        }
-      }
-
-      // Allow tie after articulations/dynamics (e.g. b4v[pp]~ b)
-      if not tie and peek(pos) == "~" {
-        tie = true
-        pos += 1
-      }
-
-      // Parse slur
-      let slur-start = false
-      let slur-end = false
-      if peek(pos) == "(" {
-        slur-start = true
-        pos += 1
-      }
-      if peek(pos) == ")" {
-        slur-end = true
-        pos += 1
-      }
-
-      // Parse beam markers ([ is beam-start unless followed by A-G = chord symbol)
-      let beam-start = false
-      let beam-end = false
-      if peek(pos) == "[" {
-        let nxt = if pos + 1 < len { input.at(pos + 1) } else { none }
-        if nxt == none or not (nxt >= "A" and nxt <= "G") {
-          beam-start = true
-          pos += 1
-        }
-      }
-      if peek(pos) == "]" {
-        beam-end = true
-        pos += 1
-      }
-
-      // Parse inline chord symbol [text] and fingering n[digits] or n_[digits]
-      let chord-symbol = none
-      let fingering = none
-      let fingering-position = "above"
-      while peek(pos) == "[" or (peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "["))) {
-        if peek(pos) == "n" and pos + 1 < len and (input.at(pos + 1) == "[" or (input.at(pos + 1) == "_" and pos + 2 < len and input.at(pos + 2) == "[")) {
-          if input.at(pos + 1) == "_" {
-            fingering-position = "below"
-            pos += 3
-          } else {
-            pos += 2
-          }
-          let fng-str = ""
-          while pos < len and input.at(pos) != "]" {
-            fng-str += input.at(pos)
-            pos += 1
-          }
-          if pos < len { pos += 1 }
-          let parts = fng-str.split(" ").filter(s => s.len() > 0)
-          if parts.len() == 1 {
-            fingering = int(parts.at(0))
-          } else if parts.len() > 1 {
-            fingering = parts.map(s => int(s))
-          }
-        } else if peek(pos) == "[" {
-          pos += 1
-          let sym-str = ""
-          while pos < len and input.at(pos) != "]" {
-            sym-str += input.at(pos)
-            pos += 1
-          }
-          if pos < len { pos += 1 }
-          if sym-str.len() > 0 {
-            chord-symbol = sym-str
-          }
-        }
-      }
-
-      last-duration = duration
-      last-dots = dots
-
-      events.push(make-note(
-        name,
-        accidental: accidental,
-        octave: octave,
-        duration: duration,
-        dots: dots,
-        tie: tie,
-        slur-start: slur-start,
-        slur-end: slur-end,
-        beam-start: beam-start,
-        beam-end: beam-end,
-        articulations: articulations,
-        dynamic: dynamic,
-        fingering: fingering,
-        fingering-position: fingering-position,
-        chord-symbol: chord-symbol,
+        accidental: note.accidental,
+        octave: note.octave,
+        duration: note.duration,
+        dots: note.dots,
+        tie: note.tie,
+        slur-start: note.slur-start,
+        slur-end: note.slur-end,
+        beam-start: note.beam-start,
+        beam-end: note.beam-end,
+        articulations: note.articulations,
+        dynamic: note.dynamic,
+        fingering: note.fingering,
+        fingering-position: note.fingering-position,
+        chord-symbol: note.chord-symbol,
       ))
       continue
     }
@@ -710,44 +477,20 @@
     // --- Rests ---
     if ch == "r" {
       pos += 1
-      let duration = last-duration
-      let dur-str = ""
-      while peek(pos) != none and is-digit(peek(pos)) {
-        dur-str += peek(pos)
-        pos += 1
-      }
-      if dur-str.len() > 0 {
-        duration = int(dur-str)
-      }
-      let dots = 0
-      while peek(pos) == "." {
-        dots += 1
-        pos += 1
-      }
-      last-duration = duration
-      events.push(make-rest(duration: duration, dots: dots))
+      let rhythm = parse-duration-dots(pos, sticky-duration: last-duration)
+      pos = rhythm.pos
+      last-duration = rhythm.duration
+      events.push(make-rest(duration: rhythm.duration, dots: rhythm.dots))
       continue
     }
 
     // --- Spacers (invisible rests) ---
     if ch == "s" {
       pos += 1
-      let duration = last-duration
-      let dur-str = ""
-      while peek(pos) != none and is-digit(peek(pos)) {
-        dur-str += peek(pos)
-        pos += 1
-      }
-      if dur-str.len() > 0 {
-        duration = int(dur-str)
-      }
-      let dots = 0
-      while peek(pos) == "." {
-        dots += 1
-        pos += 1
-      }
-      last-duration = duration
-      events.push(make-spacer(duration: duration, dots: dots))
+      let rhythm = parse-duration-dots(pos, sticky-duration: last-duration)
+      pos = rhythm.pos
+      last-duration = rhythm.duration
+      events.push(make-spacer(duration: rhythm.duration, dots: rhythm.dots))
       continue
     }
 

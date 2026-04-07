@@ -222,10 +222,11 @@
   // Tuplet font size (scales with staff-space). Base is 7.75pt at default staff space.
   let tuplet-font-size = 7.75pt * (sp / default_sp_numeric)
   
+  let stacked-values = value => if type(value) == array { value } else { (value,) }
+
   let fingering-top-y = (base-y, fng-val) => {
-    let fng-list = if type(fng-val) == array { fng-val } else { (fng-val,) }
     let cur-y = base-y
-    for fng in fng-list {
+    for fng in stacked-values(fng-val) {
       if fng != none and fng != 0 {
         cur-y += 0.9 * sp
       }
@@ -235,18 +236,17 @@
 
   // Helper: draw one or more stacked fingering numbers at the given x position,
   // placing the first (bottom) fingering just above base-y.
-  let draw-fingering = (x-pos, base-y, fng-val) => {
+  let draw-fingering = (x-pos, base-y, fng-val, anchor: "south", step: 0.9 * sp) => {
     // Normalise: single value → single-element array
-    let fng-list = if type(fng-val) == array { fng-val } else { (fng-val,) }
     let cur-y = base-y
-    for fng in fng-list {
+    for fng in stacked-values(fng-val) {
       if fng != none and fng != 0 {
         content(
           (x-pos, cur-y),
-          anchor: "south",
+          anchor: anchor,
           text(size: fingering-font-size, weight: "regular", str(fng)),
         )
-        cur-y += 0.9 * sp   // stack upward for each additional fingering
+        cur-y += step
       }
     }
   }
@@ -263,6 +263,77 @@
   }
 
   // ── Draw all music events ────────────────────────────────────────────────
+  let below-articulations = articulations => articulations.filter(a => a != "fermata")
+
+  let dynamic-extra-offset = (reference-y, articulations, stem-dir) => {
+    if stem-dir != "up" { return 0.0 }
+    let below-arts = below-articulations(articulations)
+    if below-arts.len() == 0 { return 0.0 }
+    let art-bottom = reference-y + 1.0 * sp - below-arts.len() * 1.0 * sp
+    let min-dyn-offset = below-arts.len() * 0.8 * sp
+    if art-bottom < y-bottom {
+      calc.max(y-bottom - art-bottom, min-dyn-offset)
+    } else {
+      min-dyn-offset
+    }
+  }
+
+  let draw-inline-text = (
+    x-pos,
+    event,
+    above-anchor-y,
+    below-anchor-y,
+    chord-anchor-y,
+    fingering-position,
+    fermata-clearance-y: none,
+  ) => {
+    let fng = event.at("fingering", default: none)
+    let fng-top = y-top + 1.5 * sp
+    let event-fng-pos = event.at("fingering-position", default: "above")
+    let fng-pos = if event-fng-pos == "below" { "below" } else { fingering-position }
+    if fng != none and fng != 0 {
+      if fng-pos == "below" {
+        let fng-base-y = below-anchor-y
+        if event.dynamic != none {
+          fng-base-y -= 1.5 * sp
+        }
+        let below-arts = below-articulations(event.articulations)
+        if below-arts.len() > 0 {
+          fng-base-y -= below-arts.len() * 1.0 * sp
+        }
+        draw-fingering(x-pos, fng-base-y - 0.9 * sp, fng, anchor: "north", step: -0.9 * sp)
+      } else {
+        let fng-base-y = calc.max(y-top + 1.5 * sp, above-anchor-y)
+        if fermata-clearance-y != none and event.articulations.contains("fermata") {
+          fng-base-y = calc.max(fng-base-y, fermata-clearance-y)
+        }
+        draw-fingering(x-pos, fng-base-y, fng)
+        fng-top = fingering-top-y(fng-base-y, fng)
+      }
+    }
+    let csym = event.at("chord-symbol", default: none)
+    if csym != none and csym != "" {
+      draw-chord-symbol(
+        x-pos,
+        calc.max(y-top + 2.5 * sp, fng-top + 0.8 * sp, chord-anchor-y),
+        csym,
+      )
+    }
+  }
+
+  let stem-render-data = (idx, item) => {
+    let stem-end-override = adj-stem-ends.at(str(idx), default: none)
+    (
+      actual-stem-end: if stem-end-override != none {
+        y-top + stem-end-override * sp
+      } else {
+        y-top + item.stem-y-end * sp
+      },
+      actual-stem-dir: adj-stem-dirs.at(str(idx), default: item.stem-dir),
+      is-beamed: stem-end-override != none,
+    )
+  }
+
   let current-clef = if clef-name == none { "treble" } else { clef-name }
   for (i, item) in items.enumerate() {
     let event = item.event
@@ -275,203 +346,78 @@
     } else if event.type == "time-sig" {
       draw-time-signature(x, y-top, event.upper, event.lower, symbol: event.symbol, sp: sp)
     } else if event.type == "note" {
-      // Use beam-adjusted stem end and direction if this note is beamed
-      let stem-end-override = adj-stem-ends.at(str(i), default: none)
-      let stem-dir-override = adj-stem-dirs.at(str(i), default: none)
-      let actual-stem-end = if stem-end-override != none {
-        y-top + stem-end-override * sp
-      } else {
-        y-top + item.stem-y-end * sp
-      }
-      let actual-stem-dir = if stem-dir-override != none { stem-dir-override } else { item.stem-dir }
-      let is-beamed = stem-end-override != none
-
+      let stem-data = stem-render-data(i, item)
+      let note-center-y = y-top + y
       draw-note(
-        x, y-top + y, event,
-        actual-stem-dir, actual-stem-end,
+        x, note-center-y, event,
+        stem-data.actual-stem-dir, stem-data.actual-stem-end,
         y-top,
         clef: current-clef,
         sp: sp,
-        beamed: is-beamed,
+        beamed: stem-data.is-beamed,
       )
-
-      // Draw articulations near the notehead
       if event.articulations.len() > 0 {
-        draw-articulations(x, y-top + y, event.articulations, actual-stem-dir, y-top, sp: sp)
+        draw-articulations(x, note-center-y, event.articulations, stem-data.actual-stem-dir, y-top, sp: sp)
       }
-
-      // Draw dynamic below the staff
       if event.dynamic != none {
-        let dyn-extra = 0.0
-        if actual-stem-dir == "up" {
-          let below-arts = event.articulations.filter(a => a != "fermata")
-          if below-arts.len() > 0 {
-            let note-abs-y = y-top + y
-            let art-bottom = note-abs-y + 1.0 * sp - below-arts.len() * 1.0 * sp
-            let min-dyn-offset = below-arts.len() * 0.8 * sp
-            if art-bottom < y-bottom {
-              dyn-extra = calc.max(y-bottom - art-bottom, min-dyn-offset)
-            } else {
-              dyn-extra = min-dyn-offset
-            }
-          }
-        }
-        draw-dynamic(x, y-bottom, event.dynamic, sp: sp, extra-offset: dyn-extra)
-      }
-
-      // Draw inline fingering(s)
-      let fng = event.at("fingering", default: none)
-      let event-fng-pos = event.at("fingering-position", default: "above")
-      let fng-pos = if event-fng-pos == "below" { "below" } else { fingering-position }
-      let note-center-y = y-top + y
-      let fng-top = y-top + 1.5 * sp
-      if fng != none and fng != 0 {
-        if fng-pos == "below" {
-          // Place below the note / below staff bottom
-          let fng-base-y = calc.min(y-bottom - 0.5 * sp, note-center-y - 1.0 * sp)
-          // Clear dynamics if present
-          if event.dynamic != none {
-            fng-base-y -= 1.5 * sp
-          }
-          // Clear below-staff articulations
-          let below-arts = event.articulations.filter(a => a != "fermata")
-          if below-arts.len() > 0 {
-            fng-base-y -= below-arts.len() * 1.0 * sp
-          }
-          let fng-list = if type(fng) == array { fng } else { (fng,) }
-          let cur-y = fng-base-y
-          for f in fng-list {
-            if f != none and f != 0 {
-              cur-y -= 0.9 * sp
-              content(
-                (x, cur-y),
-                anchor: "north",
-                text(size: fingering-font-size, weight: "regular", str(f)),
-              )
-            }
-          }
-        } else {
-          let fng-base-y = calc.max(y-top + 1.5 * sp, note-center-y + 1.0 * sp)
-          if event.articulations.contains("fermata") {
-            fng-base-y = calc.max(fng-base-y, calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp)
-          }
-          draw-fingering(x, fng-base-y, fng)
-          fng-top = fingering-top-y(fng-base-y, fng)
-        }
-      }
-
-      // Draw inline chord symbol above fingerings
-      let csym = event.at("chord-symbol", default: none)
-      if csym != none and csym != "" {
-        let chord-base-y = calc.max(
-          y-top + 2.5 * sp,
-          fng-top + 0.8 * sp,
-          note-center-y + 1.5 * sp,
+        draw-dynamic(
+          x, y-bottom, event.dynamic,
+          sp: sp,
+          extra-offset: dynamic-extra-offset(note-center-y, event.articulations, stem-data.actual-stem-dir),
         )
-        draw-chord-symbol(x, chord-base-y, csym)
       }
+      draw-inline-text(
+        x,
+        event,
+        note-center-y + 1.0 * sp,
+        calc.min(y-bottom - 0.5 * sp, note-center-y - 1.0 * sp),
+        note-center-y + 1.5 * sp,
+        fingering-position,
+        fermata-clearance-y: calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp,
+      )
 
     } else if event.type == "chord" {
       let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
-      let chord-staff-positions = item.chord-staff-positions
-      let stem-end-override = adj-stem-ends.at(str(i), default: none)
-      let stem-dir-override = adj-stem-dirs.at(str(i), default: none)
-      let actual-stem-end = if stem-end-override != none {
-        y-top + stem-end-override * sp
-      } else {
-        y-top + item.stem-y-end * sp
-      }
-      let actual-stem-dir = if stem-dir-override != none { stem-dir-override } else { item.stem-dir }
-      let is-beamed = stem-end-override != none
-
+      let stem-data = stem-render-data(i, item)
+      let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+      let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
       draw-chord-event(
         x,
         chord-ys-abs,
-        chord-staff-positions,
+        item.chord-staff-positions,
         event,
-        actual-stem-dir,
-        actual-stem-end,
+        stem-data.actual-stem-dir,
+        stem-data.actual-stem-end,
         y-top,
         clef: current-clef,
         sp: sp,
-        beamed: is-beamed,
+        beamed: stem-data.is-beamed,
       )
-
-      // Draw articulations near the outermost note of the chord
       if event.articulations.len() > 0 {
-        let art-note-y = if actual-stem-dir == "down" {
-          chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
-        } else {
-          chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
-        }
-        draw-articulations(x, art-note-y, event.articulations, actual-stem-dir, y-top, sp: sp)
-      }
-
-      // Draw dynamic below the staff
-      if event.dynamic != none {
-        let dyn-extra = 0.0
-        if actual-stem-dir == "up" {
-          let below-arts = event.articulations.filter(a => a != "fermata")
-          if below-arts.len() > 0 {
-            let art-note-y-dyn = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
-            let art-bottom = art-note-y-dyn + 1.0 * sp - below-arts.len() * 1.0 * sp
-            let min-dyn-offset = below-arts.len() * 0.8 * sp
-            if art-bottom < y-bottom {
-              dyn-extra = calc.max(y-bottom - art-bottom, min-dyn-offset)
-            } else {
-              dyn-extra = min-dyn-offset
-            }
-          }
-        }
-        draw-dynamic(x, y-bottom, event.dynamic, sp: sp, extra-offset: dyn-extra)
-      }
-
-      // Draw inline fingering(s)
-      let fng = event.at("fingering", default: none)
-      let event-fng-pos = event.at("fingering-position", default: "above")
-      let fng-pos = if event-fng-pos == "below" { "below" } else { fingering-position }
-      let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
-      let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
-      let fng-top = y-top + 1.5 * sp
-      if fng != none and fng != 0 {
-        if fng-pos == "below" {
-          let fng-base-y = calc.min(y-bottom - 0.5 * sp, bottom-y - 1.0 * sp)
-          if event.dynamic != none {
-            fng-base-y -= 1.5 * sp
-          }
-          let below-arts = event.articulations.filter(a => a != "fermata")
-          if below-arts.len() > 0 {
-            fng-base-y -= below-arts.len() * 1.0 * sp
-          }
-          let fng-list = if type(fng) == array { fng } else { (fng,) }
-          let cur-y = fng-base-y
-          for f in fng-list {
-            if f != none and f != 0 {
-              cur-y -= 0.9 * sp
-              content(
-                (x, cur-y),
-                anchor: "north",
-                text(size: fingering-font-size, weight: "regular", str(f)),
-              )
-            }
-          }
-        } else {
-          let fng-base-y = calc.max(y-top + 1.5 * sp, top-y + 1.0 * sp)
-          draw-fingering(x, fng-base-y, fng)
-          fng-top = fingering-top-y(fng-base-y, fng)
-        }
-      }
-
-      // Draw inline chord symbol above fingerings
-      let csym = event.at("chord-symbol", default: none)
-      if csym != none and csym != "" {
-        let chord-base-y = calc.max(
-          y-top + 2.5 * sp,
-          fng-top + 0.8 * sp,
-          top-y + 1.5 * sp,
+        draw-articulations(
+          x,
+          if stem-data.actual-stem-dir == "down" { top-y } else { bottom-y },
+          event.articulations,
+          stem-data.actual-stem-dir,
+          y-top,
+          sp: sp,
         )
-        draw-chord-symbol(x, chord-base-y, csym)
       }
+      if event.dynamic != none {
+        draw-dynamic(
+          x, y-bottom, event.dynamic,
+          sp: sp,
+          extra-offset: dynamic-extra-offset(bottom-y, event.articulations, stem-data.actual-stem-dir),
+        )
+      }
+      draw-inline-text(
+        x,
+        event,
+        top-y + 1.0 * sp,
+        calc.min(y-bottom - 0.5 * sp, bottom-y - 1.0 * sp),
+        top-y + 1.5 * sp,
+        fingering-position,
+      )
 
     } else if event.type == "rest" {
       draw-rest(x, y-top + y, event.duration, dots: event.dots, sp: sp)

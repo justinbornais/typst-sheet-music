@@ -38,89 +38,39 @@
 
   // Resolve which staff y-tops get repeat dots
   let staff-tops = if dot-staff-tops != none { dot-staff-tops } else { (y-top,) }
+  let draw-bar = (bar-x, thickness) => {
+    line((bar-x, y-top), (bar-x, y-bottom), stroke: thickness * 1mm + black)
+  }
+  let draw-repeat-dots = dot-x => {
+    for st in staff-tops {
+      for dot-y in (st - 1.5 * sp, st - 2.5 * sp) {
+        circle((dot-x, dot-y), radius: dot-radius, fill: black, stroke: none)
+      }
+    }
+  }
 
   if style == "single" {
-    line(
-      (x, y-top), (x, y-bottom),
-      stroke: thin * 1mm + black,
-    )
+    draw-bar(x, thin)
   } else if style == "double" {
-    line(
-      (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
-      stroke: thin * 1mm + black,
-    )
-    line(
-      (x, y-top), (x, y-bottom),
-      stroke: thin * 1mm + black,
-    )
+    draw-bar(x - 0.5 * sp, thin)
+    draw-bar(x, thin)
   } else if style == "final" {
-    line(
-      (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
-      stroke: thin * 1mm + black,
-    )
-    line(
-      (x, y-top), (x, y-bottom),
-      stroke: thick * 1mm + black,
-    )
+    draw-bar(x - 0.5 * sp, thin)
+    draw-bar(x, thick)
   } else if style == "repeat-start" {
-    line(
-      (x, y-top), (x, y-bottom),
-      stroke: thick * 1mm + black,
-    )
-    line(
-      (x + 0.5 * sp, y-top), (x + 0.5 * sp, y-bottom),
-      stroke: thin * 1mm + black,
-    )
-    // Dots on each staff
-    for st in staff-tops {
-      let dot-y1 = st - 1.5 * sp
-      let dot-y2 = st - 2.5 * sp
-      circle((x + 1.0 * sp, dot-y1), radius: dot-radius, fill: black, stroke: none)
-      circle((x + 1.0 * sp, dot-y2), radius: dot-radius, fill: black, stroke: none)
-    }
+    draw-bar(x, thick)
+    draw-bar(x + 0.5 * sp, thin)
+    draw-repeat-dots(x + 1.0 * sp)
   } else if style == "repeat-end" {
-    // Dots on each staff
-    for st in staff-tops {
-      let dot-y1 = st - 1.5 * sp
-      let dot-y2 = st - 2.5 * sp
-      circle((x - 1.0 * sp, dot-y1), radius: dot-radius, fill: black, stroke: none)
-      circle((x - 1.0 * sp, dot-y2), radius: dot-radius, fill: black, stroke: none)
-    }
-    line(
-      (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
-      stroke: thin * 1mm + black,
-    )
-    line(
-      (x, y-top), (x, y-bottom),
-      stroke: thick * 1mm + black,
-    )
+    draw-repeat-dots(x - 1.0 * sp)
+    draw-bar(x - 0.5 * sp, thin)
+    draw-bar(x, thick)
   } else if style == "repeat-both" {
-    // Left-side repeat dots
-    for st in staff-tops {
-      let dot-y1 = st - 1.5 * sp
-      let dot-y2 = st - 2.5 * sp
-      circle((x - 1.0 * sp, dot-y1), radius: dot-radius, fill: black, stroke: none)
-      circle((x - 1.0 * sp, dot-y2), radius: dot-radius, fill: black, stroke: none)
-    }
-    line(
-      (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
-      stroke: thin * 1mm + black,
-    )
-    line(
-      (x, y-top), (x, y-bottom),
-      stroke: thick * 1mm + black,
-    )
-    line(
-      (x + 0.5 * sp, y-top), (x + 0.5 * sp, y-bottom),
-      stroke: thin * 1mm + black,
-    )
-    // Right-side repeat dots
-    for st in staff-tops {
-      let dot-y1 = st - 1.5 * sp
-      let dot-y2 = st - 2.5 * sp
-      circle((x + 1.0 * sp, dot-y1), radius: dot-radius, fill: black, stroke: none)
-      circle((x + 1.0 * sp, dot-y2), radius: dot-radius, fill: black, stroke: none)
-    }
+    draw-repeat-dots(x - 1.0 * sp)
+    draw-bar(x - 0.5 * sp, thin)
+    draw-bar(x, thick)
+    draw-bar(x + 0.5 * sp, thin)
+    draw-repeat-dots(x + 1.0 * sp)
   }
 }
 
