@@ -62,6 +62,12 @@
 #let events7 = parse-music("c'4 d' |.")
 #assert-eq(events7.at(2).style, "final", msg: "final barline")
 
+== Repeat-Both Barlines
+
+#let events7b = parse-music("c'4 d' :||: e' f' :|: g' a'")
+#assert-eq(events7b.at(2).style, "repeat-both", msg: "repeat-both long form")
+#assert-eq(events7b.at(5).style, "repeat-both", msg: "repeat-both short form")
+
 == Octave Markers
 
 #let events8 = parse-music("c4 c'4 c''4 c,4")

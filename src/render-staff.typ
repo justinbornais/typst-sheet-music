@@ -26,7 +26,7 @@
 /// - x: horizontal position
 /// - y-top: y of top staff line
 /// - y-bottom: y of bottom staff line
-/// - style: "single", "double", "final", "repeat-start", "repeat-end"
+/// - style: "single", "double", "final", "repeat-start", "repeat-end", "repeat-both"
 /// - sp: staff space
 /// - dot-staff-tops: array of y-top values for each staff where repeat dots
 ///   should be drawn. Defaults to just (y-top,) for a single staff.
@@ -94,6 +94,33 @@
       (x, y-top), (x, y-bottom),
       stroke: thick * 1mm + black,
     )
+  } else if style == "repeat-both" {
+    // Left-side repeat dots
+    for st in staff-tops {
+      let dot-y1 = st - 1.5 * sp
+      let dot-y2 = st - 2.5 * sp
+      circle((x - 1.0 * sp, dot-y1), radius: dot-radius, fill: black, stroke: none)
+      circle((x - 1.0 * sp, dot-y2), radius: dot-radius, fill: black, stroke: none)
+    }
+    line(
+      (x - 0.5 * sp, y-top), (x - 0.5 * sp, y-bottom),
+      stroke: thin * 1mm + black,
+    )
+    line(
+      (x, y-top), (x, y-bottom),
+      stroke: thick * 1mm + black,
+    )
+    line(
+      (x + 0.5 * sp, y-top), (x + 0.5 * sp, y-bottom),
+      stroke: thin * 1mm + black,
+    )
+    // Right-side repeat dots
+    for st in staff-tops {
+      let dot-y1 = st - 1.5 * sp
+      let dot-y2 = st - 2.5 * sp
+      circle((x + 1.0 * sp, dot-y1), radius: dot-radius, fill: black, stroke: none)
+      circle((x + 1.0 * sp, dot-y2), radius: dot-radius, fill: black, stroke: none)
+    }
   }
 }
 

@@ -8,6 +8,7 @@
 #import "src/layout-breaks.typ": compute-system-breaks, split-at-line-breaks, has-line-breaks
 #import "src/renderer.typ": render-score
 #import "src/render-clef-key-time.typ": clef-advance, key-sig-advance, time-sig-advance
+#import "src/model.typ": make-barline
 #import "src/constants.typ": default-staff-space, clef-default-base-octave
 
 /// Parse a time signature string like "4/4", "3/4", "6/8", "common", or "cut" into (upper, lower, symbol).
@@ -101,6 +102,7 @@
     let current-clef = initial-clef
     let current-time = initial-time
     let repeat-time-on-next = false
+    let repeat-start-on-next = false
     for sys in systems {
       let system-clef = current-clef
       let system-time = current-time
@@ -124,6 +126,16 @@
         start += 1
       }
       let cleaned = sys.slice(start)
+      if cleaned.len() > 0 and cleaned.first().type == "barline" {
+        let opening-style = cleaned.first().style
+        if opening-style == "repeat-start" or opening-style == "repeat-both" {
+          repeat-start-on-next = false
+          cleaned = cleaned.slice(1)
+          cleaned = (make-barline(style: "repeat-start"),) + cleaned
+        }
+      } else if repeat-start-on-next {
+        cleaned = (make-barline(style: "repeat-start"),) + cleaned
+      }
       prepared.push((
         events: cleaned,
         clef: system-clef,
@@ -133,6 +145,7 @@
 
       current-clef = system-clef
       current-time = system-time
+      repeat-start-on-next = false
       for ev in cleaned {
         if ev.type == "clef" {
           current-clef = ev.clef
@@ -143,6 +156,9 @@
             symbol: ev.symbol,
           )
         }
+      }
+      if cleaned.len() > 0 and cleaned.last().type == "barline" and cleaned.last().style == "repeat-both" {
+        repeat-start-on-next = true
       }
 
       let last-rhythm = cleaned.len() - 1

@@ -117,7 +117,15 @@
     if ch == ":" {
       let next = peek(pos + 1)
       if next == "|" {
-        if peek(pos + 2) == "|" {
+        if peek(pos + 2) == "|" and peek(pos + 3) == ":" {
+          // ":||:" - repeat both
+          events.push(make-barline(style: "repeat-both"))
+          pos += 4
+        } else if peek(pos + 2) == ":" {
+          // ":|:" - repeat both
+          events.push(make-barline(style: "repeat-both"))
+          pos += 3
+        } else if peek(pos + 2) == "|" {
           // ":||" - repeat end
           events.push(make-barline(style: "repeat-end"))
           pos += 3

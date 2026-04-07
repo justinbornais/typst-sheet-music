@@ -711,3 +711,45 @@ Mid-measure, post-barline, and line-end time signature changes:
   ),
   staff-group: "grand",
 )
+
+#v(1cm)
+
+== Test 58: Repeat-both barlines
+
+Mid-system `:||:` should render with dots on both sides, and a line-ending
+`repeat-both` should render as `:||` plus `||:` at the next system start:
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "c4 d e f :|: g a b c' | d' c' b a",
+    ),
+    (
+      clef: "bass",
+      music: "c,4 d, e, f, :|: g, a, b, c | d c b, a,",
+    ),
+  ),
+  staff-group: "grand",
+)
+
+#v(1cm)
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "c4 d e f :||: g a b c'",
+    ),
+    (
+      clef: "bass",
+      music: "c,4 d, e, f, :||: g, a, b, c",
+    ),
+  ),
+  staff-group: "grand",
+  measures-per-line: 1,
+)

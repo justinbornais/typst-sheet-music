@@ -488,11 +488,12 @@
   // ── Draw final barline at right edge (always) ────────────────────────────
   if not skip-barlines {
     // Use the style from the last event if it is a barline; otherwise "final".
-    let final-style = if items.len() > 0 and items.last().event.type == "barline" {
+    let raw-final-style = if items.len() > 0 and items.last().event.type == "barline" {
       items.last().event.style
     } else {
       "final"
     }
+    let final-style = if raw-final-style == "repeat-both" { "repeat-end" } else { raw-final-style }
     // Position the closing barline so its rightmost visual edge is flush with
     // the right end of the staff lines.
     let final-x = if final-style == "final" or final-style == "repeat-end" or final-style == "repeat-both" {
@@ -884,11 +885,12 @@
           }
 
           // Final barline
-          let final-style = if first-items.len() > 0 and first-items.last().event.type == "barline" {
+          let raw-final-style = if first-items.len() > 0 and first-items.last().event.type == "barline" {
             first-items.last().event.style
           } else {
             "final"
           }
+          let final-style = if raw-final-style == "repeat-both" { "repeat-end" } else { raw-final-style }
           let final-x = if final-style == "final" or final-style == "repeat-end" or final-style == "repeat-both" {
             total-width-sp * unit - default-thick-barline / 2.0 * unit
           } else {
