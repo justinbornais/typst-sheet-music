@@ -814,9 +814,11 @@
       import cetz.draw: *
 
       // ── Draw each staff ─────────────────────────────────────────────────
+      let previous-y-offset = 0.0
       for (i, laid-out) in laid-out-staves.enumerate() {
         let y-offset = -i * (staff-height-mm + spacing-mm)
-        set-origin((0, y-offset))
+        set-origin((0, y-offset - previous-y-offset))
+        previous-y-offset = y-offset
         render-system(
           laid-out,
           key: key,

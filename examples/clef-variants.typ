@@ -23,6 +23,7 @@
   key: "G",
   time: "4/4",
   staff-size: 1.75mm,
+  staff-spacing: 10mm
 )
 
 // Multi-staff example showing mixed clefs and key signatures
