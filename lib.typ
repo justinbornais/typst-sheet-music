@@ -8,6 +8,7 @@
 #import "src/layout-breaks.typ": compute-system-breaks, split-at-line-breaks, has-line-breaks
 #import "src/renderer.typ": render-score
 #import "src/render-clef-key-time.typ": clef-advance, key-sig-advance, time-sig-advance
+#import "src/glyph-metadata.typ": make-music-font-config
 #import "src/model.typ": make-barline
 #import "src/constants.typ": default-staff-space, clef-default-base-octave
 
@@ -58,6 +59,8 @@
 /// - system-spacing: vertical space between systems
 /// - staff-spacing: vertical space between staves within a system
 /// - lyric-line-spacing: vertical space between lyric lines within a system
+/// - music-font: SMuFL font family used for music glyphs (defaults to Bravura)
+/// - music-font-metadata: optional SMuFL metadata dictionary for the chosen font
 /// - width: explicit width or auto
 /// - measure-numbers: "system", "every", "none"
 /// - relative-octave: if true, use relative octave entry
@@ -80,6 +83,8 @@
   system-spacing: 12mm,
   staff-spacing: 8mm,
   lyric-line-spacing: none,
+  music-font: "Bravura",
+  music-font-metadata: none,
   width: auto,
   measure-numbers: "system",
   relative-octave: false,
@@ -90,6 +95,7 @@
 
   // Parse time signature
   let ts = parse-time-sig(time)
+  let music-font-config = make-music-font-config(font: music-font, metadata: music-font-metadata)
 
   // Parse music for each staff
   let staves-events = staves.map(s => {
@@ -221,10 +227,10 @@
   let prefix-width-sp(sp-unit, clef-name, show-time) = {
     let pf = 0.5 // left margin
     // Only include clef advance when an explicit clef is present.
-    if clef-name != none { pf += clef-advance(clef-name: clef-name, sp: 1.0) }
-    pf += key-sig-advance(key, sp: 1.0)
+    if clef-name != none { pf += clef-advance(clef-name: clef-name, sp: 1.0, music-font-config: music-font-config) }
+    pf += key-sig-advance(key, sp: 1.0, music-font-config: music-font-config)
     if show-time {
-      pf += time-sig-advance(ts.upper, ts.lower, symbol: ts.symbol, sp: 1.0)
+      pf += time-sig-advance(ts.upper, ts.lower, symbol: ts.symbol, sp: 1.0, music-font-config: music-font-config)
     }
     pf += 1.0  // music-start padding
     pf
@@ -253,10 +259,10 @@
     if has-line-breaks(first-events) {
       staff0-systems = split-at-line-breaks(first-events)
     } else if measures-per-line != none {
-      staff0-systems = compute-system-breaks(first-events, available-width: none, measures-per-line: measures-per-line)
+      staff0-systems = compute-system-breaks(first-events, available-width: none, measures-per-line: measures-per-line, music-font-config: music-font-config)
     } else if avail-width-mm != none {
       let remaining = first-events
-      let fb = compute-system-breaks(remaining, available-width: first-avail)
+      let fb = compute-system-breaks(remaining, available-width: first-avail, music-font-config: music-font-config)
       if fb.len() > 0 {
         staff0-systems.push(fb.at(0))
         let rest = ()
@@ -264,7 +270,7 @@
         remaining = rest
       }
       if remaining.len() > 0 {
-        staff0-systems += compute-system-breaks(remaining, available-width: cont-avail)
+        staff0-systems += compute-system-breaks(remaining, available-width: cont-avail, music-font-config: music-font-config)
       }
     } else {
       staff0-systems = (first-events,)
@@ -346,12 +352,13 @@
           show-time-prefix: sys-info.show-time-prefix,
           lyric-prefix-states: sys-info.lyric-prefix-states,
           staff-space: staff-size,
+          music-font-config: music-font-config,
         ))
       }
 
       // Beat-align across staves so notes at the same beat share x positions.
       if laid-out-staves.len() > 1 {
-        laid-out-staves = align-staves-by-beat(laid-out-staves)
+        laid-out-staves = align-staves-by-beat(laid-out-staves, music-font-config: music-font-config)
       }
 
       render-score(
@@ -372,6 +379,7 @@
         lyricist: if is-first { lyricist } else { none },
         show-time: is-first and ts != none,
         fingering-positions: staves.map(s => s.at("fingering-position", default: "above")),
+        music-font-config: music-font-config,
       )
       v(system-spacing)
     }
@@ -400,6 +408,8 @@
   staff-size: default-staff-space,
   system-spacing: 12mm,
   lyric-line-spacing: none,
+  music-font: "Bravura",
+  music-font-metadata: none,
   width: auto,
   measures-per-line: none,
 ) = {
@@ -412,6 +422,8 @@
     staff-size: staff-size,
     system-spacing: system-spacing,
     lyric-line-spacing: lyric-line-spacing,
+    music-font: music-font,
+    music-font-metadata: music-font-metadata,
     width: width,
     measures-per-line: measures-per-line,
   )
@@ -428,6 +440,8 @@
   composer: none,
   staff-size: default-staff-space,
   lyric-line-spacing: none,
+  music-font: "Bravura",
+  music-font-metadata: none,
   width: auto,
 ) = {
   score(
@@ -438,6 +452,8 @@
     composer: composer,
     staff-size: staff-size,
     lyric-line-spacing: lyric-line-spacing,
+    music-font: music-font,
+    music-font-metadata: music-font-metadata,
     width: width,
   )
 }

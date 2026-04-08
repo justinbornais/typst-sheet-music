@@ -78,12 +78,12 @@
 }
 
 /// Draw a single notehead at the given position (centered at x, y).
-#let draw-notehead(x, y, duration, sp: 1.0) = {
+#let draw-notehead(x, y, duration, sp: 1.0, music-font-config: none) = {
   let glyph = notehead-glyph(duration)
   let smufl = notehead-smufl-name(duration)
-  let w = advance-width(smufl)
+  let w = advance-width(smufl, config: music-font-config)
   // Center the notehead horizontally at x (glyph origin is at left edge)
-  place-glyph(x - w / 2.0 * sp, y, glyph, smufl, sp)
+  place-glyph(x - w / 2.0 * sp, y, glyph, smufl, sp, config: music-font-config)
 }
 
 /// Draw a stem line.
@@ -98,19 +98,19 @@
 }
 
 /// Draw a flag at the stem tip.
-#let draw-flag(stem-x, stem-end-y, duration, stem-dir, sp: 1.0) = {
+#let draw-flag(stem-x, stem-end-y, duration, stem-dir, sp: 1.0, music-font-config: none) = {
   let glyph = flag-glyph(duration, stem-dir)
   if glyph == none { return }
   let smufl = flag-smufl-name(duration, stem-dir)
   if smufl == none { return }
-  place-glyph(stem-x, stem-end-y, glyph, smufl, sp)
+  place-glyph(stem-x, stem-end-y, glyph, smufl, sp, config: music-font-config)
 }
 
 /// Draw augmentation dots next to a notehead.
-#let draw-dots(x, y, count, duration, sp: 1.0) = {
+#let draw-dots(x, y, count, duration, sp: 1.0, music-font-config: none) = {
   import cetz.draw: *
   if count == 0 { return }
-  let nh-w = advance-width(notehead-smufl-name(duration))
+  let nh-w = advance-width(notehead-smufl-name(duration), config: music-font-config)
   let dot-x = x + nh-w / 2.0 * sp + 0.6 * sp
   for i in range(count) {
     circle(
@@ -123,14 +123,14 @@
 }
 
 /// Draw ledger lines for a note at the given staff position.
-#let draw-ledger-lines(x, y-top, staff-pos, sp: 1.0) = {
+#let draw-ledger-lines(x, y-top, staff-pos, sp: 1.0, music-font-config: none) = {
   import cetz.draw: *
   let info = ledger-lines-needed(staff-pos)
   if info.count == 0 { return }
 
   let ext = default-ledger-line-extension * sp
   let thickness = default-staff-line-thickness * sp
-  let nh-w = advance-width("noteheadBlack")
+  let nh-w = advance-width("noteheadBlack", config: music-font-config)
 
   if info.direction == "above" {
     for i in range(info.count) {
@@ -154,13 +154,13 @@
 }
 
 /// Draw a rest symbol.
-#let draw-rest(x, y, duration, dots: 0, sp: 1.0) = {
+#let draw-rest(x, y, duration, dots: 0, sp: 1.0, music-font-config: none) = {
   let glyph = rest-glyph(duration)
   let smufl = rest-smufl-name(duration)
-  place-glyph(x, y, glyph, smufl, sp)
+  place-glyph(x, y, glyph, smufl, sp, config: music-font-config)
   if dots > 0 {
     import cetz.draw: *
-    let bb = bbox(smufl)
+    let bb = bbox(smufl, config: music-font-config)
     let rest-right = if bb != none { bb.ne.x * sp } else { 0.8 * sp }
     let dot-x = x + rest-right + 0.3 * sp
     for i in range(dots) {
@@ -175,7 +175,7 @@
 }
 
 /// Draw an accidental to the left of a notehead.
-#let draw-accidental(x, y, accidental, duration, sp: 1.0) = {
+#let draw-accidental(x, y, accidental, duration, sp: 1.0, music-font-config: none) = {
   if accidental == none { return }
 
   let glyph = if accidental == "sharp" { smufl-accidentals.sharp }
@@ -192,18 +192,18 @@
     else if accidental == "double-flat" { "accidentalDoubleFlat" }
     else { return }
 
-  let nh-w = advance-width(notehead-smufl-name(duration))
-  let acc-w = advance-width(smufl)
+  let nh-w = advance-width(notehead-smufl-name(duration), config: music-font-config)
+  let acc-w = advance-width(smufl, config: music-font-config)
   let acc-x = x - nh-w / 2.0 * sp - default-accidental-padding * sp - acc-w * sp
-  place-glyph(acc-x, y, glyph, smufl, sp)
+  place-glyph(acc-x, y, glyph, smufl, sp, config: music-font-config)
 }
 
 /// Compute the x coordinate of the stem attachment point for a note at canvas x.
 /// Matches the stem-x logic used inside draw-note.
-#let note-stem-x(x, duration, stem-dir, sp: 1.0) = {
+#let note-stem-x(x, duration, stem-dir, sp: 1.0, music-font-config: none) = {
   let smufl = notehead-smufl-name(duration)
-  let nh-w = advance-width(smufl)
-  let nh-anch = anchors(smufl)
+  let nh-w = advance-width(smufl, config: music-font-config)
+  let nh-anch = anchors(smufl, config: music-font-config)
   let stem-att = if stem-dir == "up" {
     nh-anch.at("stemUpSE", default: (x: nh-w, y: 0.168))
   } else {
@@ -234,24 +234,25 @@
   clef: "treble",
   sp: 1.0,
   beamed: false,
+  music-font-config: none,
 ) = {
   import cetz.draw: *
   let duration = event.duration
   let smufl = notehead-smufl-name(duration)
-  let nh-w = advance-width(smufl)
-  let nh-anch = anchors(smufl)
+  let nh-w = advance-width(smufl, config: music-font-config)
+  let nh-anch = anchors(smufl, config: music-font-config)
 
   // Draw each notehead with its ledger lines, accidental, and dots
   for (ni, note) in event.notes.enumerate() {
     let ny = chord-ys-abs.at(ni)
     let nsp = chord-staff-positions.at(ni)
-    draw-ledger-lines(x, y-top, nsp, sp: sp)
+    draw-ledger-lines(x, y-top, nsp, sp: sp, music-font-config: music-font-config)
     if note.accidental != none {
-      draw-accidental(x, ny, note.accidental, duration, sp: sp)
+      draw-accidental(x, ny, note.accidental, duration, sp: sp, music-font-config: music-font-config)
     }
-    draw-notehead(x, ny, duration, sp: sp)
+    draw-notehead(x, ny, duration, sp: sp, music-font-config: music-font-config)
     if event.dots > 0 {
-      draw-dots(x, ny, event.dots, duration, sp: sp)
+      draw-dots(x, ny, event.dots, duration, sp: sp, music-font-config: music-font-config)
     }
   }
 
@@ -277,7 +278,7 @@
     draw-stem(stem-x-coord, stem-start-y, stem-y-end, sp: sp)
 
     if duration >= 8 and not beamed {
-      draw-flag(stem-x-coord, stem-y-end, duration, stem-dir, sp: sp)
+      draw-flag(stem-x-coord, stem-y-end, duration, stem-dir, sp: sp, music-font-config: music-font-config)
     }
   }
 }
@@ -290,27 +291,28 @@
   clef: "treble",
   sp: 1.0,
   beamed: false,
+  music-font-config: none,
 ) = {
   import cetz.draw: *
   let duration = event.duration
   let staff-pos = staff-position(event.name, event.octave, clef: clef)
 
   // Draw ledger lines first (behind the note)
-  draw-ledger-lines(x, y-top, staff-pos, sp: sp)
+  draw-ledger-lines(x, y-top, staff-pos, sp: sp, music-font-config: music-font-config)
 
   // Draw accidental
   if event.accidental != none {
-    draw-accidental(x, y, event.accidental, duration, sp: sp)
+    draw-accidental(x, y, event.accidental, duration, sp: sp, music-font-config: music-font-config)
   }
 
   // Draw notehead
-  draw-notehead(x, y, duration, sp: sp)
+  draw-notehead(x, y, duration, sp: sp, music-font-config: music-font-config)
 
   // Draw stem (not for whole notes)
   if duration >= 2 and stem-dir != none {
     let smufl = notehead-smufl-name(duration)
-    let nh-w = advance-width(smufl)
-    let nh-anch = anchors(smufl)
+    let nh-w = advance-width(smufl, config: music-font-config)
+    let nh-anch = anchors(smufl, config: music-font-config)
 
     let stem-att = if stem-dir == "up" {
       nh-anch.at("stemUpSE", default: (x: nh-w, y: 0.168))
@@ -329,12 +331,12 @@
 
     // Draw flag (only for unbeamed 8th and shorter)
     if duration >= 8 and not beamed {
-      draw-flag(stem-x, stem-y-end, duration, stem-dir, sp: sp)
+      draw-flag(stem-x, stem-y-end, duration, stem-dir, sp: sp, music-font-config: music-font-config)
     }
   }
 
   // Draw dots
   if event.dots > 0 {
-    draw-dots(x, y, event.dots, duration, sp: sp)
+    draw-dots(x, y, event.dots, duration, sp: sp, music-font-config: music-font-config)
   }
 }

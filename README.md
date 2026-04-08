@@ -5,7 +5,7 @@ Render professional sheet music directly inside Typst documents using SMuFL-awar
 ## Features
 
 - **Pure Typst** - no WASM plugin, no external binary dependency (no LilyPond, no MuseScore CLI)
-- SMuFL/Bravura-aware glyph placement with precise bounding-box anchors
+- SMuFL-aware glyph placement with precise bounding-box anchors
 - Notes, rests, chords, accidentals, key signatures, time signatures, clefs
 - Dynamics, crescendos/decrescendos, articulations, fingerings, chord symbols, and lyrics - all inline in the music string
 - Beams, ties, slurs, tuplets, octave lines, repeat barlines, endings, dotted notes
@@ -54,12 +54,33 @@ typst compile your-file.typ --font-path /path/to/bravura/ --root .
 
 ## Font Setup
 
-scorify uses the [Bravura](https://github.com/steinbergmedia/bravura) SMuFL font for music glyph rendering. Typst packages cannot embed fonts, so you must install Bravura separately before compiling any document that uses this package.
+scorify defaults to the [Bravura](https://github.com/steinbergmedia/bravura) SMuFL font and the bundled Bravura metadata for music glyph rendering. Typst packages cannot embed fonts, so you must install Bravura separately before compiling any document that uses the default setup.
 
 1. Download the latest Bravura release from the [Bravura GitHub releases page](https://github.com/steinbergmedia/bravura/releases). The `.zip` archive contains `Bravura.otf`.
 2. Either:
     - **System install (easiest):** Copy `Bravura.otf` into your system fonts folder. Typst will find it automatically and no extra flag is needed.
     - **Project-local:** Keep `Bravura.otf` in a folder of your choice and pass `--font-path /path/to/that/folder/` when compiling.
+
+### Alternate SMuFL Fonts
+
+You can optionally point scorify at another SMuFL-compliant font by setting `music-font` and, if needed, `music-font-metadata`.
+
+- `music-font`: the Typst font family name used for music glyph rendering. Defaults to `"Bravura"`.
+- `music-font-metadata`: an optional metadata dictionary, typically loaded with `json("path/to/metadata.json")`. If omitted, scorify uses the bundled Bravura metadata.
+
+Example:
+
+```typ
+#import "@preview/scorify:0.1.1": melody
+
+#melody(
+  music: "c4 d e f | g a b c'",
+  music-font: "Your SMuFL Font",
+  music-font-metadata: json("your-smufl-metadata.json"),
+)
+```
+
+Alternate SMuFL fonts usually share the same codepoints, but their glyph metrics and anchors can differ. That means some spacing or placement may need adjustment depending on the font.
 
 ## API Reference
 
@@ -98,6 +119,8 @@ The primary entry point. Renders one or more staves with full layout control.
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `staff-spacing` | length | `8mm` | Vertical space between staves within a system |
 | `lyric-line-spacing` | length | `none` | Override the spacing between stacked lyric lines |
+| `music-font` | string | `"Bravura"` | SMuFL font family used for music glyph rendering |
+| `music-font-metadata` | dictionary/none | `none` | Optional SMuFL metadata dictionary; defaults to bundled Bravura metadata |
 | `width` | length/auto | `auto` | Explicit width or auto (fills page) |
 | `measures-per-line` | int | `none` | Force this many measures per system |
 
@@ -136,6 +159,8 @@ Convenience wrapper for a single-staff score.
 | `composer` | string | `none` | Composer |
 | `staff-size` | length | `1.75mm` | Staff space |
 | `lyric-line-spacing` | length | `none` | Override the spacing between stacked lyric lines |
+| `music-font` | string | `"Bravura"` | SMuFL font family used for music glyph rendering |
+| `music-font-metadata` | dictionary/none | `none` | Optional SMuFL metadata dictionary; defaults to bundled Bravura metadata |
 | `width` | length/auto | `auto` | Width |
 | `measures-per-line` | int | `none` | Measures per system |
 
@@ -149,6 +174,7 @@ Convenience wrapper for a single-staff lead sheet. Inline lyrics still live in t
   key: "C",
   time: "4/4",
   title: "Song Title",
+  music-font: "Bravura",
 )
 ```
 
@@ -376,7 +402,8 @@ Refer to the parser logic in `src/parser.typ` for the complete, definitive synta
 
 ## Notes
 
-- Scorify uses the Bravura SMuFL font for accurate music glyph placement. See [Font Setup](#font-setup) above for installation instructions.
+- Scorify defaults to the Bravura SMuFL font and bundled Bravura metadata. See [Font Setup](#font-setup) above for installation instructions and alternate-font options.
+- If you use another SMuFL font, some spacing or placement differences may appear depending on the quality and completeness of that font's metadata.
 - Spacing parameters (note spacing base, duration factors, accidental padding, dot size) are tunable in `src/constants.typ`.
 - The library requires Typst 0.14.0+ and CeTZ 0.4.2 (CeTZ is declared as a package dependency and is resolved automatically when using the Typst package manager).
 

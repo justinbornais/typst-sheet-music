@@ -26,7 +26,7 @@
 }
 
 /// Calculate the total layout width of a group of events.
-#let measure-width(events) = {
+#let measure-width(events, music-font-config: none) = {
   let w = 0.0
   for (i, ev) in events.enumerate() {
     // Only rhythmic events contribute to measure width for breaking.
@@ -34,7 +34,7 @@
     if et == "note" or et == "rest" or et == "spacer" or et == "chord" or et == "barline" {
       let prev-event = if i > 0 { events.at(i - 1) } else { none }
       let next-event = if i + 1 < events.len() { events.at(i + 1) } else { none }
-      w += event-width(ev, prev-event: prev-event, next-event: next-event)
+      w += event-width(ev, prev-event: prev-event, next-event: next-event, music-font-config: music-font-config)
     }
     // non-rhythmic events (clef/key/time) are ignored here
   }
@@ -77,7 +77,7 @@
 /// - measures-per-line: if set, force a break after this many measures.
 ///
 /// Returns: array of event arrays, one per system.
-#let compute-system-breaks(events, available-width: none, measures-per-line: none) = {
+#let compute-system-breaks(events, available-width: none, measures-per-line: none, music-font-config: none) = {
   let measures = split-into-measures(events)
   if measures.len() == 0 { return ((),) }
 
@@ -111,7 +111,7 @@
   let current-width = 0.0
 
   for measure in measures {
-    let mw = measure-width(measure)
+    let mw = measure-width(measure, music-font-config: music-font-config)
     if current-events.len() > 0 and current-width + mw > available-width {
       // Start a new system
       systems.push(current-events)

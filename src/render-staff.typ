@@ -2,7 +2,7 @@
 
 #import "@preview/cetz:0.4.2"
 #import "constants.typ": *
-#import "glyph-metadata.typ": place-glyph, advance-width, bbox
+#import "glyph-metadata.typ": place-glyph, advance-width, bbox, font-family
 
 /// Draw the five staff lines.
 /// - ctx: CeTZ draw context (caller does `import cetz.draw: *`)
@@ -95,7 +95,7 @@
 /// - y-top: top of the first staff's top line
 /// - y-bottom: bottom of the last staff's bottom line
 /// - sp: staff space
-#let draw-brace(y-top, y-bottom, sp: 1.0) = {
+#let draw-brace(y-top, y-bottom, sp: 1.0, music-font-config: none) = {
   import cetz.draw: *
   let span = y-top - y-bottom      // total height in mm (positive)
   if span <= 0 { return }
@@ -109,14 +109,14 @@
 
   // The brace glyph origin is at the left, vertically centered.
   // Place it so the top of the brace aligns with y-top.
-  let brace-w = advance-width("brace") * sp * scale
+  let brace-w = advance-width("brace", config: music-font-config) * sp * scale
   // Place the brace to the left of x=0, with a small gap so it
   // sits close to the system line without being cramped.
   let extra = 0.3 * sp
   content(
     (-brace-w - extra, y-bottom),
     anchor: "south-west",
-    text(font: "Bravura", size: fsize,
+    text(font: font-family(config: music-font-config), size: fsize,
          top-edge: "bounds", bottom-edge: "bounds", glyph),
   )
 }

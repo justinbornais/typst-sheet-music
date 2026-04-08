@@ -6,9 +6,9 @@
 #import "constants.typ": default-note-spacing-base, default-time-sig-padding
 #import "render-clef-key-time.typ": clef-advance, time-sig-advance
 
-#let inline-time-sig-width(event, prev-event: none, next-event: none) = {
+#let inline-time-sig-width(event, prev-event: none, next-event: none, music-font-config: none) = {
   let glyph-w = calc.max(
-    time-sig-advance(event.upper, event.lower, symbol: event.symbol, sp: 1.0) - default-time-sig-padding,
+    time-sig-advance(event.upper, event.lower, symbol: event.symbol, sp: 1.0, music-font-config: music-font-config) - default-time-sig-padding,
     0.0,
   )
   let extra = if prev-event != none and prev-event.type == "barline" {
@@ -22,7 +22,7 @@
 }
 
 /// Compute the horizontal width (in staff-spaces) for an event's duration.
-#let event-width(event, base-width: default-note-spacing-base, prev-event: none, next-event: none) = {
+#let event-width(event, base-width: default-note-spacing-base, prev-event: none, next-event: none, music-font-config: none) = {
   if event.type == "barline" {
     // Tighten barlines when they are adjacent to inline boundary changes.
     let touches-inline-boundary = (
@@ -35,9 +35,9 @@
       2.5
     }
   } else if event.type == "clef" {
-    clef-advance(clef-name: event.clef, sp: 1.0)
+    clef-advance(clef-name: event.clef, sp: 1.0, music-font-config: music-font-config)
   } else if event.type == "time-sig" {
-    inline-time-sig-width(event, prev-event: prev-event, next-event: next-event)
+    inline-time-sig-width(event, prev-event: prev-event, next-event: next-event, music-font-config: music-font-config)
   } else if event.type == "key-sig" {
     // Non-rhythmic events: fixed width
     2.0
@@ -69,13 +69,13 @@
 
 /// Given an array of events, compute an array of x-positions.
 /// Returns an array of (x, width) pairs.
-#let compute-event-positions(events, base-width: default-note-spacing-base) = {
+#let compute-event-positions(events, base-width: default-note-spacing-base, music-font-config: none) = {
   let positions = ()
   let x = 0.0
   for (i, event) in events.enumerate() {
     let prev-event = if i > 0 { events.at(i - 1) } else { none }
     let next-event = if i + 1 < events.len() { events.at(i + 1) } else { none }
-    let w = event-width(event, base-width: base-width, prev-event: prev-event, next-event: next-event)
+    let w = event-width(event, base-width: base-width, prev-event: prev-event, next-event: next-event, music-font-config: music-font-config)
     positions.push((x: x, width: w))
     x += w
   }
@@ -83,12 +83,12 @@
 }
 
 /// Compute total width of all events.
-#let total-events-width(events, base-width: default-note-spacing-base) = {
+#let total-events-width(events, base-width: default-note-spacing-base, music-font-config: none) = {
   let total = 0.0
   for (i, event) in events.enumerate() {
     let prev-event = if i > 0 { events.at(i - 1) } else { none }
     let next-event = if i + 1 < events.len() { events.at(i + 1) } else { none }
-    total += event-width(event, base-width: base-width, prev-event: prev-event, next-event: next-event)
+    total += event-width(event, base-width: base-width, prev-event: prev-event, next-event: next-event, music-font-config: music-font-config)
   }
   total
 }
@@ -100,7 +100,7 @@
 ///
 /// Boundary events like barlines and inline clefs reserve a shared column
 /// across all staves, even if only one staff contains the event.
-#let align-staves-by-beat(laid-out-staves) = {
+#let align-staves-by-beat(laid-out-staves, music-font-config: none) = {
   if laid-out-staves.len() <= 1 { return laid-out-staves }
 
   let barline-epsilon = 0.000001
@@ -242,7 +242,7 @@
       let span = calc.max(end-col - start-col, 1)
       let prev-event = if ii > 0 { items.at(ii - 1).event } else { none }
       let next-event = if ii + 1 < items.len() { items.at(ii + 1).event } else { none }
-      let w = event-width(item.event, prev-event: prev-event, next-event: next-event)
+      let w = event-width(item.event, prev-event: prev-event, next-event: next-event, music-font-config: music-font-config)
       let distributed = w / span
       for c in range(start-col, calc.min(end-col, n-cols)) {
         if distributed > col-widths.at(c) {

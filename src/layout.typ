@@ -27,8 +27,9 @@
   lyric-prefix-states: (),
   staff-space: default-staff-space,
   available-width: none,
+  music-font-config: none,
 ) = {
-  let positions = compute-event-positions(events)
+  let positions = compute-event-positions(events, music-font-config: music-font-config)
   let items = ()
   // Use `treble` for internal layout calculations when no explicit
   // initial clef was provided, but remember the original `clef` value
@@ -101,7 +102,7 @@
     }
   }
 
-  let tw = total-events-width(events)
+  let tw = total-events-width(events, music-font-config: music-font-config)
 
   (
     items: items,
@@ -119,6 +120,7 @@
   staves-config,
   staff-space: default-staff-space,
   available-width: none,
+  music-font-config: none,
 ) = {
   let laid-out-staves = ()
 
@@ -136,6 +138,7 @@
       lyric-prefix-states: lyric-prefix-states,
       staff-space: staff-space,
       available-width: available-width,
+      music-font-config: music-font-config,
     )
     laid-out-staves.push(result)
   }
