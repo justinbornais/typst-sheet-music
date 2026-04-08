@@ -168,6 +168,7 @@
   //    Rhythmic events start after the maximum boundary width at that beat,
   //    so a clef on one staff reserves space on every other staff too.
   let staves-beats = ()
+  let staff-terminal-beats = ()
   for laid-out in laid-out-staves {
     let beats = ()
     let beat = 0.0
@@ -201,6 +202,8 @@
       }
     }
     staves-beats.push(beats)
+    let terminal-boundary-width = beat-boundary-widths.at(beat-key(beat), default: 0)
+    staff-terminal-beats.push(calc.round(rounded-beat(beat) + terminal-boundary-width * barline-epsilon, digits: 6))
   }
 
   // 3. Sorted unique beat positions.
@@ -209,6 +212,9 @@
     for b in staff-beats {
       beat-set.insert(str(b), b)
     }
+  }
+  for b in staff-terminal-beats {
+    beat-set.insert(str(b), b)
   }
   let all-beats = beat-set.values().sorted()
 
@@ -224,13 +230,14 @@
 
   for (si, laid-out) in laid-out-staves.enumerate() {
     let staff-beats = staves-beats.at(si)
+    let terminal-col = beat-to-col.at(str(staff-terminal-beats.at(si)))
     let items = laid-out.items
     for (ii, item) in items.enumerate() {
       let start-col = beat-to-col.at(str(staff-beats.at(ii)))
       let end-col = if ii + 1 < items.len() {
         beat-to-col.at(str(staff-beats.at(ii + 1)))
       } else {
-        start-col + 1
+        terminal-col
       }
       let span = calc.max(end-col - start-col, 1)
       let prev-event = if ii > 0 { items.at(ii - 1).event } else { none }
