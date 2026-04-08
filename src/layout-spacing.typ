@@ -3,8 +3,9 @@
 // Converts event durations into horizontal spacing values.
 
 #import "utils.typ": duration-to-beats, duration-spacing-factor
-#import "constants.typ": default-note-spacing-base, default-time-sig-padding
+#import "constants.typ": default-note-spacing-base, default-time-sig-padding, default-accidental-padding
 #import "render-clef-key-time.typ": clef-advance, time-sig-advance
+#import "glyph-metadata.typ": advance-width
 
 #let inline-time-sig-width(event, prev-event: none, next-event: none, music-font-config: none) = {
   let glyph-w = calc.max(
@@ -19,6 +20,79 @@
     0.12
   }
   glyph-w + extra
+}
+
+#let notehead-width(duration, music-font-config: none) = {
+  let smufl = if duration == 1 { "noteheadWhole" }
+    else if duration == 2 { "noteheadHalf" }
+    else { "noteheadBlack" }
+  advance-width(smufl, config: music-font-config)
+}
+
+#let accidental-width(accidental, music-font-config: none) = {
+  let smufl = if accidental == "sharp" { "accidentalSharp" }
+    else if accidental == "flat" { "accidentalFlat" }
+    else if accidental == "natural" { "accidentalNatural" }
+    else if accidental == "double-sharp" { "accidentalDoubleSharp" }
+    else if accidental == "double-flat" { "accidentalDoubleFlat" }
+    else { none }
+  if smufl == none { 0.0 } else { advance-width(smufl, config: music-font-config) }
+}
+
+#let required-leading-accidental-space(next-event, music-font-config: none) = {
+  if next-event == none { return 0.0 }
+  let next-is-grace = next-event.at("grace", default: false)
+  let scale = if next-is-grace { 0.68 } else { 1.0 }
+  let cluster-factor = if next-is-grace and (
+    (next-event.at("type", default: "") == "note")
+    or (next-event.at("type", default: "") == "chord")
+  ) { 0.55 } else { 1.0 }
+  if next-event.type == "note" and next-event.at("accidental", default: none) != none {
+    (accidental-width(next-event.at("accidental"), music-font-config: music-font-config) + default-accidental-padding) * scale * cluster-factor
+  } else if next-event.type == "chord" {
+    let acc-widths = next-event.at("notes", default: ()).map(n => accidental-width(n.at("accidental", default: none), music-font-config: music-font-config))
+    if acc-widths.len() > 0 {
+      (acc-widths.fold(0.0, calc.max) + default-accidental-padding) * scale * cluster-factor
+    } else {
+      0.0
+    }
+  } else {
+    0.0
+  }
+}
+
+#let leading-accidental-extra(available-space, next-event, music-font-config: none) = {
+  let required = required-leading-accidental-space(next-event, music-font-config: music-font-config)
+  if required <= 0.0 { return 0.0 }
+  let comfort = 0.08
+  calc.max(required + comfort - available-space, 0.0)
+}
+
+#let grace-body-width(event, prev-event: none, next-event: none, music-font-config: none) = {
+  let grace-scale = 0.68
+  let duration = event.at("duration", default: 4)
+  let head-w = notehead-width(duration, music-font-config: music-font-config)
+  let rest-w = if event.type == "rest" {
+    let smufl = if duration == 1 { "restWhole" }
+      else if duration == 2 { "restHalf" }
+      else if duration == 4 { "restQuarter" }
+      else if duration == 8 { "rest8th" }
+      else if duration == 16 { "rest16th" }
+      else if duration == 32 { "rest32nd" }
+      else if duration == 64 { "rest64th" }
+      else { "restQuarter" }
+    advance-width(smufl, config: music-font-config)
+  } else {
+    0.0
+  }
+  let inter-note-gap = if next-event != none and not next-event.at("grace", default: false) {
+    0.04
+  } else if prev-event != none and prev-event.at("grace", default: false) {
+    0.08
+  } else {
+    0.12
+  }
+  calc.max(head-w, rest-w) * grace-scale + inter-note-gap
 }
 
 /// Compute the horizontal width (in staff-spaces) for an event's duration.
@@ -42,19 +116,15 @@
     // Non-rhythmic events: fixed width
     2.0
   } else {
+    if event.at("grace", default: false) {
+      let body = grace-body-width(event, prev-event: prev-event, next-event: next-event, music-font-config: music-font-config)
+      return body + leading-accidental-extra(body, next-event, music-font-config: music-font-config)
+    }
     // Notes, rests, spacers, chords: duration-proportional
     let dur = event.at("duration", default: 4)
     let dots = event.at("dots", default: 0)
     let factor = duration-spacing-factor(dur, dots: dots)
     let w = base-width * factor
-    // Extra space for notes/chords with accidentals
-    if event.type == "note" and event.at("accidental", default: none) != none {
-      w += 0.5
-    }
-    if event.type == "chord" {
-      let any-acc = event.at("notes", default: ()).any(n => n.at("accidental", default: none) != none)
-      if any-acc { w += 0.5 }
-    }
     // Tuplet notes: total group width = width of tuplet-beats, divided among notes
     let tb = event.at("tuplet-beats", default: 0)
     let tc = event.at("tuplet-count", default: 0)
@@ -63,7 +133,7 @@
       let total-w = base-width * duration-spacing-factor(equiv-dur)
       w = total-w / tc
     }
-    w
+    w + leading-accidental-extra(w, next-event, music-font-config: music-font-config)
   }
 }
 
@@ -104,8 +174,11 @@
   if laid-out-staves.len() <= 1 { return laid-out-staves }
 
   let barline-epsilon = 0.000001
+  let is-grace-event(ev) = {
+    ev.at("grace", default: false)
+  }
   let is-rhythmic-event(ev) = {
-    ev.type == "note" or ev.type == "rest" or ev.type == "spacer" or ev.type == "chord"
+    (ev.type == "note" or ev.type == "rest" or ev.type == "spacer" or ev.type == "chord") and not is-grace-event(ev)
   }
   let is-boundary-event(ev) = {
     ev.type == "barline" or ev.type == "clef" or ev.type == "key-sig" or ev.type == "time-sig"
@@ -132,6 +205,12 @@
       let key = beat-key(beat)
       if is-pre-barline-boundary(items, ii) {
         continue
+      } else if is-grace-event(ev) {
+        boundary-count += 1
+        let current = beat-boundary-widths.at(key, default: 0)
+        if boundary-count > current {
+          beat-boundary-widths.insert(key, boundary-count)
+        }
       } else if is-boundary-event(ev) {
         boundary-count += 1
         let current = beat-boundary-widths.at(key, default: 0)
@@ -181,6 +260,9 @@
 
       if is-pre-barline-boundary(items, ii) {
         beats.push(calc.round(rb - barline-epsilon, digits: 6))
+      } else if is-grace-event(ev) {
+        beats.push(calc.round(rb + boundary-phase * barline-epsilon, digits: 6))
+        boundary-phase += 1
       } else if is-boundary-event(ev) {
         beats.push(calc.round(rb + boundary-phase * barline-epsilon, digits: 6))
         boundary-phase += 1

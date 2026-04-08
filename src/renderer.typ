@@ -57,6 +57,7 @@
   let lyric-prefix-states = laid-out.at("lyric-prefix-states", default: ())
   let items = laid-out.items
   let total-layout-width = laid-out.total-width
+  let grace-note-scale = 0.68
 
   // Y coordinates
   let y-top = 0.0   // Top staff line
@@ -82,9 +83,16 @@
     forced-music-start-x
   } else {
     let local-msX = prefix-x + clef-w + key-w + time-w + 1.0 * sp
-    // Add extra space if the first music event has an accidental
-    let first-note = items.find(item => item.event.type == "note")
-    if first-note != none and first-note.event.accidental != none {
+    // Add extra space if the first anchor event needs room for an accidental.
+    let first-anchor = items.find(item => item.event.type == "note" or item.event.type == "chord")
+    let first-has-accidental = if first-anchor == none {
+      false
+    } else if first-anchor.event.type == "note" {
+      first-anchor.event.accidental != none
+    } else {
+      first-anchor.event.at("notes", default: ()).any(n => n.at("accidental", default: none) != none)
+    }
+    if first-has-accidental {
       local-msX += 1.0 * sp
     }
     local-msX
@@ -143,9 +151,16 @@
   let cur-beam = ()
   for (i, item) in items.enumerate() {
     let ev = item.event
-    if (ev.type == "note" or ev.type == "chord") and ev.duration >= 8 {
-      // Flush at 4 notes and start a new group
-      if cur-beam.len() == 4 {
+    let beamable = (ev.type == "note" or ev.type == "chord") and ev.duration >= 8
+    let grace = ev.at("grace", default: false)
+    if beamable {
+      let same-grace-state = cur-beam.len() == 0 or items.at(cur-beam.first()).event.at("grace", default: false) == grace
+      if not same-grace-state {
+        if cur-beam.len() >= 2 { raw-beam-groups.push(cur-beam) }
+        cur-beam = ()
+      }
+      let group-limit = if grace { 8 } else { 4 }
+      if cur-beam.len() == group-limit {
         raw-beam-groups.push(cur-beam)
         cur-beam = ()
       }
@@ -160,9 +175,11 @@
   // Compute beam geometry: adjusted stem ends + beam-note records.
   let adj-stem-ends = (:)   // str(i) → stem-y in staff-sp units
   let adj-stem-dirs = (:)   // str(i) → stem-dir string
-  let beam-groups-data = () // array of beam-note arrays for draw-beam-group
+  let beam-groups-data = () // array of beam-note arrays plus scale for draw-beam-group
 
   for group in raw-beam-groups {
+    let group-is-grace = items.at(group.first()).event.at("grace", default: false)
+    let beam-scale = if group-is-grace { grace-note-scale } else { 1.0 }
     // ── Determine unified stem direction for the whole group ──────────────
     // Use the average staff position: > 4 (below middle line) → up, else → down.
     let avg-y = group.fold(0.0, (acc, idx) => acc + items.at(idx).y) / group.len()
@@ -173,8 +190,8 @@
     // Recompute stem ends for first and last note with the unified direction
     let first-item = items.at(group.first())
     let last-item  = items.at(group.last())
-    let sy0 = compute-stem-end-y(first-item.y, calc.round(-2.0 * first-item.y), stem-dir, 1.0)
-    let syn = compute-stem-end-y(last-item.y,  calc.round(-2.0 * last-item.y),  stem-dir, 1.0)
+    let sy0 = compute-stem-end-y(first-item.y, calc.round(-2.0 * first-item.y), stem-dir, beam-scale)
+    let syn = compute-stem-end-y(last-item.y,  calc.round(-2.0 * last-item.y),  stem-dir, beam-scale)
 
     let x0 = item-xs.at(group.first())
     let xn = item-xs.at(group.last())
@@ -187,12 +204,12 @@
       let t = if xn != x0 { (xi - x0) / (xn - x0) } else { 0.0 }
       let by-staff = sy0 + t * (syn - sy0)   // staff-sp units
       let by-abs   = y-top + by-staff * sp   // absolute canvas y
-      let sx = note-stem-x(xi, item.event.duration, stem-dir, sp: sp, music-font-config: music-font-config)
+      let sx = note-stem-x(xi, item.event.duration, stem-dir, sp: sp * beam-scale, music-font-config: music-font-config)
       beam-note-data.push((stem-x: sx, beam-y: by-abs, duration: item.event.duration, stem-dir: stem-dir))
       adj-stem-ends.insert(str(idx), by-staff)
       adj-stem-dirs.insert(str(idx), stem-dir)
     }
-    beam-groups-data.push(beam-note-data)
+    beam-groups-data.push((notes: beam-note-data, scale: beam-scale))
   }
 
   // ── Find tuplet groups (from tuplet-start / tuplet-end flags) ────────────
@@ -473,6 +490,8 @@
     } else if event.type == "time-sig" {
       draw-time-signature(x, y-top, event.upper, event.lower, symbol: event.symbol, sp: sp, music-font-config: music-font-config)
     } else if event.type == "note" {
+      let is-grace = event.at("grace", default: false)
+      let grace-slash = is-grace and event.at("grace-slash", default: false) and (i == 0 or not items.at(i - 1).event.at("grace", default: false))
       let stem-data = stem-render-data(i, item)
       let note-center-y = y-top + y
       draw-note(
@@ -482,6 +501,8 @@
         clef: current-clef,
         sp: sp,
         beamed: stem-data.is-beamed,
+        note-scale: if is-grace { grace-note-scale } else { 1.0 },
+        grace-slash: grace-slash,
         music-font-config: music-font-config,
       )
       if event.articulations.len() > 0 {
@@ -506,6 +527,8 @@
       )
 
     } else if event.type == "chord" {
+      let is-grace = event.at("grace", default: false)
+      let grace-slash = is-grace and event.at("grace-slash", default: false) and (i == 0 or not items.at(i - 1).event.at("grace", default: false))
       let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
       let stem-data = stem-render-data(i, item)
       let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
@@ -521,6 +544,8 @@
         clef: current-clef,
         sp: sp,
         beamed: stem-data.is-beamed,
+        note-scale: if is-grace { grace-note-scale } else { 1.0 },
+        grace-slash: grace-slash,
         music-font-config: music-font-config,
       )
       if event.articulations.len() > 0 {
@@ -552,7 +577,15 @@
       )
 
     } else if event.type == "rest" {
-      draw-rest(x, y-top + y, event.duration, dots: event.dots, sp: sp, music-font-config: music-font-config)
+      draw-rest(
+        x,
+        y-top + y,
+        event.duration,
+        dots: event.dots,
+        sp: sp,
+        note-scale: if event.at("grace", default: false) { grace-note-scale } else { 1.0 },
+        music-font-config: music-font-config,
+      )
     } else if event.type == "barline" {
       // All barlines except the very last item are drawn at their layout position.
       // The last barline is drawn at the right edge (handled below).
@@ -570,7 +603,7 @@
 
   // ── Draw beams ───────────────────────────────────────────────────────────
   for beam-data in beam-groups-data {
-    draw-beam-group(beam-data, sp: sp)
+    draw-beam-group(beam-data.notes, sp: sp * beam-data.scale)
   }
 
   // ── Draw tuplet brackets ─────────────────────────────────────────────────

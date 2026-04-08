@@ -7,7 +7,7 @@ Render professional sheet music directly inside Typst documents using SMuFL-awar
 - **Pure Typst** - no WASM plugin, no external binary dependency (no LilyPond, no MuseScore CLI)
 - SMuFL-aware glyph placement with precise bounding-box anchors
 - Notes, rests, chords, accidentals, key signatures, time signatures, clefs
-- Dynamics, crescendos/decrescendos, articulations, fingerings, chord symbols, and lyrics - all inline in the music string
+- Dynamics, crescendos/decrescendos, articulations, fingerings, chord symbols, lyrics, and grace notes - all inline in the music string
 - Beams, ties, slurs, tuplets, octave lines, repeat barlines, endings, dotted notes
 - Inline clef changes, inline time-signature changes, and explicit system breaks inside the music string
 - Grand staff and multi-staff layout with vertical beat alignment
@@ -340,6 +340,13 @@ This section documents the inline music-string syntax accepted by `score()`, `me
   - Use `tr{...}` to place a trill symbol plus a wavy trill line across the enclosed notes/rests/chords.
   - Example: `tr{c4}` or `tr{d'4 e' f' g'}`
   - Trill lines can continue across system breaks automatically.
+
+- Grace notes:
+  - Use `grace{...}` to place a grace-note group before the following beat.
+  - Example: `grace{c16 d e} f4`
+  - Add a trailing slash before the closing brace for an acciaccatura-style slash.
+  - Example: `grace{f#16 g a/} b4`
+  - Grace notes render smaller than normal notes and do not consume beat alignment across staves.
 
 - Lyrics:
   - Attach lyrics to notes or chords with `l[...]`.

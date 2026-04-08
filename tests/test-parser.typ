@@ -148,6 +148,18 @@ f g a b& | c' d' e' f'} | f' e' d' c'")
 #assert-eq(trill-anchors17c.at(4).at("trill-end", default: false), true, msg: "multi-line trill keeps end flag")
 #assert-eq(trill-anchors17c.at(5).at("trill", default: false), false, msg: "multi-line trill closes before following note")
 
+== Grace Notes
+
+#let events17d = parse-music("grace{c e g} a4 grace{f# g a/} b4")
+#assert-eq(events17d.at(0).at("grace", default: false), true, msg: "plain grace note is marked")
+#assert-eq(events17d.at(2).at("grace", default: false), true, msg: "all enclosed grace notes are marked")
+#assert-eq(events17d.at(2).at("grace-slash", default: false), false, msg: "plain grace group has no slash")
+#assert-eq(events17d.at(3).at("grace", default: false), false, msg: "plain grace group ends before main note")
+#assert-eq(events17d.at(4).accidental, "sharp", msg: "grace notes keep accidentals")
+#assert-eq(events17d.at(4).at("grace-slash", default: false), true, msg: "slashed grace group sets slash flag")
+#assert-eq(events17d.at(6).at("grace", default: false), true, msg: "slashed grace group marks all enclosed notes")
+#assert-eq(events17d.at(7).at("grace", default: false), false, msg: "slashed grace group closes before following note")
+
 == Endings
 
 #let events18 = parse-music("c e | end{1st:f d e c | g g c c} | end{2nd:g g g g | b b c' c'}")

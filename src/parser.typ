@@ -38,6 +38,11 @@
   let trill-start-idx = none
   let trill-open-order = none
 
+  // Grace-note state: track open "grace{...}" spans
+  let grace-start-idx = none
+  let grace-slash = false
+  let grace-open-order = none
+
   // Ending state: track open `end{label: ...}` volta spans
   let ending-start-idx = none
   let ending-label = none
@@ -581,6 +586,14 @@
         pos = word-end + 1
         continue
       }
+      if token == "grace" and word-end < len and input.at(word-end) == "{" {
+        grace-start-idx = events.len()
+        grace-slash = false
+        curly-open-serial += 1
+        grace-open-order = curly-open-serial
+        pos = word-end + 1
+        continue
+      }
       let time-event = parse-time-token(token)
       if time-event != none {
         events.push(time-event)
@@ -762,6 +775,12 @@
     }
 
     // --- Tuplet end: "}" ---
+    if ch == "/" and peek(pos + 1) == "}" and grace-open-order != none {
+      grace-slash = true
+      pos += 1
+      continue
+    }
+
     if ch == "}" {
       let latest-order = -1
       let close-kind = none
@@ -784,6 +803,10 @@
       if trill-open-order != none and trill-open-order > latest-order {
         latest-order = trill-open-order
         close-kind = "trill"
+      }
+      if grace-open-order != none and grace-open-order > latest-order {
+        latest-order = grace-open-order
+        close-kind = "grace"
       }
 
       if close-kind == "tuplet" {
@@ -872,6 +895,23 @@
         }
         trill-start-idx = none
         trill-open-order = none
+      } else if close-kind == "grace" {
+        let anchors = ()
+        for i in range(grace-start-idx, events.len()) {
+          let ev = events.at(i)
+          if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+            anchors.push(i)
+          }
+        }
+        if anchors.len() > 0 {
+          for i in anchors {
+            events.at(i).grace = true
+            events.at(i).grace-slash = grace-slash
+          }
+        }
+        grace-start-idx = none
+        grace-slash = false
+        grace-open-order = none
       }
       pos += 1
       continue
@@ -935,6 +975,22 @@
         events.at(i).ending = ending-label
         if i == first { events.at(i).ending-start = true }
         if i == last { events.at(i).ending-end = true }
+      }
+    }
+  }
+
+  if grace-start-idx != none {
+    let anchors = ()
+    for i in range(grace-start-idx, events.len()) {
+      let ev = events.at(i)
+      if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+        anchors.push(i)
+      }
+    }
+    if anchors.len() > 0 {
+      for i in anchors {
+        events.at(i).grace = true
+        events.at(i).grace-slash = grace-slash
       }
     }
   }

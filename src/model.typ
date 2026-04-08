@@ -21,6 +21,8 @@
 /// - hairpin: optional span type ("cresc" or "decresc")
 /// - trill: whether a trill symbol should be rendered
 /// - trill-line: whether the trill includes a wavy continuation line
+/// - grace: whether this note is part of a grace-note group
+/// - grace-slash: whether the grace group should render an acciaccatura slash
 /// - ending: optional ending label string (e.g., "1.", "2nd")
 /// - fingering: optional fingering value (int, or array of ints for multiple fingers)
 /// - fingering-position: "above" or "below" (default: "above")
@@ -46,6 +48,8 @@
   trill-line: false,
   trill-start: false,
   trill-end: false,
+  grace: false,
+  grace-slash: false,
   ending: none,
   ending-start: false,
   ending-end: false,
@@ -83,6 +87,8 @@
   trill-line: trill-line,
   trill-start: trill-start,
   trill-end: trill-end,
+  grace: grace,
+  grace-slash: grace-slash,
   ending: ending,
   ending-start: ending-start,
   ending-end: ending-end,
@@ -121,6 +127,8 @@
   trill-line: false,
   trill-start: false,
   trill-end: false,
+  grace: false,
+  grace-slash: false,
   ending: none,
   ending-start: false,
   ending-end: false,
@@ -144,6 +152,8 @@
   trill-line: trill-line,
   trill-start: trill-start,
   trill-end: trill-end,
+  grace: grace,
+  grace-slash: grace-slash,
   ending: ending,
   ending-start: ending-start,
   ending-end: ending-end,
@@ -258,6 +268,8 @@
   trill-line: false,
   trill-start: false,
   trill-end: false,
+  grace: false,
+  grace-slash: false,
   ending: none,
   ending-start: false,
   ending-end: false,
@@ -293,6 +305,8 @@
   trill-line: trill-line,
   trill-start: trill-start,
   trill-end: trill-end,
+  grace: grace,
+  grace-slash: grace-slash,
   ending: ending,
   ending-start: ending-start,
   ending-end: ending-end,

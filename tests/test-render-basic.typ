@@ -816,3 +816,18 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
     ),
   ),
 )
+
+#v(1cm)
+
+== Test 64: Grace notes and slashed grace notes
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "grace{c16 d e} f4 g | grace{f#16 g a/} b4 c' | grace{d16 e f} g4 a",
+    ),
+  ),
+)
