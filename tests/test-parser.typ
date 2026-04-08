@@ -131,6 +131,23 @@ f g a b& | c' d' e' f'} | f' e' d' c'")
 #assert-eq(anchors17.at(23).hairpin-end, true, msg: "hairpin closes on plain closing bracket")
 #assert-eq(anchors17.at(24).hairpin, none, msg: "hairpin does not leak past closing bracket")
 
+== Trills
+
+#let events17b = parse-music("c4tr d e tr{f g a} b")
+#assert-eq(events17b.at(0).trill, true, msg: "standalone trill attaches to note")
+#assert-eq(events17b.at(0).at("trill-line", default: false), false, msg: "standalone trill has no line")
+#assert-eq(events17b.at(3).trill, true, msg: "trill span attaches to enclosed note")
+#assert-eq(events17b.at(3).at("trill-line", default: false), true, msg: "trill span marks line")
+#assert-eq(events17b.at(3).at("trill-start", default: false), true, msg: "trill span start flag")
+#assert-eq(events17b.at(5).at("trill-end", default: false), true, msg: "trill span end flag")
+#assert-eq(events17b.at(6).at("trill", default: false), false, msg: "trill span does not leak past closing brace")
+
+#let events17c = parse-music("tr{c d e\nf g} a")
+#let trill-anchors17c = events17c.filter(ev => ev.type == "note" or ev.type == "chord" or ev.type == "rest")
+#assert-eq(trill-anchors17c.at(0).at("trill-start", default: false), true, msg: "multi-line trill keeps start flag")
+#assert-eq(trill-anchors17c.at(4).at("trill-end", default: false), true, msg: "multi-line trill keeps end flag")
+#assert-eq(trill-anchors17c.at(5).at("trill", default: false), false, msg: "multi-line trill closes before following note")
+
 == Endings
 
 #let events18 = parse-music("c e | end{1st:f d e c | g g c c} | end{2nd:g g g g | b b c' c'}")

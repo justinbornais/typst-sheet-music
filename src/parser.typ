@@ -34,6 +34,10 @@
   let hairpin-kind = none
   let hairpin-open-order = none
 
+  // Trill state: track open "tr{...}" spans
+  let trill-start-idx = none
+  let trill-open-order = none
+
   // Ending state: track open `end{label: ...}` volta spans
   let ending-start-idx = none
   let ending-label = none
@@ -242,6 +246,12 @@
       next-pos += 1
     }
 
+    let trill = false
+    if peek(next-pos) == "t" and next-pos + 1 < len and input.at(next-pos + 1) == "r" {
+      trill = true
+      next-pos += 2
+    }
+
     let slur-start = false
     let slur-end = false
     if peek(next-pos) == "(" {
@@ -296,6 +306,7 @@
       tie: tie,
       articulations: articulations,
       dynamic: dynamic,
+      trill: trill,
       slur-start: slur-start,
       slur-end: slur-end,
       beam-start: beam-start,
@@ -326,6 +337,7 @@
       tie: attachments.tie,
       articulations: attachments.articulations,
       dynamic: attachments.dynamic,
+      trill: attachments.trill,
       slur-start: attachments.slur-start,
       slur-end: attachments.slur-end,
       beam-start: attachments.beam-start,
@@ -462,6 +474,7 @@
           beam-end: attachments.beam-end,
           articulations: attachments.articulations,
           dynamic: attachments.dynamic,
+          trill: attachments.trill,
           fingering: attachments.fingering,
           fingering-position: attachments.fingering-position,
           chord-symbol: attachments.chord-symbol,
@@ -542,6 +555,32 @@
         pos = word-end + 1
         continue
       }
+      if token == "tr" and word-end < len and input.at(word-end) == "{" {
+        if trill-start-idx != none {
+          let anchors = ()
+          for i in range(trill-start-idx, events.len()) {
+            let ev = events.at(i)
+            if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+              anchors.push(i)
+            }
+          }
+          if anchors.len() > 0 {
+            let first = anchors.first()
+            let last = anchors.last()
+            for i in anchors {
+              events.at(i).trill = true
+              events.at(i).trill-line = true
+              if i == first { events.at(i).trill-start = true }
+              if i == last { events.at(i).trill-end = true }
+            }
+          }
+        }
+        trill-start-idx = events.len()
+        curly-open-serial += 1
+        trill-open-order = curly-open-serial
+        pos = word-end + 1
+        continue
+      }
       let time-event = parse-time-token(token)
       if time-event != none {
         events.push(time-event)
@@ -593,6 +632,7 @@
         beam-end: note.beam-end,
         articulations: note.articulations,
         dynamic: note.dynamic,
+        trill: note.trill,
         fingering: note.fingering,
         fingering-position: note.fingering-position,
         chord-symbol: note.chord-symbol,
@@ -741,6 +781,10 @@
         latest-order = hairpin-open-order
         close-kind = "hairpin"
       }
+      if trill-open-order != none and trill-open-order > latest-order {
+        latest-order = trill-open-order
+        close-kind = "trill"
+      }
 
       if close-kind == "tuplet" {
         let end-idx = events.len()
@@ -808,6 +852,26 @@
         hairpin-start-idx = none
         hairpin-kind = none
         hairpin-open-order = none
+      } else if close-kind == "trill" {
+        let anchors = ()
+        for i in range(trill-start-idx, events.len()) {
+          let ev = events.at(i)
+          if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+            anchors.push(i)
+          }
+        }
+        if anchors.len() > 0 {
+          let first = anchors.first()
+          let last = anchors.last()
+          for i in anchors {
+            events.at(i).trill = true
+            events.at(i).trill-line = true
+            if i == first { events.at(i).trill-start = true }
+            if i == last { events.at(i).trill-end = true }
+          }
+        }
+        trill-start-idx = none
+        trill-open-order = none
       }
       pos += 1
       continue
@@ -832,6 +896,26 @@
         events.at(i).hairpin = hairpin-kind
         if i == first { events.at(i).hairpin-start = true }
         if i == last { events.at(i).hairpin-end = true }
+      }
+    }
+  }
+
+  if trill-start-idx != none {
+    let anchors = ()
+    for i in range(trill-start-idx, events.len()) {
+      let ev = events.at(i)
+      if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+        anchors.push(i)
+      }
+    }
+    if anchors.len() > 0 {
+      let first = anchors.first()
+      let last = anchors.last()
+      for i in anchors {
+        events.at(i).trill = true
+        events.at(i).trill-line = true
+        if i == first { events.at(i).trill-start = true }
+        if i == last { events.at(i).trill-end = true }
       }
     }
   }

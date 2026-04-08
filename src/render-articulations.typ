@@ -4,8 +4,8 @@
 // Rendering order from notehead outward: tenuto, accent, staccato. Fermata separate.
 // Dynamics are drawn below the staff using SMuFL dynamic glyphs.
 
-#import "constants.typ": smufl-articulations, smufl-dynamics, default-music-font-size-factor
-#import "glyph-metadata.typ": font-family
+#import "constants.typ": smufl-articulations, smufl-dynamics, smufl-ornaments, default-music-font-size-factor
+#import "glyph-metadata.typ": font-family, place-glyph, advance-width
 
 /// Draw articulation marks for a note or chord.
 ///
@@ -167,5 +167,31 @@
   if kind == "cresc" or kind == "decresc" {
     line((x-start, y-center + start-h), (x-end, y-center + end-h), stroke: stroke)
     line((x-start, y-center - start-h), (x-end, y-center - end-h), stroke: stroke)
+  }
+}
+
+#let trill-symbol-width(sp: 1.0, music-font-config: none) = {
+  advance-width("ornamentTrill", config: music-font-config) * sp
+}
+
+#let trill-wiggle-width(sp: 1.0, music-font-config: none) = {
+  advance-width("wiggleTrill", config: music-font-config) * sp
+}
+
+#let draw-trill-symbol(x, y, sp: 1.0, music-font-config: none) = {
+  place-glyph(x, y, smufl-ornaments.trill, "ornamentTrill", sp, config: music-font-config)
+}
+
+#let draw-trill-wiggle(x-start, x-end, y, sp: 1.0, music-font-config: none) = {
+  if x-end <= x-start { return }
+
+  let seg-w = trill-wiggle-width(sp: sp, music-font-config: music-font-config)
+  if seg-w <= 0 { return }
+
+  let step = seg-w * 0.92
+  let cur-x = x-start
+  while cur-x < x-end {
+    place-glyph(cur-x, y, smufl-ornaments.wiggle-trill, "wiggleTrill", sp, config: music-font-config)
+    cur-x += step
   }
 }

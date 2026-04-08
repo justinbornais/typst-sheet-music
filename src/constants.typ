@@ -119,6 +119,7 @@
 // --- Ornaments ---
 #let smufl-ornaments = (
   trill: "\u{E566}",
+  wiggle-trill: "\u{EAA4}",
   mordent: "\u{E56C}",
   turn: "\u{E567}",
 )

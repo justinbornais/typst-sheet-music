@@ -334,6 +334,13 @@ This section documents the inline music-string syntax accepted by `score()`, `me
   - Use `cresc{...}` and `decresc{...}` to apply a hairpin across the enclosed notes/rests/chords.
   - Example: `c4 e g c | cresc{c e g c} | decresc{c' b a g}`
 
+- Trills:
+  - Use `tr` immediately after a note or chord to place a standalone trill symbol above it.
+  - Example: `c4tr`
+  - Use `tr{...}` to place a trill symbol plus a wavy trill line across the enclosed notes/rests/chords.
+  - Example: `tr{c4}` or `tr{d'4 e' f' g'}`
+  - Trill lines can continue across system breaks automatically.
+
 - Lyrics:
   - Attach lyrics to notes or chords with `l[...]`.
   - Examples: `c4l[text]`, `<c e g>2l[ah]`
@@ -387,6 +394,9 @@ Examples (combined):
 
 #melody(music: "c4l[1. Ev-]l[2. Why_]l[3. In] dlll[You,] el['ry]l[do]l[O]")
 // stacked lyric lines with hyphen and melisma continuation
+
+#melody(music: "c4tr d e f | tr{g4} a b c'")
+// standalone trill symbol and trill line
 
 #score(
   staff-group: "grand",

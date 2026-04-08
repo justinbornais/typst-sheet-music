@@ -767,7 +767,18 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
 
 #v(1cm)
 
-== Test 60: Tuplets containing rests
+== Test 60: Trill symbols and trill lines
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c4tr d e f | tr{g4} a b c' | tr{d'4 e' f' g' |
+  a' b' c'' d''} e''1",
+)
+
+#v(1cm)
+
+== Test 61: Tuplets containing rests
 
 #melody(
   key: "C",
@@ -777,7 +788,7 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
 
 #v(1cm)
 
-== Test 61: First and second endings
+== Test 62: First and second endings
 
 #score(
   key: "C",
@@ -792,7 +803,7 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
 
 #v(1cm)
 
-== Test 62: Lyrics - hyphens, extenders, carries, and stacked verses
+== Test 63: Lyrics - hyphens, extenders, carries, and stacked verses
 
 #score(
   key: "C",

@@ -10,7 +10,7 @@
 #import "render-beams.typ": draw-beam-group
 #import "render-slurs-ties.typ": draw-ties-and-slurs
 #import "render-chords.typ": format-chord-symbol
-#import "render-articulations.typ": draw-articulations, draw-dynamic, draw-hairpin
+#import "render-articulations.typ": draw-articulations, draw-dynamic, draw-hairpin, draw-trill-symbol, draw-trill-wiggle, trill-symbol-width
 #import "pitch.typ": compute-stem-end-y
 
 
@@ -390,6 +390,62 @@
       actual-stem-dir: adj-stem-dirs.at(str(idx), default: item.stem-dir),
       is-beamed: stem-end-override != none,
     )
+  }
+
+  let anchor-event = ev => ev.type == "note" or ev.type == "chord" or ev.type == "rest"
+  let next-anchor-item-x = idx => {
+    let found = none
+    let j = idx + 1
+    while j < items.len() and found == none {
+      if anchor-event(items.at(j).event) {
+        found = item-xs.at(j)
+      }
+      j += 1
+    }
+    found
+  }
+  let event-visual-top = (idx, item) => {
+    let event = item.event
+    if event.type == "note" {
+      let stem-data = stem-render-data(idx, item)
+      let note-center-y = y-top + item.y * sp
+      let note-top = calc.max(
+        note-center-y + 0.9 * sp,
+        if stem-data.actual-stem-dir == "down" { stem-data.actual-stem-end } else { note-center-y + 0.9 * sp },
+      )
+      calc.max(
+        note-top,
+        articulation-top(note-center-y, event.at("articulations", default: ()), stem-data.actual-stem-dir),
+        inline-text-top(
+          event,
+          note-center-y + 1.0 * sp,
+          note-center-y + 1.5 * sp,
+          fingering-position,
+          fermata-clearance-y: calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp,
+        ),
+      )
+    } else if event.type == "chord" {
+      let stem-data = stem-render-data(idx, item)
+      let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
+      let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+      let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
+      let chord-top = calc.max(
+        top-y + 0.9 * sp,
+        if stem-data.actual-stem-dir == "down" { stem-data.actual-stem-end } else { top-y + 0.9 * sp },
+      )
+      calc.max(
+        chord-top,
+        articulation-top(top-y, event.at("articulations", default: ()), stem-data.actual-stem-dir),
+        inline-text-top(
+          event,
+          top-y + 1.0 * sp,
+          top-y + 1.5 * sp,
+          fingering-position,
+        ),
+      )
+    } else {
+      y-top + 1.0 * sp
+    }
   }
 
   let raw-final-style = if items.len() > 0 and items.last().event.type == "barline" {
@@ -881,6 +937,82 @@
   }
 
   // ── Draw ties and slurs ──────────────────────────────────────────────────
+  let trill-line-groups = ()
+  let cur-trill-indices = ()
+  for (i, item) in items.enumerate() {
+    let ev = item.event
+    if anchor-event(ev) and ev.at("trill-line", default: false) {
+      if cur-trill-indices.len() == 0 { cur-trill-indices = (i,) } else { cur-trill-indices.push(i) }
+    } else if cur-trill-indices.len() > 0 {
+      let first = cur-trill-indices.first()
+      let last = cur-trill-indices.last()
+      trill-line-groups.push((
+        indices: cur-trill-indices,
+        starts_here: items.at(first).event.at("trill-start", default: false),
+        ends_here: items.at(last).event.at("trill-end", default: false),
+      ))
+      cur-trill-indices = ()
+    }
+  }
+  if cur-trill-indices.len() > 0 {
+    let first = cur-trill-indices.first()
+    let last = cur-trill-indices.last()
+    trill-line-groups.push((
+      indices: cur-trill-indices,
+      starts_here: items.at(first).event.at("trill-start", default: false),
+      ends_here: items.at(last).event.at("trill-end", default: false),
+    ))
+  }
+
+  let tr-width = trill-symbol-width(sp: sp, music-font-config: music-font-config)
+  let tr-gap = 0.18 * sp
+  let tr-min-y = y-top + 1.15 * sp
+  let tr-line-end-gap = 1.0 * sp
+  let tr-tail = 0.85 * sp
+
+  for (idx, item) in items.enumerate() {
+    let event = item.event
+    if not event.at("trill", default: false) or event.at("trill-line", default: false) {
+      continue
+    }
+    let x = item-xs.at(idx)
+    let trill-y = calc.max(event-visual-top(idx, item) + 0.75 * sp, tr-min-y)
+    draw-trill-symbol(x - 0.55 * tr-width, trill-y, sp: sp, music-font-config: music-font-config)
+  }
+
+  for tg in trill-line-groups {
+    let indices = tg.indices
+    if indices.len() == 0 { continue }
+
+    let first = indices.first()
+    let last = indices.last()
+    let x-first = item-xs.at(first)
+    let x-last = item-xs.at(last)
+    let line-top = indices.fold(event-visual-top(first, items.at(first)), (top, idx) => {
+      calc.max(top, event-visual-top(idx, items.at(idx)))
+    })
+    let trill-y = calc.max(line-top + 0.75 * sp, tr-min-y)
+    let next-x = next-anchor-item-x(last)
+    let symbol-x = x-first - 0.55 * tr-width
+    if tg.starts_here {
+      draw-trill-symbol(symbol-x, trill-y, sp: sp, music-font-config: music-font-config)
+    }
+    let wiggle-start = if tg.starts_here {
+      symbol-x + tr-width + tr-gap
+    } else {
+      music-start-x
+    }
+    let raw-wiggle-end = if not tg.ends_here {
+      total-width * sp - 1.0 * sp
+    } else if next-x != none {
+      next-x - tr-line-end-gap
+    } else {
+      calc.min(final-barline-x - tr-line-end-gap, x-last + tr-tail)
+    }
+    let wiggle-end = calc.max(raw-wiggle-end, wiggle-start + 0.4 * sp)
+    draw-trill-wiggle(wiggle-start, wiggle-end, trill-y + 0.02 * sp, sp: sp, music-font-config: music-font-config)
+  }
+
   let lyric-line-count = items.fold(lyric-prefix-states.len(), (count, item) => {
     calc.max(count, item.event.at("lyrics", default: ()).len())
   })

@@ -19,6 +19,8 @@
 /// - articulations: array of strings
 /// - dynamic: optional dynamic marking string (e.g., "f", "pp", "sfz")
 /// - hairpin: optional span type ("cresc" or "decresc")
+/// - trill: whether a trill symbol should be rendered
+/// - trill-line: whether the trill includes a wavy continuation line
 /// - ending: optional ending label string (e.g., "1.", "2nd")
 /// - fingering: optional fingering value (int, or array of ints for multiple fingers)
 /// - fingering-position: "above" or "below" (default: "above")
@@ -40,6 +42,10 @@
   hairpin: none,
   hairpin-start: false,
   hairpin-end: false,
+  trill: false,
+  trill-line: false,
+  trill-start: false,
+  trill-end: false,
   ending: none,
   ending-start: false,
   ending-end: false,
@@ -73,6 +79,10 @@
   hairpin: hairpin,
   hairpin-start: hairpin-start,
   hairpin-end: hairpin-end,
+  trill: trill,
+  trill-line: trill-line,
+  trill-start: trill-start,
+  trill-end: trill-end,
   ending: ending,
   ending-start: ending-start,
   ending-end: ending-end,
@@ -107,6 +117,10 @@
   hairpin: none,
   hairpin-start: false,
   hairpin-end: false,
+  trill: false,
+  trill-line: false,
+  trill-start: false,
+  trill-end: false,
   ending: none,
   ending-start: false,
   ending-end: false,
@@ -126,6 +140,10 @@
   hairpin: hairpin,
   hairpin-start: hairpin-start,
   hairpin-end: hairpin-end,
+  trill: trill,
+  trill-line: trill-line,
+  trill-start: trill-start,
+  trill-end: trill-end,
   ending: ending,
   ending-start: ending-start,
   ending-end: ending-end,
@@ -236,6 +254,10 @@
   hairpin: none,
   hairpin-start: false,
   hairpin-end: false,
+  trill: false,
+  trill-line: false,
+  trill-start: false,
+  trill-end: false,
   ending: none,
   ending-start: false,
   ending-end: false,
@@ -267,6 +289,10 @@
   hairpin: hairpin,
   hairpin-start: hairpin-start,
   hairpin-end: hairpin-end,
+  trill: trill,
+  trill-line: trill-line,
+  trill-start: trill-start,
+  trill-end: trill-end,
   ending: ending,
   ending-start: ending-start,
   ending-end: ending-end,
