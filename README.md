@@ -7,8 +7,9 @@ Render professional sheet music directly inside Typst documents using SMuFL-awar
 - **Pure Typst** - no WASM plugin, no external binary dependency (no LilyPond, no MuseScore CLI)
 - SMuFL/Bravura-aware glyph placement with precise bounding-box anchors
 - Notes, rests, chords, accidentals, key signatures, time signatures, clefs
-- Dynamics, articulations, fingerings, and chord symbols - all inline in the music string
-- Beams, ties, slurs, repeat barlines, dotted notes
+- Dynamics, crescendos/decrescendos, articulations, fingerings, chord symbols, and lyrics - all inline in the music string
+- Beams, ties, slurs, tuplets, octave lines, repeat barlines, endings, dotted notes
+- Inline clef changes, inline time-signature changes, and explicit system breaks inside the music string
 - Grand staff and multi-staff layout with vertical beat alignment
 - System/line breaks via measures-per-line, literal `\n`, or automatic width-based breaking
 - Header block with title, subtitle, composer, arranger, lyricist
@@ -96,6 +97,7 @@ The primary entry point. Renders one or more staves with full layout control.
 | `staff-size` | length | `1.75mm` | Staff space distance |
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `staff-spacing` | length | `8mm` | Vertical space between staves within a system |
+| `lyric-line-spacing` | length | `none` | Override the spacing between stacked lyric lines |
 | `width` | length/auto | `auto` | Explicit width or auto (fills page) |
 | `measures-per-line` | int | `none` | Force this many measures per system |
 
@@ -133,16 +135,17 @@ Convenience wrapper for a single-staff score.
 | `title` | string | `none` | Title |
 | `composer` | string | `none` | Composer |
 | `staff-size` | length | `1.75mm` | Staff space |
+| `lyric-line-spacing` | length | `none` | Override the spacing between stacked lyric lines |
 | `width` | length/auto | `auto` | Width |
 | `measures-per-line` | int | `none` | Measures per system |
 
 ### `lead-sheet()`
 
-Melody with lyrics (lyrics not yet implemented).
+Convenience wrapper for a single-staff lead sheet. Inline lyrics still live in the `music` string using the lyric syntax documented below.
 
 ```typ
 #lead-sheet(
-  music: "c4 d e f | g a b c'",
+  music: "c4l[Hal-] dl[le-] el[lu-] fl[jah] | g4l[Sing_] al bl c'l[on]",
   key: "C",
   time: "4/4",
   title: "Song Title",
@@ -283,6 +286,45 @@ This section documents the inline music-string syntax accepted by `score()`, `me
 - Beams and grouping:
   - Square brackets `[` and `]` can be used to force beam starts/ends when not interpreted as a chord symbol.
 
+- Barlines:
+  - `|` = single barline
+  - `||` = double barline
+  - `|.` = final barline
+  - `|:` or `||:` = repeat start
+  - `:|` or `:||` = repeat end
+  - `:|:` or `:||:` = repeat-both
+
+- Inline clef changes:
+  - Insert any supported clef token directly in the music string to change clef mid-system.
+  - Example: `g a b c' treble d e f g` or `f e d c bass b a g`
+  - Following notes use the new clef's default octave/layout rules immediately.
+
+- Inline time signature changes:
+  - Insert a time signature token directly in the music string: `3/4`, `5/4`, `common`, `C`, `cut`, `C|`.
+  - Example: `c e g c' 3/4 g g c`
+  - Time signatures may appear mid-measure, after a barline, or at the end of a system; layout keeps staves aligned.
+
+- Crescendo / decrescendo spans:
+  - Use `cresc{...}` and `decresc{...}` to apply a hairpin across the enclosed notes/rests/chords.
+  - Example: `c4 e g c | cresc{c e g c} | decresc{c' b a g}`
+
+- Lyrics:
+  - Attach lyrics to notes or chords with `l[...]`.
+  - Examples: `c4l[text]`, `<c e g>2l[ah]`
+  - Hyphen continuation: `l[text-]`
+  - Melisma/extender continuation: `l[text_]`
+  - Carry the previous lyric state through another note with plain `l`
+  - Multiple lyric lines are supported by stacking multiple `l...` attachments on the same event: `c4l[1. Ev-]l[2. Why_]l[3. In]`
+
+- Endings / voltas:
+  - Use `end{label: ...}` to mark first/second/etc. endings.
+  - Example: `end{1.: f d e c | g g c c}` and `end{2.: g g g g | b b c' c'}`
+
+- Octave lines:
+  - Use `8a{...}`, `8b{...}`, `15a{...}`, or `15b{...}` for dashed ottava / quindicesima lines.
+  - `a` means above the staff, `b` means below.
+  - Example: `8a{c' d' e' f'}`
+
 - Tuplets:
   - Syntax: `{n,m:notes}` where `n` is the number of beats the entire tuplet should occupy (used for spacing) and `m` is the number printed on the tuplet bracket (the tuplet count).
   - `m` may be omitted; when omitted it defaults to the same value as `n`.
@@ -301,12 +343,33 @@ This section documents the inline music-string syntax accepted by `score()`, `me
   - Use the `staves` array passed to `#score` and set `staff-group: "grand"` to request grand-staff rendering (brace and shared barlines).
   - Each staff can set `clef`, `music`, and `fingering-position` (`"above"` or `"below"`). See the full example above for a grand-staff sample.
 
+- Explicit system breaks:
+  - Insert a literal newline in the `music` string to force a new system.
+  - Example:
+
+```typ
+music: "c4 d e f |
+g a b c'"
+```
+
 Examples (combined):
 
 ```typ
 #melody(music: "<c e g>4n[1][C] d4>* f#4v[mp] g4~ g4")
 // chord with fingering and chord symbol, accent + staccato on next note,
 // dynamic marking, tie on the last two notes
+
+#melody(music: "c4l[1. Ev-]l[2. Why_]l[3. In] dlll[You,] el['ry]l[do]l[O]")
+// stacked lyric lines with hyphen and melisma continuation
+
+#score(
+  staff-group: "grand",
+  staves: (
+    (clef: "treble", music: "g a b c' treble d e f g | end{1.: cresc{a b c' d'}}"),
+    (clef: "bass", music: "c, e, g, c bass b, a, g, | end{1.: 3/4 c e g}"),
+  ),
+)
+// inline clef and time changes, volta ending, and crescendo
 ```
 
 Refer to the parser logic in `src/parser.typ` for the complete, definitive syntax and edge cases.
