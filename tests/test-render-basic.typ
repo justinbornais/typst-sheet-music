@@ -763,3 +763,13 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
   time: "4/4",
   music: "c4 e g c | cresc[c e g c] | decresc[c' b a g]",
 )
+
+#v(1cm)
+
+== Test 60: Tuplets containing rests
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "{2,3:c8 r8 e8} g4 | c'4 {2,3:r8 d8 e8} g4",
+)

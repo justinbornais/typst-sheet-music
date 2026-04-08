@@ -461,20 +461,38 @@
     let tn = tup.number
     if indices.len() == 0 { continue }
 
-    // Collect x positions and stem ends for the tuplet notes
+    // Use note/chord anchors for bracket geometry; rests contribute span width
+    // but do not have stem tips to bracket against.
     let tup-xs = indices.map(idx => item-xs.at(idx))
-    let tup-stem-ends = indices.map(idx => {
+    let stem-anchor-indices = indices.filter(idx => {
+      let ev = items.at(idx).event
+      ev.type == "note" or ev.type == "chord"
+    })
+    let stem-ref-indices = if stem-anchor-indices.len() > 0 { stem-anchor-indices } else { indices }
+    let raw-stem-dir = stem-ref-indices.fold(none, (dir, idx) => {
+      if dir != none {
+        dir
+      } else {
+        adj-stem-dirs.at(str(idx), default: items.at(idx).stem-dir)
+      }
+    })
+    let stem-dir = if raw-stem-dir != none { raw-stem-dir } else { "up" }
+
+    let tup-stem-ends = stem-ref-indices.map(idx => {
       let override = adj-stem-ends.at(str(idx), default: none)
       if override != none {
         y-top + override * sp
-      } else {
+      } else if items.at(idx).stem-y-end != none {
         y-top + items.at(idx).stem-y-end * sp
+      } else if stem-dir == "up" {
+        y-top + 1.6 * sp
+      } else {
+        y-bottom - 1.6 * sp
       }
     })
 
     let x-first = tup-xs.first()
     let x-last  = tup-xs.last()
-    let stem-dir = adj-stem-dirs.at(str(indices.first()), default: items.at(indices.first()).stem-dir)
 
     // Place bracket on same side as beam (stem-tip side)
     let bracket-y = if stem-dir == "up" {
