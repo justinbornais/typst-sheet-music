@@ -669,6 +669,8 @@
 
   // ── Draw crescendo / decrescendo hairpins ──────────────────────────────
   let lowest-hairpin-bottom = none
+  let continued-cresc-start-half-height = 0.18 * sp
+  let continued-decresc-end-half-height = 0.22 * sp
   for hg in hairpin-groups {
     let indices = hg.indices
     let continuation = not hg.starts_here
@@ -709,14 +711,31 @@
     })
     let baseline-y = y-bottom - 1.9 * sp
     let y-center = calc.min(baseline-y, span-lowest-y - 0.75 * sp)
-    let start-half-height = if continuation { 0.28 * sp } else { none }
+    let start-half-height = if continuation and hg.kind == "cresc" {
+      continued-cresc-start-half-height
+    } else {
+      none
+    }
+    let end-half-height = if not hg.ends_here and hg.kind == "decresc" {
+      continued-decresc-end-half-height
+    } else {
+      none
+    }
     let hairpin-bottom = y-center - 0.55 * sp
     lowest-hairpin-bottom = if lowest-hairpin-bottom == none {
       hairpin-bottom
     } else {
       calc.min(lowest-hairpin-bottom, hairpin-bottom)
     }
-    draw-hairpin(x0, x1, y-center, hg.kind, sp: sp, start-half-height: start-half-height)
+    draw-hairpin(
+      x0,
+      x1,
+      y-center,
+      hg.kind,
+      sp: sp,
+      start-half-height: start-half-height,
+      end-half-height: end-half-height,
+    )
   }
 
   let octave-groups = ()
