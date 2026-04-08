@@ -42,7 +42,7 @@
 ///     - clef: "treble", "bass", "alto", "tenor", "treble-8a", "treble-8b", "treble-15a", "treble-15b", "bass-8a", "bass-8b", "bass-15a", "bass-15b", "percussion"
 ///     - music: music string (see syntax reference)
 ///     - label: optional staff label
-/// - lyrics: array of lyric dictionaries (not yet implemented)
+/// - lyrics: reserved for future top-level lyric helpers
 /// - chords: array of chord symbol dictionaries (not yet implemented)
 /// - key: key signature string ("C", "G", "D", "Bb", "f#", etc.)
 /// - time: time signature string ("4/4", "3/4", "6/8", "C"/"common", "C|"/"cut")
@@ -57,6 +57,7 @@
 /// - staff-size: staff space distance (default 1.75mm)
 /// - system-spacing: vertical space between systems
 /// - staff-spacing: vertical space between staves within a system
+/// - lyric-line-spacing: vertical space between lyric lines within a system
 /// - width: explicit width or auto
 /// - measure-numbers: "system", "every", "none"
 /// - relative-octave: if true, use relative octave entry
@@ -78,6 +79,7 @@
   staff-size: default-staff-space,
   system-spacing: 12mm,
   staff-spacing: 8mm,
+  lyric-line-spacing: none,
   width: auto,
   measure-numbers: "system",
   relative-octave: false,
@@ -97,15 +99,52 @@
     parse-music(music-str, base-octave: base-oct)
   })
 
+  let trim-trailing-nones = values => {
+    let trimmed = values
+    while trimmed.len() > 0 and trimmed.last() == none {
+      trimmed = trimmed.slice(0, trimmed.len() - 1)
+    }
+    trimmed
+  }
+
+  let advance-lyric-states = (states, event) => {
+    if event.type != "note" and event.type != "chord" and event.type != "rest" {
+      return states
+    }
+
+    let lyrics = event.at("lyrics", default: ())
+    let next-states = ()
+    let line-count = calc.max(states.len(), lyrics.len())
+    for li in range(line-count) {
+      let entry = if li < lyrics.len() { lyrics.at(li) } else { none }
+      let current = if li < states.len() { states.at(li) } else { none }
+      if entry == none {
+        next-states.push(none)
+      } else if entry.at("carry", default: false) {
+        next-states.push(current)
+      } else {
+        let continuation = entry.at("continuation", default: "none")
+        if continuation == "hyphen" or continuation == "extender" {
+          next-states.push(continuation)
+        } else {
+          next-states.push(none)
+        }
+      }
+    }
+    trim-trailing-nones(next-states)
+  }
+
   let prepare-staff-systems(systems, initial-clef, initial-time, show-initial-time: false) = {
     let prepared = ()
     let current-clef = initial-clef
     let current-time = initial-time
+    let lyric-states = ()
     let repeat-time-on-next = false
     let repeat-start-on-next = false
     for sys in systems {
       let system-clef = current-clef
       let system-time = current-time
+      let lyric-prefix-states = lyric-states
       let show-time-prefix = repeat-time-on-next or (prepared.len() == 0 and show-initial-time and system-time != none)
       repeat-time-on-next = false
       let start = 0
@@ -141,6 +180,7 @@
         clef: system-clef,
         time: system-time,
         show-time-prefix: show-time-prefix,
+        lyric-prefix-states: lyric-prefix-states,
       ))
 
       current-clef = system-clef
@@ -156,6 +196,7 @@
             symbol: ev.symbol,
           )
         }
+        lyric-states = advance-lyric-states(lyric-states, ev)
       }
       if cleaned.len() > 0 and cleaned.last().type == "barline" and cleaned.last().style == "repeat-both" {
         repeat-start-on-next = true
@@ -295,6 +336,7 @@
             clef: staves.at(si).at("clef", default: none),
             time: ts,
             show-time-prefix: is-first and ts != none,
+            lyric-prefix-states: (),
           )
         }
         laid-out-staves.push(layout-staff(
@@ -302,6 +344,7 @@
           clef: sys-info.clef,
           time: sys-info.time,
           show-time-prefix: sys-info.show-time-prefix,
+          lyric-prefix-states: sys-info.lyric-prefix-states,
           staff-space: staff-size,
         ))
       }
@@ -320,6 +363,7 @@
         sp: staff-size,
         width: if avail-width-mm != none { avail-width-mm * 1mm } else { auto },
         staff-spacing: staff-spacing,
+        lyric-line-spacing: if lyric-line-spacing != none { lyric-line-spacing / 1mm } else { none },
         staff-group: staff-group,
         title: if is-first { title } else { none },
         subtitle: if is-first { subtitle } else { none },
@@ -355,6 +399,7 @@
   composer: none,
   staff-size: default-staff-space,
   system-spacing: 12mm,
+  lyric-line-spacing: none,
   width: auto,
   measures-per-line: none,
 ) = {
@@ -366,12 +411,13 @@
     composer: composer,
     staff-size: staff-size,
     system-spacing: system-spacing,
+    lyric-line-spacing: lyric-line-spacing,
     width: width,
     measures-per-line: measures-per-line,
   )
 }
 
-/// Lead sheet rendering (melody + chords + lyrics).
+/// Lead sheet rendering (melody with inline chord / lyric support in `music`).
 #let lead-sheet(
   music: "",
   lyrics: "",
@@ -381,6 +427,7 @@
   title: none,
   composer: none,
   staff-size: default-staff-space,
+  lyric-line-spacing: none,
   width: auto,
 ) = {
   score(
@@ -390,6 +437,7 @@
     title: title,
     composer: composer,
     staff-size: staff-size,
+    lyric-line-spacing: lyric-line-spacing,
     width: width,
   )
 }

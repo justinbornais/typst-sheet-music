@@ -23,6 +23,7 @@
 /// - fingering: optional fingering value (int, or array of ints for multiple fingers)
 /// - fingering-position: "above" or "below" (default: "above")
 /// - chord-symbol: optional chord symbol string (e.g., "C", "Am7", "Bb/F")
+/// - lyrics: optional array of lyric attachment dictionaries
 #let make-note(
   name,
   accidental: none,
@@ -45,6 +46,7 @@
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
+  lyrics: (),
   tuplet-beats: 0,
   tuplet-number: 0,
   tuplet-count: 0,
@@ -77,6 +79,7 @@
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
+  lyrics: lyrics,
   tuplet-beats: tuplet-beats,
   tuplet-number: tuplet-number,
   tuplet-count: tuplet-count,
@@ -239,6 +242,7 @@
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
+  lyrics: (),
   tuplet-beats: 0,
   tuplet-number: 0,
   tuplet-count: 0,
@@ -269,6 +273,7 @@
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
+  lyrics: lyrics,
   tuplet-beats: tuplet-beats,
   tuplet-number: tuplet-number,
   tuplet-count: tuplet-count,

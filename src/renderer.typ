@@ -43,6 +43,7 @@
   skip-barlines: false,
   fingering-position: "above",
   show-endings: true,
+  lyric-line-spacing: none,
 ) = {
   import cetz.draw: *
 
@@ -52,6 +53,7 @@
   let opening-time-lower = if opening-time != none { opening-time.lower } else { time-lower }
   let opening-time-symbol = if opening-time != none { opening-time.symbol } else { time-symbol }
   let show-opening-time = laid-out.at("show-time-prefix", default: show-time)
+  let lyric-prefix-states = laid-out.at("lyric-prefix-states", default: ())
   let items = laid-out.items
   let total-layout-width = laid-out.total-width
 
@@ -222,6 +224,10 @@
   let fingering-font-size = 7.25pt * (sp / default_sp_numeric)
   // Tuplet font size (scales with staff-space). Base is 7.75pt at default staff space.
   let tuplet-font-size = 7.75pt * (sp / default_sp_numeric)
+  let lyric-font-size = 9.25pt * (sp / default_sp_numeric)
+  let lyric-text-height = 0.92 * sp
+  let lyric-line-step = if lyric-line-spacing != none { lyric-line-spacing } else { 1.75 * sp }
+  let lyric-text-gap = 0.28 * sp
   
   let stacked-values = value => if type(value) == array { value } else { (value,) }
 
@@ -656,6 +662,7 @@
   }
 
   // ── Draw crescendo / decrescendo hairpins ──────────────────────────────
+  let lowest-hairpin-bottom = none
   for hg in hairpin-groups {
     let indices = hg.indices
     let continuation = not hg.starts_here
@@ -697,6 +704,12 @@
     let baseline-y = y-bottom - 1.9 * sp
     let y-center = calc.min(baseline-y, span-lowest-y - 0.75 * sp)
     let start-half-height = if continuation { 0.28 * sp } else { none }
+    let hairpin-bottom = y-center - 0.55 * sp
+    lowest-hairpin-bottom = if lowest-hairpin-bottom == none {
+      hairpin-bottom
+    } else {
+      calc.min(lowest-hairpin-bottom, hairpin-bottom)
+    }
     draw-hairpin(x0, x1, y-center, hg.kind, sp: sp, start-half-height: start-half-height)
   }
 
@@ -843,6 +856,244 @@
   }
 
   // ── Draw ties and slurs ──────────────────────────────────────────────────
+  let lyric-line-count = items.fold(lyric-prefix-states.len(), (count, item) => {
+    calc.max(count, item.event.at("lyrics", default: ()).len())
+  })
+  if lyric-line-count > 0 {
+    let lyric-text-width = lyric => {
+      if lyric == none or lyric == "" { 0.0 } else { measure(text(size: lyric-font-size, lyric)).width / 1mm }
+    }
+    let draw-lyric-text = (x-pos, top-y, value, anchor: "north") => {
+      if value != none and value != "" {
+        content((x-pos, top-y), anchor: anchor, text(size: lyric-font-size, value))
+      }
+    }
+    let draw-lyric-hyphen = (x-pos, top-y) => {
+      content((x-pos, top-y), anchor: "north", text(size: lyric-font-size, "-"))
+    }
+    let draw-lyric-extender = (x0, x1, top-y) => {
+      if x1 > x0 {
+        line(
+          (x0, top-y - lyric-text-height - 0.2 * sp),
+          (x1, top-y - lyric-text-height - 0.2 * sp),
+          stroke: (thickness: 0.09 * sp * 1mm, paint: black, cap: "butt"),
+        )
+      }
+    }
+    let anchor-event = ev => ev.type == "note" or ev.type == "chord" or ev.type == "rest"
+    let next-anchor-x = idx => {
+      let found = none
+      let j = idx + 1
+      while j < items.len() and found == none {
+        if anchor-event(items.at(j).event) {
+          found = item-xs.at(j)
+        }
+        j += 1
+      }
+      found
+    }
+
+    let lyric-lowest-content = y-bottom
+    for (idx, item) in items.enumerate() {
+      let event = item.event
+      if event.type != "note" and event.type != "chord" and event.type != "rest" {
+        continue
+      }
+      if event.type == "rest" {
+        continue
+      }
+
+      let stem-data = stem-render-data(idx, item)
+      let below-arts = below-articulations(event.at("articulations", default: ()))
+      let reference-y = if event.type == "chord" {
+        item.chord-ys.map(vy => y-top + vy * sp).fold(y-top + item.y * sp, calc.min)
+      } else {
+        y-top + item.y * sp
+      }
+      lyric-lowest-content = calc.min(lyric-lowest-content, reference-y - 0.9 * sp)
+
+      if stem-data.actual-stem-dir == "up" and below-arts.len() > 0 {
+        let art-bottom = reference-y + 1.0 * sp - below-arts.len() * 1.0 * sp
+        lyric-lowest-content = calc.min(lyric-lowest-content, art-bottom - 0.55 * sp)
+      }
+
+      if event.at("dynamic", default: none) != none {
+        let dyn-y = y-bottom - 1.0 * sp - dynamic-extra-offset(reference-y, event.at("articulations", default: ()), stem-data.actual-stem-dir)
+        lyric-lowest-content = calc.min(lyric-lowest-content, dyn-y - 0.75 * sp)
+      }
+
+      let fng = event.at("fingering", default: none)
+      let event-fng-pos = event.at("fingering-position", default: "above")
+      let fng-pos = if event-fng-pos == "below" { "below" } else { fingering-position }
+      if fng != none and fng != 0 and fng-pos == "below" {
+        let below-anchor-y = calc.min(y-bottom - 0.5 * sp, reference-y - 1.0 * sp)
+        let fng-base-y = below-anchor-y
+        if event.at("dynamic", default: none) != none {
+          fng-base-y -= 1.5 * sp
+        }
+        if below-arts.len() > 0 {
+          fng-base-y -= below-arts.len() * 1.0 * sp
+        }
+        lyric-lowest-content = calc.min(
+          lyric-lowest-content,
+          fng-base-y - stacked-values(fng).len() * 0.9 * sp - 0.55 * sp,
+        )
+      }
+    }
+    if lowest-hairpin-bottom != none {
+      lyric-lowest-content = calc.min(lyric-lowest-content, lowest-hairpin-bottom)
+    }
+
+    let lyric-top-y = calc.min(y-bottom - 3.1 * sp, lyric-lowest-content - 0.85 * sp)
+    let first-lyric-layouts = range(lyric-line-count).map(_ => none)
+    for (idx, item) in items.enumerate() {
+      let lyrics = item.event.at("lyrics", default: ())
+      for li in range(calc.min(lyric-line-count, lyrics.len())) {
+        if first-lyric-layouts.at(li) == none {
+          let entry = lyrics.at(li)
+          let value = entry.at("text", default: none)
+          if not entry.at("carry", default: false) and value != none and value != "" {
+            let width = lyric-text-width(value)
+            let next-x = next-anchor-x(idx)
+            first-lyric-layouts.at(li) = (
+              index: idx,
+              width: width,
+              natural-left: item-xs.at(idx) - width / 2.0,
+              max-left: if next-x != none { next-x - width - 0.35 * sp } else { none },
+            )
+          }
+        }
+      }
+    }
+    let shared-first-left = first-lyric-layouts.fold(none, (shared, layout) => {
+      if layout == none {
+        shared
+      } else if shared == none {
+        layout.natural-left
+      } else {
+        calc.max(shared, layout.natural-left)
+      }
+    })
+    let lyric-states = range(lyric-line-count).map(li => {
+      let mode = if li < lyric-prefix-states.len() { lyric-prefix-states.at(li) } else { none }
+      (
+        mode: mode,
+        start-x: if mode == "extender" { music-start-x - 0.2 * sp } else { none },
+        last-anchor-x: none,
+        hyphen-origin-x: if mode == "hyphen" { music-start-x - 0.5 * sp } else { none },
+        hyphen-carried: false,
+      )
+    })
+
+    for (idx, item) in items.enumerate() {
+      let event = item.event
+      if event.type != "note" and event.type != "chord" and event.type != "rest" {
+        continue
+      }
+
+      let x = item-xs.at(idx)
+      let lyrics = event.at("lyrics", default: ())
+      for li in range(lyric-line-count) {
+        let state = lyric-states.at(li)
+        let top-y = lyric-top-y - li * lyric-line-step
+        let entry = if li < lyrics.len() { lyrics.at(li) } else { none }
+
+        if entry == none {
+          if state.mode == "hyphen" and not state.hyphen-carried and state.hyphen-origin-x != none {
+            draw-lyric-hyphen((state.hyphen-origin-x + x) / 2.0, top-y)
+          } else if state.mode == "extender" and state.start-x != none {
+            let end-x = if state.last-anchor-x != none { state.last-anchor-x + 0.45 * sp } else { x - 0.6 * sp }
+            draw-lyric-extender(state.start-x, end-x, top-y)
+          }
+          lyric-states.at(li) = (
+            mode: none,
+            start-x: none,
+            last-anchor-x: none,
+            hyphen-origin-x: none,
+            hyphen-carried: false,
+          )
+        } else if entry.at("carry", default: false) {
+          if state.mode == "hyphen" {
+            draw-lyric-hyphen(x, top-y)
+            lyric-states.at(li).hyphen-origin-x = x
+            lyric-states.at(li).hyphen-carried = true
+          } else if state.mode == "extender" {
+            lyric-states.at(li).last-anchor-x = x
+          }
+        } else {
+          let text-value = entry.at("text", default: "")
+          let text-width = lyric-text-width(text-value)
+          let first-layout = first-lyric-layouts.at(li)
+          let text-left = if first-layout != none and first-layout.index == idx and shared-first-left != none {
+            if first-layout.max-left != none and shared-first-left > first-layout.max-left {
+              first-layout.natural-left
+            } else {
+              shared-first-left
+            }
+          } else {
+            x - text-width / 2.0
+          }
+          let text-right = text-left + text-width
+          if state.mode == "hyphen" and not state.hyphen-carried and state.hyphen-origin-x != none {
+            draw-lyric-hyphen((state.hyphen-origin-x + x) / 2.0, top-y)
+          } else if state.mode == "extender" and state.start-x != none {
+            let end-x = if state.last-anchor-x != none {
+              state.last-anchor-x + 0.45 * sp
+            } else {
+              text-left - lyric-text-gap
+            }
+            draw-lyric-extender(state.start-x, end-x, top-y)
+          }
+
+          if first-layout != none and first-layout.index == idx and shared-first-left != none {
+            draw-lyric-text(text-left, top-y, text-value, anchor: "north-west")
+          } else {
+            draw-lyric-text(x, top-y, text-value)
+          }
+
+          let continuation = entry.at("continuation", default: "none")
+          lyric-states.at(li) = if continuation == "hyphen" {
+            (
+              mode: "hyphen",
+              start-x: none,
+              last-anchor-x: x,
+              hyphen-origin-x: x,
+              hyphen-carried: false,
+            )
+          } else if continuation == "extender" {
+            (
+              mode: "extender",
+              start-x: text-right + lyric-text-gap,
+              last-anchor-x: x,
+              hyphen-origin-x: none,
+              hyphen-carried: false,
+            )
+          } else {
+            (
+              mode: none,
+              start-x: none,
+              last-anchor-x: none,
+              hyphen-origin-x: none,
+              hyphen-carried: false,
+            )
+          }
+        }
+      }
+    }
+
+    let lyric-end-x = calc.max(music-start-x + 0.8 * sp, final-barline-x - 0.75 * sp)
+    for li in range(lyric-line-count) {
+      let state = lyric-states.at(li)
+      let top-y = lyric-top-y - li * lyric-line-step
+      if state.mode == "hyphen" and not state.hyphen-carried and state.hyphen-origin-x != none {
+        draw-lyric-hyphen((state.hyphen-origin-x + lyric-end-x) / 2.0, top-y)
+      } else if state.mode == "extender" and state.start-x != none {
+        let end-x = if state.last-anchor-x != none { state.last-anchor-x + 0.45 * sp } else { lyric-end-x }
+        draw-lyric-extender(state.start-x, end-x, top-y)
+      }
+    }
+  }
+
   draw-ties-and-slurs(items, item-xs, y-top, sp: sp, adj-stem-dirs: adj-stem-dirs)
 
   // ── Draw ending brackets (voltas) ───────────────────────────────────────
@@ -1054,6 +1305,7 @@
   lyricist: none,
   show-time: true,
   fingering-positions: (),
+  lyric-line-spacing: none,
 ) = {
   let unit = sp / 1mm  // work in mm inside CeTZ (length: 1mm)
   let avail-width = if width == auto { none } else { width / 1mm }
@@ -1139,6 +1391,7 @@
           skip-barlines: use-spanning-barlines,
           fingering-position: if i < fingering-positions.len() { fingering-positions.at(i) } else { "above" },
           show-endings: not (staff-group == "grand" and i > 0),
+          lyric-line-spacing: lyric-line-spacing,
         )
       }
 

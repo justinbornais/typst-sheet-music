@@ -169,6 +169,40 @@
     )
   }
 
+  let parse-lyric(p) = {
+    if peek(p) != "l" { return (entry: none, pos: p) }
+    if p + 1 < len and input.at(p + 1) == "[" {
+      let parsed = read-bracketed-text(p + 2)
+      let raw = parsed.value
+      let continuation = "none"
+      let text = raw
+      if raw.ends-with("-") {
+        continuation = "hyphen"
+        text = raw.slice(0, raw.len() - 1)
+      } else if raw.ends-with("_") {
+        continuation = "extender"
+        text = raw.slice(0, raw.len() - 1)
+      }
+      (
+        entry: (
+          text: text,
+          carry: false,
+          continuation: continuation,
+        ),
+        pos: parsed.pos,
+      )
+    } else {
+      (
+        entry: (
+          text: none,
+          carry: true,
+          continuation: "none",
+        ),
+        pos: p + 1,
+      )
+    }
+  }
+
   let parse-note-attachments(p) = {
     let next-pos = p
     let tie = false
@@ -236,8 +270,15 @@
     let chord-symbol = none
     let fingering = none
     let fingering-position = "above"
-    while peek(next-pos) == "[" or is-fingering-start(next-pos) {
-      if is-fingering-start(next-pos) {
+    let lyrics = ()
+    while peek(next-pos) == "[" or is-fingering-start(next-pos) or peek(next-pos) == "l" {
+      if peek(next-pos) == "l" {
+        let parsed = parse-lyric(next-pos)
+        if parsed.entry != none {
+          lyrics.push(parsed.entry)
+        }
+        next-pos = parsed.pos
+      } else if is-fingering-start(next-pos) {
         let parsed = parse-fingering(next-pos)
         fingering = parsed.fingering
         fingering-position = parsed.fingering-position
@@ -262,6 +303,7 @@
       chord-symbol: chord-symbol,
       fingering: fingering,
       fingering-position: fingering-position,
+      lyrics: lyrics,
       pos: next-pos,
     )
   }
@@ -291,6 +333,7 @@
       chord-symbol: attachments.chord-symbol,
       fingering: attachments.fingering,
       fingering-position: attachments.fingering-position,
+      lyrics: attachments.lyrics,
       pos: attachments.pos,
     )
   }
@@ -422,6 +465,7 @@
           fingering: attachments.fingering,
           fingering-position: attachments.fingering-position,
           chord-symbol: attachments.chord-symbol,
+          lyrics: attachments.lyrics,
         ))
       }
       continue
@@ -552,6 +596,7 @@
         fingering: note.fingering,
         fingering-position: note.fingering-position,
         chord-symbol: note.chord-symbol,
+        lyrics: note.lyrics,
       ))
       continue
     }

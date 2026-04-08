@@ -289,6 +289,7 @@
       clef: laid-out.clef,
       time: laid-out.at("time", default: none),
       show-time-prefix: laid-out.at("show-time-prefix", default: false),
+      lyric-prefix-states: laid-out.at("lyric-prefix-states", default: ()),
     ))
   }
 

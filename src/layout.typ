@@ -24,6 +24,7 @@
   clef: none,
   time: none,
   show-time-prefix: false,
+  lyric-prefix-states: (),
   staff-space: default-staff-space,
   available-width: none,
 ) = {
@@ -108,6 +109,7 @@
     clef: initial-clef,
     time: time,
     show-time-prefix: show-time-prefix,
+    lyric-prefix-states: lyric-prefix-states,
   )
 }
 
@@ -125,11 +127,13 @@
     let clef = config.at("clef", default: none)
     let time = config.at("time", default: none)
     let show-time-prefix = config.at("show-time-prefix", default: false)
+    let lyric-prefix-states = config.at("lyric-prefix-states", default: ())
     let result = layout-staff(
       events,
       clef: clef,
       time: time,
       show-time-prefix: show-time-prefix,
+      lyric-prefix-states: lyric-prefix-states,
       staff-space: staff-space,
       available-width: available-width,
     )

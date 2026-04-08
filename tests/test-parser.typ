@@ -142,6 +142,25 @@ f g a b& | c' d' e' f'} | f' e' d' c'")
 #assert-eq(ending2.first().at("ending-start", default: false), true, msg: "second ending starts")
 #assert-eq(ending2.last().at("ending-end", default: false), true, msg: "second ending ends")
 
+== Lyrics
+
+#let events19 = parse-music("c4l[Hel-] dl el[lo] fl[there_]")
+#assert-eq(events19.at(0).at("lyrics", default: ()).at(0).text, "Hel", msg: "lyric text strips trailing hyphen")
+#assert-eq(events19.at(0).at("lyrics", default: ()).at(0).continuation, "hyphen", msg: "lyric hyphen continuation")
+#assert-eq(events19.at(1).at("lyrics", default: ()).at(0).carry, true, msg: "plain lyric marker carries previous state")
+#assert-eq(events19.at(2).at("lyrics", default: ()).at(0).text, "lo", msg: "later lyric text parses")
+#assert-eq(events19.at(3).at("lyrics", default: ()).at(0).continuation, "extender", msg: "lyric extender continuation")
+
+#let events20 = parse-music("c4l[1. Ev-]l[2. Why_]l[3. In] dlll[You,] el['ry]l[do]l[O] <c e g>4l[night]")
+#assert-eq(events20.at(0).at("lyrics", default: ()).len(), 3, msg: "multiple lyric lines attach to one note")
+#assert-eq(events20.at(0).at("lyrics", default: ()).at(1).continuation, "extender", msg: "second lyric line keeps extender state")
+#assert-eq(events20.at(1).at("lyrics", default: ()).at(0).carry, true, msg: "first lyric line carry placeholder")
+#assert-eq(events20.at(1).at("lyrics", default: ()).at(1).carry, true, msg: "middle lyric line carry placeholder")
+#assert-eq(events20.at(1).at("lyrics", default: ()).at(2).text, "You,", msg: "later lyric line text survives placeholders")
+#assert-eq(events20.at(2).at("lyrics", default: ()).at(0).text, "'ry", msg: "apostrophes are preserved in lyric text")
+#assert-eq(events20.at(3).type, "chord", msg: "lyrics can attach to chords")
+#assert-eq(events20.at(3).at("lyrics", default: ()).at(0).text, "night", msg: "chord lyric text parses")
+
 == Pitch Calculations
 
 #assert-eq(pitch-to-diatonic("c", 4), 28, msg: "C4 diatonic")

@@ -82,6 +82,7 @@
 #score(
   key: "C",
   time: "4/4",
+  lyric-line-spacing: 5mm,
   staves: (
     (clef: "bass", music: "c4 d e f | g a b c'"),
   ),
@@ -785,6 +786,22 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
     (
       clef: "treble",
       music: "|: c4 e g c | end{1.:f4n[2][C] d e c | g[G] g c c} :| | end{2.:g4[G] g g g | b[Bdim] b c' c'} |.",
+    ),
+  ),
+)
+
+#v(1cm)
+
+== Test 62: Lyrics - hyphens, extenders, carries, and stacked verses
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "c4l[Hel-] dl el[lo] fl[there] | g4l[Hold_] al bl c'l[on] |
+      e4l[1. Ev-]l[2. Why_]l[3. In] dlll[You,] el['ry]l[do]l[O] fl[night]l[I]l[Lord,]",
     ),
   ),
 )
