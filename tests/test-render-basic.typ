@@ -773,3 +773,18 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
   time: "4/4",
   music: "{2,3:c8 r8 e8} g4 | c'4 {2,3:r8 d8 e8} g4",
 )
+
+#v(1cm)
+
+== Test 61: First and second endings
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "|: c4 e g c | end{1.:f4n[2][C] d e c | g[G] g c c} :| | end{2.:g4[G] g g g | b[Bdim] b c' c'} |.",
+    ),
+  ),
+)

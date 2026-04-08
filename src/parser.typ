@@ -31,6 +31,10 @@
   let hairpin-start-idx = none
   let hairpin-kind = none
 
+  // Ending state: track open `end{label: ...}` volta spans
+  let ending-start-idx = none
+  let ending-label = none
+
   // Helper: peek at current character (returns none at end)
   let peek(p) = {
     if p < len { input.at(p) } else { none }
@@ -427,6 +431,40 @@
         word-end += 1
       }
       let token = input.slice(pos, word-end)
+      if token == "end" and word-end < len and input.at(word-end) == "{" {
+        let label-pos = word-end + 1
+        let label = ""
+        while label-pos < len and input.at(label-pos) != ":" and input.at(label-pos) != "}" {
+          label += input.at(label-pos)
+          label-pos += 1
+        }
+        if label-pos < len and input.at(label-pos) == ":" {
+          if ending-start-idx != none {
+            let members = ()
+            for i in range(ending-start-idx, events.len()) {
+              let ev = events.at(i)
+              if ev.type != "line-break" {
+                members.push(i)
+              }
+            }
+            if members.len() > 0 {
+              let first = members.first()
+              let last = members.last()
+              for i in members {
+                events.at(i).ending = ending-label
+                if i == first { events.at(i).ending-start = true }
+                if i == last { events.at(i).ending-end = true }
+              }
+            }
+            ending-start-idx = none
+            ending-label = none
+          }
+          ending-start-idx = events.len()
+          ending-label = label.trim()
+          pos = label-pos + 1
+          continue
+        }
+      }
       if word-end < len and input.at(word-end) == "[" and (token == "cresc" or token == "decresc") {
         if hairpin-start-idx != none {
           let anchors = ()
@@ -677,6 +715,25 @@
         octline-start-idx = none
         octline-number = none
         octline-dir = none
+      } else if ending-start-idx != none {
+        let members = ()
+        for i in range(ending-start-idx, events.len()) {
+          let ev = events.at(i)
+          if ev.type != "line-break" {
+            members.push(i)
+          }
+        }
+        if members.len() > 0 {
+          let first = members.first()
+          let last = members.last()
+          for i in members {
+            events.at(i).ending = ending-label
+            if i == first { events.at(i).ending-start = true }
+            if i == last { events.at(i).ending-end = true }
+          }
+        }
+        ending-start-idx = none
+        ending-label = none
       }
       pos += 1
       continue
@@ -701,6 +758,25 @@
         events.at(i).hairpin = hairpin-kind
         if i == first { events.at(i).hairpin-start = true }
         if i == last { events.at(i).hairpin-end = true }
+      }
+    }
+  }
+
+  if ending-start-idx != none {
+    let members = ()
+    for i in range(ending-start-idx, events.len()) {
+      let ev = events.at(i)
+      if ev.type != "line-break" {
+        members.push(i)
+      }
+    }
+    if members.len() > 0 {
+      let first = members.first()
+      let last = members.last()
+      for i in members {
+        events.at(i).ending = ending-label
+        if i == first { events.at(i).ending-start = true }
+        if i == last { events.at(i).ending-end = true }
       }
     }
   }

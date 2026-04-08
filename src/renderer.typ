@@ -42,6 +42,7 @@
   forced-music-start-x: none,
   skip-barlines: false,
   fingering-position: "above",
+  show-endings: true,
 ) = {
   import cetz.draw: *
 
@@ -321,6 +322,56 @@
     }
   }
 
+  let inline-text-top = (
+    event,
+    above-anchor-y,
+    chord-anchor-y,
+    fingering-position,
+    fermata-clearance-y: none,
+  ) => {
+    let top = above-anchor-y
+    let fng = event.at("fingering", default: none)
+    let fng-top = y-top + 1.5 * sp
+    let event-fng-pos = event.at("fingering-position", default: "above")
+    let fng-pos = if event-fng-pos == "below" { "below" } else { fingering-position }
+    if fng != none and fng != 0 and fng-pos != "below" {
+      let fng-base-y = calc.max(y-top + 1.5 * sp, above-anchor-y)
+      if fermata-clearance-y != none and event.articulations.contains("fermata") {
+        fng-base-y = calc.max(fng-base-y, fermata-clearance-y)
+      }
+      fng-top = fingering-top-y(fng-base-y, fng)
+      top = calc.max(top, fng-top + 0.55 * sp)
+    }
+    let csym = event.at("chord-symbol", default: none)
+    if csym != none and csym != "" {
+      let chord-base-y = calc.max(y-top + 2.5 * sp, fng-top + 0.8 * sp, chord-anchor-y)
+      top = calc.max(top, chord-base-y + 1.7 * sp)
+    }
+    top
+  }
+
+  let articulation-top = (reference-y, articulations, stem-dir) => {
+    if articulations.len() == 0 { return reference-y }
+
+    let top = reference-y
+    let fermata = articulations.filter(a => a == "fermata")
+    let non-fermata = articulations.filter(a => a != "fermata")
+    let art-above = stem-dir == "down"
+    if art-above and non-fermata.len() > 0 {
+      top = calc.max(top, reference-y + 0.75 * sp + (non-fermata.len() - 1) * 1.0 * sp + 0.9 * sp)
+    }
+    if fermata.len() > 0 {
+      let fermata-y = calc.max(reference-y + 0.75 * sp, y-top + 0.5 * sp)
+      let stacked-fermata-y = if art-above and non-fermata.len() > 0 {
+        fermata-y + non-fermata.len() * 1.0 * sp
+      } else {
+        fermata-y
+      }
+      top = calc.max(top, stacked-fermata-y + 1.35 * sp)
+    }
+    top
+  }
+
   let stem-render-data = (idx, item) => {
     let stem-end-override = adj-stem-ends.at(str(idx), default: none)
     (
@@ -333,6 +384,19 @@
       is-beamed: stem-end-override != none,
     )
   }
+
+  let raw-final-style = if items.len() > 0 and items.last().event.type == "barline" {
+    items.last().event.style
+  } else {
+    "final"
+  }
+  let final-style = if raw-final-style == "repeat-both" { "repeat-end" } else { raw-final-style }
+  let final-barline-x = if final-style == "final" or final-style == "repeat-end" or final-style == "repeat-both" {
+    total-width * sp - default-thick-barline / 2.0 * sp
+  } else {
+    total-width * sp - default-barline-thickness / 2.0 * sp
+  }
+  let opening-barline-x = default-barline-thickness / 2.0 * sp
 
   let current-clef = if clef-name == none { "treble" } else { clef-name }
   for (i, item) in items.enumerate() {
@@ -433,21 +497,7 @@
 
   // ── Draw final barline at right edge (always) ────────────────────────────
   if not skip-barlines {
-    // Use the style from the last event if it is a barline; otherwise "final".
-    let raw-final-style = if items.len() > 0 and items.last().event.type == "barline" {
-      items.last().event.style
-    } else {
-      "final"
-    }
-    let final-style = if raw-final-style == "repeat-both" { "repeat-end" } else { raw-final-style }
-    // Position the closing barline so its rightmost visual edge is flush with
-    // the right end of the staff lines.
-    let final-x = if final-style == "final" or final-style == "repeat-end" or final-style == "repeat-both" {
-      total-width * sp - default-thick-barline / 2.0 * sp
-    } else {
-      total-width * sp - default-barline-thickness / 2.0 * sp
-    }
-    draw-barline(final-x, y-top, y-bottom, style: final-style, sp: sp)
+    draw-barline(final-barline-x, y-top, y-bottom, style: final-style, sp: sp)
   }
 
   // ── Draw beams ───────────────────────────────────────────────────────────
@@ -794,6 +844,185 @@
 
   // ── Draw ties and slurs ──────────────────────────────────────────────────
   draw-ties-and-slurs(items, item-xs, y-top, sp: sp, adj-stem-dirs: adj-stem-dirs)
+
+  // ── Draw ending brackets (voltas) ───────────────────────────────────────
+  if show-endings {
+    let ending-groups = ()
+    let cur-ending-indices = ()
+    let cur-ending-label = none
+    for (i, item) in items.enumerate() {
+      let ending = item.event.at("ending", default: none)
+      if ending != none {
+        if cur-ending-indices.len() == 0 or ending == cur-ending-label {
+          cur-ending-indices.push(i)
+          cur-ending-label = ending
+        } else {
+          let first = cur-ending-indices.first()
+          let last = cur-ending-indices.last()
+          ending-groups.push((
+            indices: cur-ending-indices,
+            label: cur-ending-label,
+            starts_here: items.at(first).event.at("ending-start", default: false),
+            ends_here: items.at(last).event.at("ending-end", default: false),
+          ))
+          cur-ending-indices = (i,)
+          cur-ending-label = ending
+        }
+        if item.event.at("ending-end", default: false) and cur-ending-indices.len() > 0 {
+          let first = cur-ending-indices.first()
+          let last = cur-ending-indices.last()
+          ending-groups.push((
+            indices: cur-ending-indices,
+            label: cur-ending-label,
+            starts_here: items.at(first).event.at("ending-start", default: false),
+            ends_here: items.at(last).event.at("ending-end", default: false),
+          ))
+          cur-ending-indices = ()
+          cur-ending-label = none
+        }
+      } else if cur-ending-indices.len() > 0 {
+        let first = cur-ending-indices.first()
+        let last = cur-ending-indices.last()
+        ending-groups.push((
+          indices: cur-ending-indices,
+          label: cur-ending-label,
+          starts_here: items.at(first).event.at("ending-start", default: false),
+          ends_here: items.at(last).event.at("ending-end", default: false),
+        ))
+        cur-ending-indices = ()
+        cur-ending-label = none
+      }
+    }
+    if cur-ending-indices.len() > 0 {
+      let first = cur-ending-indices.first()
+      let last = cur-ending-indices.last()
+      ending-groups.push((
+        indices: cur-ending-indices,
+        label: cur-ending-label,
+        starts_here: items.at(first).event.at("ending-start", default: false),
+        ends_here: items.at(last).event.at("ending-end", default: false),
+      ))
+    }
+
+    let barline-center-x = idx => {
+      if idx == items.len() - 1 {
+        final-barline-x
+      } else {
+        item-xs.at(idx) + 0.5 * sp
+      }
+    }
+
+    for eg in ending-groups {
+      let indices = eg.indices
+      if indices.len() == 0 { continue }
+
+      let first = indices.first()
+      let last = indices.last()
+      let prev-barline = none
+      let next-barline = none
+      let left-scan = first - 1
+      while left-scan >= 0 and prev-barline == none {
+        if items.at(left-scan).event.type == "barline" {
+          prev-barline = left-scan
+        }
+        left-scan -= 1
+      }
+      let right-scan = last + 1
+      while right-scan < items.len() and next-barline == none {
+        if items.at(right-scan).event.type == "barline" {
+          next-barline = right-scan
+        }
+        right-scan += 1
+      }
+
+      let x0 = if eg.starts_here {
+        if prev-barline != none { barline-center-x(prev-barline) } else { opening-barline-x }
+      } else {
+        opening-barline-x
+      }
+      let x1 = if eg.ends_here {
+        if next-barline != none { barline-center-x(next-barline) } else { final-barline-x }
+      } else {
+        final-barline-x
+      }
+
+      let content-top = indices.fold(y-top + 0.9 * sp, (top, idx) => {
+        let item = items.at(idx)
+        let event = item.event
+        if event.type == "note" {
+          let stem-data = stem-render-data(idx, item)
+          let note-center-y = y-top + item.y * sp
+          let note-top = calc.max(
+            note-center-y + 0.9 * sp,
+            if stem-data.actual-stem-dir == "down" { stem-data.actual-stem-end } else { note-center-y + 0.9 * sp },
+          )
+          calc.max(
+            top,
+            note-top,
+            articulation-top(note-center-y, event.at("articulations", default: ()), stem-data.actual-stem-dir),
+            inline-text-top(
+              event,
+              note-center-y + 1.0 * sp,
+              note-center-y + 1.5 * sp,
+              fingering-position,
+              fermata-clearance-y: calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp,
+            ),
+          )
+        } else if event.type == "chord" {
+          let stem-data = stem-render-data(idx, item)
+          let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
+          let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+          let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
+          let chord-top = calc.max(
+            top-y + 0.9 * sp,
+            if stem-data.actual-stem-dir == "down" { stem-data.actual-stem-end } else { top-y + 0.9 * sp },
+          )
+          calc.max(
+            top,
+            chord-top,
+            articulation-top(top-y, event.at("articulations", default: ()), stem-data.actual-stem-dir),
+            inline-text-top(
+              event,
+              top-y + 1.0 * sp,
+              top-y + 1.5 * sp,
+              fingering-position,
+            ),
+          )
+        } else if event.type == "rest" {
+          calc.max(top, y-top + 1.0 * sp)
+        } else {
+          top
+        }
+      })
+
+      let bracket-y = content-top + 1.45 * sp
+      let hook-depth = 1.35 * sp
+      line(
+        (x0, bracket-y),
+        (x1, bracket-y),
+        stroke: (thickness: 0.12 * sp * 1mm, paint: black),
+      )
+      line(
+        (x0, bracket-y),
+        (x0, bracket-y - hook-depth),
+        stroke: (thickness: 0.12 * sp * 1mm, paint: black),
+      )
+      if eg.ends_here {
+        line(
+          (x1, bracket-y),
+          (x1, bracket-y - hook-depth),
+          stroke: (thickness: 0.12 * sp * 1mm, paint: black),
+        )
+      }
+      if eg.starts_here and eg.label != none and eg.label != "" {
+        content(
+          (x0 + 0.45 * sp, bracket-y - 0.05 * sp),
+          anchor: "north-west",
+          text(size: tuplet-font-size * 1.15, weight: "regular", eg.label),
+        )
+      }
+    }
+  }
 }
 
 /// Render a complete score as a CeTZ canvas block.
@@ -909,6 +1138,7 @@
           forced-music-start-x: shared-music-start-x,
           skip-barlines: use-spanning-barlines,
           fingering-position: if i < fingering-positions.len() { fingering-positions.at(i) } else { "above" },
+          show-endings: not (staff-group == "grand" and i > 0),
         )
       }
 

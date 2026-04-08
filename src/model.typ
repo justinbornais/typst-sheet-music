@@ -19,6 +19,7 @@
 /// - articulations: array of strings
 /// - dynamic: optional dynamic marking string (e.g., "f", "pp", "sfz")
 /// - hairpin: optional span type ("cresc" or "decresc")
+/// - ending: optional ending label string (e.g., "1.", "2nd")
 /// - fingering: optional fingering value (int, or array of ints for multiple fingers)
 /// - fingering-position: "above" or "below" (default: "above")
 /// - chord-symbol: optional chord symbol string (e.g., "C", "Am7", "Bb/F")
@@ -38,6 +39,9 @@
   hairpin: none,
   hairpin-start: false,
   hairpin-end: false,
+  ending: none,
+  ending-start: false,
+  ending-end: false,
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
@@ -67,6 +71,9 @@
   hairpin: hairpin,
   hairpin-start: hairpin-start,
   hairpin-end: hairpin-end,
+  ending: ending,
+  ending-start: ending-start,
+  ending-end: ending-end,
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
@@ -97,6 +104,9 @@
   hairpin: none,
   hairpin-start: false,
   hairpin-end: false,
+  ending: none,
+  ending-start: false,
+  ending-end: false,
 ) = (
   type: "rest",
   duration: duration,
@@ -113,25 +123,40 @@
   hairpin: hairpin,
   hairpin-start: hairpin-start,
   hairpin-end: hairpin-end,
+  ending: ending,
+  ending-start: ending-start,
+  ending-end: ending-end,
 )
 
 /// Create a spacer (invisible rest) event.
 #let make-spacer(
   duration: 4,
   dots: 0,
+  ending: none,
+  ending-start: false,
+  ending-end: false,
 ) = (
   type: "spacer",
   duration: duration,
   dots: dots,
+  ending: ending,
+  ending-start: ending-start,
+  ending-end: ending-end,
 )
 
 /// Create a barline event.
 /// - style: "single", "double", "final", "repeat-start", "repeat-end", "repeat-both"
 #let make-barline(
   style: "single",
+  ending: none,
+  ending-start: false,
+  ending-end: false,
 ) = (
   type: "barline",
   style: style,
+  ending: ending,
+  ending-start: ending-start,
+  ending-end: ending-end,
 )
 
 /// Create a system/line break event.
@@ -144,9 +169,15 @@
 /// - clef: "treble", "bass", "alto", "tenor", "treble-8a", "treble-8b", "treble-15a", "treble-15b", "bass-8a", "bass-8b", "bass-15a", "bass-15b", "percussion"
 #let make-clef(
   clef,
+  ending: none,
+  ending-start: false,
+  ending-end: false,
 ) = (
   type: "clef",
   clef: clef,
+  ending: ending,
+  ending-start: ending-start,
+  ending-end: ending-end,
 )
 
 /// Create a key signature event.
@@ -172,11 +203,17 @@
   upper,
   lower,
   symbol: none,
+  ending: none,
+  ending-start: false,
+  ending-end: false,
 ) = (
   type: "time-sig",
   upper: upper,
   lower: lower,
   symbol: symbol,
+  ending: ending,
+  ending-start: ending-start,
+  ending-end: ending-end,
 )
 
 /// Create a chord (simultaneous notes) event.
@@ -196,6 +233,9 @@
   hairpin: none,
   hairpin-start: false,
   hairpin-end: false,
+  ending: none,
+  ending-start: false,
+  ending-end: false,
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
@@ -223,6 +263,9 @@
   hairpin: hairpin,
   hairpin-start: hairpin-start,
   hairpin-end: hairpin-end,
+  ending: ending,
+  ending-start: ending-start,
+  ending-end: ending-end,
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,

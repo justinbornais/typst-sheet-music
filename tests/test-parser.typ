@@ -131,6 +131,17 @@ f g a b& | c' d' e' f'] | f' e' d' c'")
 #assert-eq(anchors17.at(23).hairpin-end, true, msg: "hairpin closes on plain closing bracket")
 #assert-eq(anchors17.at(24).hairpin, none, msg: "hairpin does not leak past closing bracket")
 
+== Endings
+
+#let events18 = parse-music("c e | end{1st:f d e c | g g c c} | end{2nd:g g g g | b b c' c'}")
+#let ending1 = events18.filter(ev => ev.at("ending", default: none) == "1st")
+#let ending2 = events18.filter(ev => ev.at("ending", default: none) == "2nd")
+#assert-eq(ending1.first().at("ending-start", default: false), true, msg: "first ending starts")
+#assert-eq(ending1.last().at("ending-end", default: false), true, msg: "first ending ends")
+#assert-eq(ending1.at(4).type, "barline", msg: "barline remains inside first ending span")
+#assert-eq(ending2.first().at("ending-start", default: false), true, msg: "second ending starts")
+#assert-eq(ending2.last().at("ending-end", default: false), true, msg: "second ending ends")
+
 == Pitch Calculations
 
 #assert-eq(pitch-to-diatonic("c", 4), 28, msg: "C4 diatonic")
