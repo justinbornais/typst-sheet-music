@@ -21,19 +21,25 @@
   let tuplet-start-idx = none
   let tuplet-n = none
   let tuplet-m = none
+  let tuplet-open-order = none
 
   // Octave-line state: track open "n[a|b]{" blocks (e.g. 8a{...}, 15b{...})
   let octline-start-idx = none
   let octline-number = none
   let octline-dir = none
+  let octline-open-order = none
 
-  // Hairpin state: track open "cresc[...]" / "decresc[...]" spans
+  // Hairpin state: track open "cresc{...}" / "decresc{...}" spans
   let hairpin-start-idx = none
   let hairpin-kind = none
+  let hairpin-open-order = none
 
   // Ending state: track open `end{label: ...}` volta spans
   let ending-start-idx = none
   let ending-label = none
+  let ending-open-order = none
+
+  let curly-open-serial = 0
 
   // Helper: peek at current character (returns none at end)
   let peek(p) = {
@@ -163,7 +169,7 @@
     )
   }
 
-  let parse-note-attachments(p, hairpin-open: false) = {
+  let parse-note-attachments(p) = {
     let next-pos = p
     let tie = false
     if peek(next-pos) == "~" {
@@ -223,11 +229,8 @@
       }
     }
     if peek(next-pos) == "]" {
-      let closes-hairpin = hairpin-open and peek(next-pos + 1) != "]"
-      if not closes-hairpin {
-        beam-end = true
-        next-pos += 1
-      }
+      beam-end = true
+      next-pos += 1
     }
 
     let chord-symbol = none
@@ -269,10 +272,10 @@
     (accidental: accidental.accidental, octave: octave.octave, pos: octave.pos)
   }
 
-  let parse-note-event-data(p, base-octave: current-base-octave, sticky-duration: last-duration, hairpin-open: false) = {
+  let parse-note-event-data(p, base-octave: current-base-octave, sticky-duration: last-duration) = {
     let pitch = parse-note-pitch(p, base-octave: base-octave)
     let rhythm = parse-duration-dots(pitch.pos, sticky-duration: sticky-duration)
-    let attachments = parse-note-attachments(rhythm.pos, hairpin-open: hairpin-open)
+    let attachments = parse-note-attachments(rhythm.pos)
     (
       accidental: pitch.accidental,
       octave: pitch.octave,
@@ -400,7 +403,7 @@
       if pos < len and input.at(pos) == ">" { pos += 1 }
 
       let rhythm = parse-duration-dots(pos, sticky-duration: last-duration)
-      let attachments = parse-note-attachments(rhythm.pos, hairpin-open: hairpin-start-idx != none)
+      let attachments = parse-note-attachments(rhythm.pos)
       pos = attachments.pos
       last-duration = rhythm.duration
 
@@ -458,14 +461,17 @@
             }
             ending-start-idx = none
             ending-label = none
+            ending-open-order = none
           }
           ending-start-idx = events.len()
           ending-label = label.trim()
+          curly-open-serial += 1
+          ending-open-order = curly-open-serial
           pos = label-pos + 1
           continue
         }
       }
-      if word-end < len and input.at(word-end) == "[" and (token == "cresc" or token == "decresc") {
+      if word-end < len and input.at(word-end) == "{" and (token == "cresc" or token == "decresc") {
         if hairpin-start-idx != none {
           let anchors = ()
           for i in range(hairpin-start-idx, events.len()) {
@@ -483,9 +489,12 @@
               if i == last { events.at(i).hairpin-end = true }
             }
           }
+          hairpin-open-order = none
         }
         hairpin-start-idx = events.len()
         hairpin-kind = token
+        curly-open-serial += 1
+        hairpin-open-order = curly-open-serial
         pos = word-end + 1
         continue
       }
@@ -500,29 +509,6 @@
         pos = word-end
         continue
       }
-    }
-
-    if ch == "]" and hairpin-start-idx != none {
-      let anchors = ()
-      for i in range(hairpin-start-idx, events.len()) {
-        let ev = events.at(i)
-        if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
-          anchors.push(i)
-        }
-      }
-      if anchors.len() > 0 {
-        let first = anchors.first()
-        let last = anchors.last()
-        for i in anchors {
-          events.at(i).hairpin = hairpin-kind
-          if i == first { events.at(i).hairpin-start = true }
-          if i == last { events.at(i).hairpin-end = true }
-        }
-      }
-      hairpin-start-idx = none
-      hairpin-kind = none
-      pos += 1
-      continue
     }
 
     // --- Inline time signatures with uppercase shorthand ---
@@ -546,7 +532,6 @@
         pos,
         base-octave: current-base-octave,
         sticky-duration: last-duration,
-        hairpin-open: hairpin-start-idx != none,
       )
       pos = note.pos
       last-duration = note.duration
@@ -647,6 +632,8 @@
         tuplet-start-idx = events.len()
         tuplet-n = tn    // tuplet number (displayed)
         tuplet-m = tb     // tuplet beats (spacing)
+        curly-open-serial += 1
+        tuplet-open-order = curly-open-serial
       }
       continue
     }
@@ -680,6 +667,8 @@
             octline-start-idx = events.len()
             octline-number = int(nstr)
             octline-dir = if suf == "a" { "above" } else { "below" }
+            curly-open-serial += 1
+            octline-open-order = curly-open-serial
             pos = q + 1
             continue
           }
@@ -689,7 +678,26 @@
 
     // --- Tuplet end: "}" ---
     if ch == "}" {
-      if tuplet-start-idx != none {
+      let latest-order = -1
+      let close-kind = none
+      if tuplet-open-order != none and tuplet-open-order > latest-order {
+        latest-order = tuplet-open-order
+        close-kind = "tuplet"
+      }
+      if octline-open-order != none and octline-open-order > latest-order {
+        latest-order = octline-open-order
+        close-kind = "octline"
+      }
+      if ending-open-order != none and ending-open-order > latest-order {
+        latest-order = ending-open-order
+        close-kind = "ending"
+      }
+      if hairpin-open-order != none and hairpin-open-order > latest-order {
+        latest-order = hairpin-open-order
+        close-kind = "hairpin"
+      }
+
+      if close-kind == "tuplet" {
         let end-idx = events.len()
         let count = end-idx - tuplet-start-idx
         for i in range(tuplet-start-idx, end-idx) {
@@ -702,9 +710,8 @@
         tuplet-start-idx = none
         tuplet-n = none
         tuplet-m = none
-      }
-      // Also allow closing octave-line blocks (started with e.g. 8a{ )
-      else if octline-start-idx != none {
+        tuplet-open-order = none
+      } else if close-kind == "octline" {
         let end-idx = events.len()
         for i in range(octline-start-idx, end-idx) {
           events.at(i).octave-line-number = octline-number
@@ -715,7 +722,8 @@
         octline-start-idx = none
         octline-number = none
         octline-dir = none
-      } else if ending-start-idx != none {
+        octline-open-order = none
+      } else if close-kind == "ending" {
         let members = ()
         for i in range(ending-start-idx, events.len()) {
           let ev = events.at(i)
@@ -734,6 +742,27 @@
         }
         ending-start-idx = none
         ending-label = none
+        ending-open-order = none
+      } else if close-kind == "hairpin" {
+        let anchors = ()
+        for i in range(hairpin-start-idx, events.len()) {
+          let ev = events.at(i)
+          if ev.type == "note" or ev.type == "chord" or ev.type == "rest" {
+            anchors.push(i)
+          }
+        }
+        if anchors.len() > 0 {
+          let first = anchors.first()
+          let last = anchors.last()
+          for i in anchors {
+            events.at(i).hairpin = hairpin-kind
+            if i == first { events.at(i).hairpin-start = true }
+            if i == last { events.at(i).hairpin-end = true }
+          }
+        }
+        hairpin-start-idx = none
+        hairpin-kind = none
+        hairpin-open-order = none
       }
       pos += 1
       continue

@@ -761,7 +761,7 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 e g c | cresc[c e g c] | decresc[c' b a g]",
+  music: "c4 e g c | cresc{c e g c} | decresc{c' b a g}",
 )
 
 #v(1cm)

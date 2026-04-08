@@ -113,7 +113,7 @@
 
 == Crescendo / Decrescendo Spans
 
-#let events15 = parse-music("c4 e cresc[g a b c] decresc[c' b a g]")
+#let events15 = parse-music("c4 e cresc{g a b c} decresc{c' b a g}")
 #assert-eq(events15.at(2).hairpin, "cresc", msg: "crescendo kind")
 #assert-eq(events15.at(2).hairpin-start, true, msg: "crescendo start flag")
 #assert-eq(events15.at(5).hairpin-end, true, msg: "crescendo end flag")
@@ -121,12 +121,12 @@
 #assert-eq(events15.at(6).hairpin-start, true, msg: "decrescendo start flag")
 #assert-eq(events15.at(9).hairpin-end, true, msg: "decrescendo end flag")
 
-#let events16 = parse-music("cresc[c8[ d]]")
+#let events16 = parse-music("cresc{c8[ d]}")
 #assert-eq(events16.at(1).beam-end, true, msg: "beam end before hairpin close")
 #assert-eq(events16.at(1).hairpin-end, true, msg: "hairpin close after beam end")
 
-#let events17 = parse-music("cresc[e f# g# a | b c#' d#' e'] | decresc[e' d#' c#' b | a g# f# e
-f g a b& | c' d' e' f'] | f' e' d' c'")
+#let events17 = parse-music("cresc{e f# g# a | b c#' d#' e'} | decresc{e' d#' c#' b | a g# f# e
+f g a b& | c' d' e' f'} | f' e' d' c'")
 #let anchors17 = events17.filter(ev => ev.type == "note" or ev.type == "chord" or ev.type == "rest")
 #assert-eq(anchors17.at(23).hairpin-end, true, msg: "hairpin closes on plain closing bracket")
 #assert-eq(anchors17.at(24).hairpin, none, msg: "hairpin does not leak past closing bracket")
