@@ -227,6 +227,25 @@
     (value: if parsed.value.len() > 0 { parsed.value } else { none }, pos: parsed.pos)
   }
 
+  let parse-staff-marker(p) = {
+    if (
+      peek(p) == "c"
+      and peek(p + 1) == "o"
+      and peek(p + 2) == "d"
+      and peek(p + 3) == "a"
+    ) {
+      (kind: "coda", pos: p + 4)
+    } else if peek(p) == "b" and peek(p + 1) == "m" {
+      (kind: "breath-mark", pos: p + 2)
+    } else if peek(p) == "d" and peek(p + 1) == "s" {
+      (kind: "dal-segno", pos: p + 2)
+    } else if peek(p) == "/" and peek(p + 1) == "/" {
+      (kind: "caesura", pos: p + 2)
+    } else {
+      (kind: none, pos: p)
+    }
+  }
+
   let parse-note-attachments(p) = {
     let next-pos = p
     let tie = false
@@ -270,6 +289,14 @@
     if peek(next-pos) == "t" and next-pos + 1 < len and input.at(next-pos + 1) == "r" {
       trill = true
       next-pos += 2
+    }
+
+    let staff-markers = ()
+    let marker = parse-staff-marker(next-pos)
+    while marker.kind != none {
+      staff-markers.push(marker.kind)
+      next-pos = marker.pos
+      marker = parse-staff-marker(next-pos)
     }
 
     let slur-start = false
@@ -353,6 +380,7 @@
       beam-start: beam-start,
       beam-end: beam-end,
       chord-symbol: chord-symbol,
+      staff-markers: staff-markers,
       staff-text: staff-text,
       expression-text: expression-text,
       fingering: fingering,
@@ -386,6 +414,7 @@
       beam-start: attachments.beam-start,
       beam-end: attachments.beam-end,
       chord-symbol: attachments.chord-symbol,
+      staff-markers: attachments.staff-markers,
       staff-text: attachments.staff-text,
       expression-text: attachments.expression-text,
       fingering: attachments.fingering,
@@ -540,6 +569,7 @@
           fingering: attachments.fingering,
           fingering-position: attachments.fingering-position,
           chord-symbol: attachments.chord-symbol,
+          staff-markers: attachments.staff-markers,
           staff-text: attachments.staff-text,
           expression-text: attachments.expression-text,
           lyrics: attachments.lyrics,
@@ -708,6 +738,7 @@
         fingering: note.fingering,
         fingering-position: note.fingering-position,
         chord-symbol: note.chord-symbol,
+        staff-markers: note.at("staff-markers", default: ()),
         staff-text: note.at("staff-text", default: none),
         expression-text: note.at("expression-text", default: none),
         lyrics: note.lyrics,

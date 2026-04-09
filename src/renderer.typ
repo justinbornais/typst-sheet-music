@@ -10,7 +10,7 @@
 #import "render-beams.typ": draw-beam-group
 #import "render-slurs-ties.typ": draw-ties-and-slurs
 #import "render-chords.typ": format-chord-symbol
-#import "render-articulations.typ": draw-articulations, draw-dynamic, draw-hairpin, draw-trill-symbol, draw-trill-wiggle, trill-symbol-width
+#import "render-articulations.typ": draw-articulations, draw-dynamic, draw-hairpin, draw-trill-symbol, draw-trill-wiggle, trill-symbol-width, draw-staff-marker
 #import "pitch.typ": compute-stem-end-y
 
 
@@ -309,6 +309,42 @@
     }
   }
 
+  let centered-staff-markers = markers => markers.filter(mk => mk != "breath-mark" and mk != "caesura")
+  let right-staff-markers = markers => markers.filter(mk => mk == "breath-mark" or mk == "caesura")
+  let marker-height = kind => 1.7 * sp
+  let marker-stack-top = (base-y, markers, gap: 0.2 * sp) => {
+    if markers.len() == 0 { return none }
+    let cur-y = base-y
+    let top = base-y
+    for mk in markers {
+      top = calc.max(top, cur-y + marker-height(mk))
+      cur-y += marker-height(mk) + gap
+    }
+    top
+  }
+  let draw-staff-markers = (x-pos, base-y, markers, gap: 0.2 * sp) => {
+    let cur-y = base-y
+    for mk in markers {
+      draw-staff-marker(x-pos, cur-y, mk, sp: sp, music-font-config: music-font-config)
+      cur-y += marker-height(mk) + gap
+    }
+  }
+  let draw-right-staff-markers = (x-pos, markers) => {
+    for mk in markers {
+      let marker-x = x-pos + if mk == "caesura" { 1.75 * sp } else { 1.55 * sp }
+      let marker-y = if mk == "caesura" { y-top } else { y-top + 0.12 * sp }
+      let anchor-mode = if mk == "caesura" { "center-west" } else { "south-west" }
+      draw-staff-marker(
+        marker-x,
+        marker-y,
+        mk,
+        sp: sp,
+        music-font-config: music-font-config,
+        anchor-mode: anchor-mode,
+      )
+    }
+  }
+
   // ── Draw all music events ────────────────────────────────────────────────
   let below-articulations = articulations => articulations.filter(a => a != "fermata")
 
@@ -366,9 +402,28 @@
       draw-chord-symbol(x-pos, chord-base-y, csym)
       chord-top = chord-base-y + 1.7 * sp
     }
+    let markers = event.at("staff-markers", default: ())
+    let right-markers = right-staff-markers(markers)
+    let centered-markers = centered-staff-markers(markers)
+    let marker-top = none
+    if right-markers.len() > 0 {
+      draw-right-staff-markers(x-pos, right-markers)
+    }
+    if centered-markers.len() > 0 {
+      let obstacle-top = if chord-top != none {
+        calc.max(above-anchor-y, fng-top, chord-top)
+      } else {
+        calc.max(above-anchor-y, fng-top)
+      }
+      let marker-base-y = calc.max(y-top + 1.9 * sp, obstacle-top + 0.3 * sp)
+      draw-staff-markers(x-pos, marker-base-y, centered-markers)
+      marker-top = marker-stack-top(marker-base-y, centered-markers)
+    }
     let staff-txt = event.at("staff-text", default: none)
     if staff-txt != none and staff-txt != "" {
-      let obstacle-top = if chord-top != none {
+      let obstacle-top = if marker-top != none {
+        marker-top
+      } else if chord-top != none {
         calc.max(above-anchor-y, fng-top, chord-top)
       } else {
         calc.max(above-anchor-y, fng-top)
@@ -411,9 +466,24 @@
     if chord-top != none {
       top = calc.max(top, chord-top)
     }
+    let markers = event.at("staff-markers", default: ())
+    let centered-markers = centered-staff-markers(markers)
+    let marker-top = none
+    if centered-markers.len() > 0 {
+      let obstacle-top = if chord-top != none {
+        calc.max(above-anchor-y, fng-top, chord-top)
+      } else {
+        calc.max(above-anchor-y, fng-top)
+      }
+      let marker-base-y = calc.max(y-top + 1.9 * sp, obstacle-top + 0.3 * sp)
+      marker-top = marker-stack-top(marker-base-y, centered-markers)
+      top = calc.max(top, marker-top)
+    }
     let staff-txt = event.at("staff-text", default: none)
     if staff-txt != none and staff-txt != "" {
-      let obstacle-top = if chord-top != none {
+      let obstacle-top = if marker-top != none {
+        marker-top
+      } else if chord-top != none {
         calc.max(above-anchor-y, fng-top, chord-top)
       } else {
         calc.max(above-anchor-y, fng-top)

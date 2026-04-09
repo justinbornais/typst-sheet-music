@@ -297,6 +297,11 @@ This section documents the inline music-string syntax accepted by `score()`, `me
   - Example: `gexp[rit.]` or `c4v[mf]exp[dolce]`
   - Expression text shares the below-staff lane with dynamics and will push the dynamic farther down when both appear on the same event.
 
+- Staff symbols:
+  - Use `bm` for a breath mark, `//` for a caesura, `ds` for a Dal Segno symbol, and `coda` for a coda symbol.
+  - Examples: `gbm`, `g//`, `cds`, `fcoda`
+  - These symbols are attached to the preceding note or chord and render above the staff.
+
 - Fingering:
   - Fingering numbers are attached with `n[...]` (above) or `n_[...]` (below).
   - Multiple fingerings are supported by separating numbers with a space inside the brackets: `n[1 3]`.

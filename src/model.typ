@@ -27,6 +27,7 @@
 /// - fingering: optional fingering value (int, or array of ints for multiple fingers)
 /// - fingering-position: "above" or "below" (default: "above")
 /// - chord-symbol: optional chord symbol string (e.g., "C", "Am7", "Bb/F")
+/// - staff-markers: optional array of above-staff symbol markers
 /// - staff-text: optional staff-level annotation rendered above chord symbols/fingerings
 /// - expression-text: optional italic expression text rendered below the staff near dynamics
 /// - lyrics: optional array of lyric attachment dictionaries
@@ -58,6 +59,7 @@
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
+  staff-markers: (),
   staff-text: none,
   expression-text: none,
   lyrics: (),
@@ -99,6 +101,7 @@
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
+  staff-markers: staff-markers,
   staff-text: staff-text,
   expression-text: expression-text,
   lyrics: lyrics,
@@ -290,6 +293,7 @@
   fingering: none,
   fingering-position: "above",
   chord-symbol: none,
+  staff-markers: (),
   staff-text: none,
   expression-text: none,
   lyrics: (),
@@ -329,6 +333,7 @@
   fingering: fingering,
   fingering-position: fingering-position,
   chord-symbol: chord-symbol,
+  staff-markers: staff-markers,
   staff-text: staff-text,
   expression-text: expression-text,
   lyrics: lyrics,

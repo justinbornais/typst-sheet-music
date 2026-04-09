@@ -4,8 +4,8 @@
 // Rendering order from notehead outward: tenuto, accent, staccato. Fermata separate.
 // Dynamics are drawn below the staff using SMuFL dynamic glyphs.
 
-#import "constants.typ": smufl-articulations, smufl-dynamics, smufl-ornaments, default-music-font-size-factor
-#import "glyph-metadata.typ": font-family, place-glyph, advance-width
+#import "constants.typ": smufl-articulations, smufl-dynamics, smufl-ornaments, smufl-other, default-music-font-size-factor
+#import "glyph-metadata.typ": font-family, place-glyph, advance-width, bbox
 
 /// Draw articulation marks for a note or chord.
 ///
@@ -193,5 +193,44 @@
   while cur-x < x-end {
     place-glyph(cur-x, y, smufl-ornaments.wiggle-trill, "wiggleTrill", sp, config: music-font-config)
     cur-x += step
+  }
+}
+
+#let draw-staff-marker(x, y, kind, sp: 1.0, music-font-config: none, anchor-mode: "south") = {
+  import "@preview/cetz:0.4.2"
+  import cetz.draw: *
+  let glyph = if kind == "breath-mark" { smufl-other.breath-mark }
+    else if kind == "caesura" { smufl-other.caesura }
+    else if kind == "dal-segno" { smufl-other.segno }
+    else if kind == "coda" { smufl-other.coda }
+    else { none }
+  let smufl = if kind == "breath-mark" { "breathMarkComma" }
+    else if kind == "caesura" { "caesura" }
+    else if kind == "dal-segno" { "segno" }
+    else if kind == "coda" { "coda" }
+    else { none }
+  let scale = if kind == "breath-mark" or kind == "caesura" { 0.92 } else { 1.08 }
+  if glyph == none or smufl == none { return }
+  let size = default-music-font-size-factor * scale * sp * 1mm
+  let bb = bbox(smufl, config: music-font-config)
+  if anchor-mode == "south-west" {
+    content(
+      (x, y),
+      anchor: "south-west",
+      text(font: font-family(config: music-font-config), size: size, glyph),
+    )
+  } else if anchor-mode == "center-west" and bb != none {
+    let height = (bb.ne.y - bb.sw.y) * scale * sp
+    content(
+      (x, y - 0.5 * height),
+      anchor: "south-west",
+      text(font: font-family(config: music-font-config), size: size, glyph),
+    )
+  } else {
+    content(
+      (x, y),
+      anchor: "south",
+      text(font: font-family(config: music-font-config), size: size, glyph),
+    )
   }
 }

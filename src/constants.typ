@@ -127,6 +127,8 @@
 // --- Other symbols ---
 #let smufl-other = (
   breath-mark: "\u{E4CE}",
+  caesura: "\u{E4D1}",
+  dal-segno: "\u{E045}",
   segno: "\u{E047}",
   coda: "\u{E048}",
   repeat-dot: "\u{E044}",

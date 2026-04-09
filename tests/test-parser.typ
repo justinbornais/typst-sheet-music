@@ -207,6 +207,16 @@ f g a b& | c' d' e' f'} | f' e' d' c'")
 #assert-eq(events22.at(9).type, "gap", msg: "second repeated-space group also produces a gap event")
 #assert-eq(events22.at(9).at("amount", default: 0), 1, msg: "two spaces add one unit of manual gap")
 
+== Staff Markers
+
+#let events23 = parse-music("c4bm d// eds fcoda <c e g>4bm//")
+#assert-eq(events23.at(0).at("staff-markers", default: ()).at(0), "breath-mark", msg: "breath mark parses")
+#assert-eq(events23.at(1).at("staff-markers", default: ()).at(0), "caesura", msg: "caesura parses")
+#assert-eq(events23.at(2).at("staff-markers", default: ()).at(0), "dal-segno", msg: "dal segno parses")
+#assert-eq(events23.at(3).at("staff-markers", default: ()).at(0), "coda", msg: "coda parses")
+#assert-eq(events23.at(4).type, "chord", msg: "markers can attach to chords")
+#assert-eq(events23.at(4).at("staff-markers", default: ()).len(), 2, msg: "multiple staff markers can stack")
+
 == Pitch Calculations
 
 #assert-eq(pitch-to-diatonic("c", 4), 28, msg: "C4 diatonic")

@@ -871,3 +871,18 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
     )
   )
 )
+
+#v(1cm)
+
+== Test 67: Breath marks, caesuras, Dal Segno, and coda
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "c4bm d e// f | gds a b c' | d'text[Fine Soon] e' f'coda g' | a'[Am]n[2]bm// b' c'' d''",
+    ),
+  ),
+)
