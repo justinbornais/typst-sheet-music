@@ -7,7 +7,7 @@ Render professional sheet music directly inside Typst documents using SMuFL-awar
 - **Pure Typst** - no WASM plugin, no external binary dependency (no LilyPond, no MuseScore CLI)
 - SMuFL-aware glyph placement with precise bounding-box anchors
 - Notes, rests, chords, accidentals, key signatures, time signatures, clefs
-- Dynamics, crescendos/decrescendos, articulations, fingerings, chord symbols, lyrics, and grace notes - all inline in the music string
+- Dynamics, crescendos/decrescendos, articulations, fingerings, chord symbols, text annotations, lyrics, and grace notes - all inline in the music string
 - Beams, ties, slurs, tuplets, octave lines, repeat barlines, endings, dotted notes
 - Inline clef changes, inline time-signature changes, and explicit system breaks inside the music string
 - Grand staff and multi-staff layout with vertical beat alignment
@@ -285,6 +285,16 @@ This section documents the inline music-string syntax accepted by `score()`, `me
 - Dynamics:
   - Inline dynamic markers use `v[...]` where `[...]` is a dynamic text like `mf`, `f`, `pp`.
   - Example: `c4v[pp] d4 v[ff]` - dynamics are rendered below the staff.
+
+- Text annotations:
+  - Use `text[...]` after a note or chord to place larger text above the staff.
+  - Example: `gtext[Some Text]` or `<c e g>2text[Solo]`
+  - The text is stacked above notes, fingerings, and chord symbols, but below endings / volta brackets.
+
+- Expression text:
+  - Use `exp[...]` after a note or chord to place italic expression text below the staff.
+  - Example: `gexp[rit.]` or `c4v[mf]exp[dolce]`
+  - Expression text shares the below-staff lane with dynamics and will push the dynamic farther down when both appear on the same event.
 
 - Fingering:
   - Fingering numbers are attached with `n[...]` (above) or `n_[...]` (below).

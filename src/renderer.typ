@@ -242,6 +242,8 @@
   let fingering-font-size = 7.25pt * (sp / default_sp_numeric)
   // Tuplet font size (scales with staff-space). Base is 7.75pt at default staff space.
   let tuplet-font-size = 7.75pt * (sp / default_sp_numeric)
+  let staff-text-font-size = 12pt * (sp / default_sp_numeric)
+  let expression-font-size = 8.75pt * (sp / default_sp_numeric)
   let lyric-font-size = 9.25pt * (sp / default_sp_numeric)
   let lyric-text-height = 0.92 * sp
   let lyric-line-step = if lyric-line-spacing != none { lyric-line-spacing } else { 1.75 * sp }
@@ -287,6 +289,26 @@
     }
   }
 
+  let draw-staff-text = (x-pos, base-y, value) => {
+    if value != none and value != "" {
+      content(
+        (x-pos, base-y),
+        anchor: "south",
+        text(size: staff-text-font-size, value),
+      )
+    }
+  }
+
+  let draw-expression-text = (x-pos, base-y, value) => {
+    if value != none and value != "" {
+      content(
+        (x-pos, base-y),
+        anchor: "north",
+        text(size: expression-font-size, style: "italic", value),
+      )
+    }
+  }
+
   // ── Draw all music events ────────────────────────────────────────────────
   let below-articulations = articulations => articulations.filter(a => a != "fermata")
 
@@ -310,6 +332,7 @@
     below-anchor-y,
     chord-anchor-y,
     fingering-position,
+    expression-base-y: none,
     fermata-clearance-y: none,
   ) => {
     let fng = event.at("fingering", default: none)
@@ -337,12 +360,25 @@
       }
     }
     let csym = event.at("chord-symbol", default: none)
+    let chord-top = none
     if csym != none and csym != "" {
-      draw-chord-symbol(
-        x-pos,
-        calc.max(y-top + 2.5 * sp, fng-top + 0.8 * sp, chord-anchor-y),
-        csym,
-      )
+      let chord-base-y = calc.max(y-top + 2.5 * sp, fng-top + 0.8 * sp, chord-anchor-y)
+      draw-chord-symbol(x-pos, chord-base-y, csym)
+      chord-top = chord-base-y + 1.7 * sp
+    }
+    let staff-txt = event.at("staff-text", default: none)
+    if staff-txt != none and staff-txt != "" {
+      let obstacle-top = if chord-top != none {
+        calc.max(above-anchor-y, fng-top, chord-top)
+      } else {
+        calc.max(above-anchor-y, fng-top)
+      }
+      let staff-base-y = calc.max(y-top + 2.7 * sp, obstacle-top + 0.45 * sp)
+      draw-staff-text(x-pos, staff-base-y, staff-txt)
+    }
+    let exp-txt = event.at("expression-text", default: none)
+    if exp-txt != none and exp-txt != "" and expression-base-y != none {
+      draw-expression-text(x-pos, expression-base-y, exp-txt)
     }
   }
 
@@ -367,9 +403,23 @@
       top = calc.max(top, fng-top + 0.55 * sp)
     }
     let csym = event.at("chord-symbol", default: none)
+    let chord-top = none
     if csym != none and csym != "" {
       let chord-base-y = calc.max(y-top + 2.5 * sp, fng-top + 0.8 * sp, chord-anchor-y)
-      top = calc.max(top, chord-base-y + 1.7 * sp)
+      chord-top = chord-base-y + 1.7 * sp
+    }
+    if chord-top != none {
+      top = calc.max(top, chord-top)
+    }
+    let staff-txt = event.at("staff-text", default: none)
+    if staff-txt != none and staff-txt != "" {
+      let obstacle-top = if chord-top != none {
+        calc.max(above-anchor-y, fng-top, chord-top)
+      } else {
+        calc.max(above-anchor-y, fng-top)
+      }
+      let staff-base-y = calc.max(y-top + 2.7 * sp, obstacle-top + 0.45 * sp)
+      top = calc.max(top, staff-base-y + 1.9 * sp)
     }
     top
   }
@@ -508,11 +558,16 @@
       if event.articulations.len() > 0 {
         draw-articulations(x, note-center-y, event.articulations, stem-data.actual-stem-dir, y-top, sp: sp, music-font-config: music-font-config)
       }
+      let base-below-offset = dynamic-extra-offset(note-center-y, event.articulations, stem-data.actual-stem-dir)
+      let expression-base-y = calc.min(
+        y-bottom - 0.75 * sp - base-below-offset,
+        calc.min(y-bottom - 0.55 * sp, note-center-y - 1.0 * sp) - 0.35 * sp,
+      )
       if event.dynamic != none {
         draw-dynamic(
           x, y-bottom, event.dynamic,
           sp: sp,
-          extra-offset: dynamic-extra-offset(note-center-y, event.articulations, stem-data.actual-stem-dir),
+          extra-offset: base-below-offset + if event.at("expression-text", default: none) != none { 1.0 * sp } else { 0.0 },
           music-font-config: music-font-config,
         )
       }
@@ -523,6 +578,7 @@
         calc.min(y-bottom - 0.5 * sp, note-center-y - 1.0 * sp),
         note-center-y + 1.5 * sp,
         fingering-position,
+        expression-base-y: expression-base-y,
         fermata-clearance-y: calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp,
       )
 
@@ -559,11 +615,16 @@
           music-font-config: music-font-config,
         )
       }
+      let base-below-offset = dynamic-extra-offset(bottom-y, event.articulations, stem-data.actual-stem-dir)
+      let expression-base-y = calc.min(
+        y-bottom - 0.75 * sp - base-below-offset,
+        calc.min(y-bottom - 0.55 * sp, bottom-y - 1.0 * sp) - 0.35 * sp,
+      )
       if event.dynamic != none {
         draw-dynamic(
           x, y-bottom, event.dynamic,
           sp: sp,
-          extra-offset: dynamic-extra-offset(bottom-y, event.articulations, stem-data.actual-stem-dir),
+          extra-offset: base-below-offset + if event.at("expression-text", default: none) != none { 1.0 * sp } else { 0.0 },
           music-font-config: music-font-config,
         )
       }
@@ -574,6 +635,7 @@
         calc.min(y-bottom - 0.5 * sp, bottom-y - 1.0 * sp),
         top-y + 1.5 * sp,
         fingering-position,
+        expression-base-y: expression-base-y,
       )
 
     } else if event.type == "rest" {
@@ -1124,9 +1186,17 @@
         lyric-lowest-content = calc.min(lyric-lowest-content, art-bottom - 0.55 * sp)
       }
 
+      let base-below-offset = dynamic-extra-offset(reference-y, event.at("articulations", default: ()), stem-data.actual-stem-dir)
       if event.at("dynamic", default: none) != none {
-        let dyn-y = y-bottom - 1.0 * sp - dynamic-extra-offset(reference-y, event.at("articulations", default: ()), stem-data.actual-stem-dir)
+        let dyn-y = y-bottom - 1.0 * sp - (base-below-offset + if event.at("expression-text", default: none) != none { 1.0 * sp } else { 0.0 })
         lyric-lowest-content = calc.min(lyric-lowest-content, dyn-y - 0.75 * sp)
+      }
+      if event.at("expression-text", default: none) != none {
+        let exp-y = calc.min(
+          y-bottom - 0.75 * sp - base-below-offset,
+          calc.min(y-bottom - 0.55 * sp, reference-y - 1.0 * sp) - 0.35 * sp,
+        )
+        lyric-lowest-content = calc.min(lyric-lowest-content, exp-y - 0.55 * sp)
       }
 
       let fng = event.at("fingering", default: none)
@@ -1532,6 +1602,60 @@
   let staff-height-mm = 4.0 * unit
   let spacing-mm = staff-spacing / 1mm
   let use-spanning-barlines = staff-group == "grand" and num-staves > 1
+  let baseline-below-depth = 1.75 * unit
+
+  let below-articulations = articulations => articulations.filter(a => a != "fermata")
+  let dynamic-extra-offset-for-spacing = (reference-y, articulations, stem-dir) => {
+    if stem-dir != "up" { return 0.0 }
+    let below-arts = below-articulations(articulations)
+    if below-arts.len() == 0 { return 0.0 }
+    let y-bottom = -4.0 * unit
+    let art-bottom = reference-y + 1.0 * unit - below-arts.len() * 1.0 * unit
+    let min-dyn-offset = below-arts.len() * 0.8 * unit
+    if art-bottom < y-bottom {
+      calc.max(y-bottom - art-bottom, min-dyn-offset)
+    } else {
+      min-dyn-offset
+    }
+  }
+  let below-content-depth = laid-out => {
+    let y-bottom = -4.0 * unit
+    laid-out.items.fold(0.0, (depth, item) => {
+      let event = item.event
+      if event.type != "note" and event.type != "chord" {
+        return depth
+      }
+
+      let reference-y = if event.type == "chord" {
+        item.chord-ys.fold(item.y, calc.min) * unit
+      } else {
+        item.y * unit
+      }
+      let stem-dir = item.stem-dir
+      let base-below-offset = dynamic-extra-offset-for-spacing(reference-y, event.at("articulations", default: ()), stem-dir)
+
+      let exp-depth = if event.at("expression-text", default: none) != none {
+        let exp-y = calc.min(
+          y-bottom - 0.75 * unit - base-below-offset,
+          calc.min(y-bottom - 0.55 * unit, reference-y - 1.0 * unit) - 0.35 * unit,
+        )
+        y-bottom - (exp-y - 0.55 * unit)
+      } else {
+        0.0
+      }
+
+      let dyn-depth = if event.at("dynamic", default: none) != none {
+        let dyn-extra = base-below-offset + if event.at("expression-text", default: none) != none { 1.0 * unit } else { 0.0 }
+        let dyn-y = y-bottom - 1.0 * unit - dyn-extra
+        y-bottom - (dyn-y - 0.75 * unit)
+      } else {
+        0.0
+      }
+
+      calc.max(depth, exp-depth, dyn-depth)
+    })
+  }
+  let staff-below-depths = laid-out-staves.map(laid-out => below-content-depth(laid-out))
 
   // Pre-compute shared prefix columns so opening time signatures, notes,
   // and barlines align horizontally across staves.
@@ -1579,8 +1703,16 @@
 
       // ── Draw each staff ─────────────────────────────────────────────────
       let previous-y-offset = 0.0
+      let cumulative-y-offset = 0.0
+      let staff-y-offsets = ()
       for (i, laid-out) in laid-out-staves.enumerate() {
-        let y-offset = -i * (staff-height-mm + spacing-mm)
+        if i > 0 {
+          let prev-depth = staff-below-depths.at(i - 1)
+          let extra-gap = calc.max(prev-depth - baseline-below-depth, 0.0)
+          cumulative-y-offset += staff-height-mm + spacing-mm + extra-gap
+        }
+        let y-offset = -cumulative-y-offset
+        staff-y-offsets.push(y-offset)
         set-origin((0, y-offset - previous-y-offset))
         previous-y-offset = y-offset
         render-system(
@@ -1612,7 +1744,7 @@
         // map to the correct CANVAS coordinates:
         //   sys-y-top    local = total-offset  → canvas y = 0              (first staff top)
         //   sys-y-bottom local = -4*unit       → canvas y = -(offset+4*u)  (last staff bottom)
-        let total-offset = (num-staves - 1) * (staff-height-mm + spacing-mm)
+        let total-offset = -previous-y-offset
         let sys-y-top    =  total-offset
         let sys-y-bottom = -(4.0 * unit)
 
@@ -1623,7 +1755,7 @@
           draw-brace(sys-y-top, sys-y-bottom, sp: unit, music-font-config: music-font-config)
 
           // Compute y-top of each staff for repeat dot placement
-          let staff-y-tops = range(num-staves).map(si => total-offset - si * (staff-height-mm + spacing-mm))
+          let staff-y-tops = staff-y-offsets.map(y-offset => y-offset - previous-y-offset)
 
           // ── Spanning barlines for grand staff ────────────────────────────
           // Compute the same scale-x that render-system uses so we can

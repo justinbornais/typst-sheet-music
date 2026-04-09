@@ -212,6 +212,14 @@
     }
   }
 
+  let parse-tagged-text(p, tag) = {
+    if p + tag.len() >= len or input.slice(p, p + tag.len()) != tag or input.at(p + tag.len()) != "[" {
+      return (value: none, pos: p)
+    }
+    let parsed = read-bracketed-text(p + tag.len() + 1)
+    (value: if parsed.value.len() > 0 { parsed.value } else { none }, pos: parsed.pos)
+  }
+
   let parse-note-attachments(p) = {
     let next-pos = p
     let tie = false
@@ -283,15 +291,36 @@
     }
 
     let chord-symbol = none
+    let staff-text = none
+    let expression-text = none
     let fingering = none
     let fingering-position = "above"
     let lyrics = ()
-    while peek(next-pos) == "[" or is-fingering-start(next-pos) or peek(next-pos) == "l" {
+    while (
+      peek(next-pos) == "["
+      or is-fingering-start(next-pos)
+      or peek(next-pos) == "l"
+      or (
+        next-pos + 5 <= len
+        and (
+          input.slice(next-pos, next-pos + 5) == "text["
+          or input.slice(next-pos, next-pos + 4) == "exp["
+        )
+      )
+    ) {
       if peek(next-pos) == "l" {
         let parsed = parse-lyric(next-pos)
         if parsed.entry != none {
           lyrics.push(parsed.entry)
         }
+        next-pos = parsed.pos
+      } else if next-pos + 5 <= len and input.slice(next-pos, next-pos + 5) == "text[" {
+        let parsed = parse-tagged-text(next-pos, "text")
+        staff-text = parsed.value
+        next-pos = parsed.pos
+      } else if next-pos + 4 <= len and input.slice(next-pos, next-pos + 4) == "exp[" {
+        let parsed = parse-tagged-text(next-pos, "exp")
+        expression-text = parsed.value
         next-pos = parsed.pos
       } else if is-fingering-start(next-pos) {
         let parsed = parse-fingering(next-pos)
@@ -317,6 +346,8 @@
       beam-start: beam-start,
       beam-end: beam-end,
       chord-symbol: chord-symbol,
+      staff-text: staff-text,
+      expression-text: expression-text,
       fingering: fingering,
       fingering-position: fingering-position,
       lyrics: lyrics,
@@ -348,6 +379,8 @@
       beam-start: attachments.beam-start,
       beam-end: attachments.beam-end,
       chord-symbol: attachments.chord-symbol,
+      staff-text: attachments.staff-text,
+      expression-text: attachments.expression-text,
       fingering: attachments.fingering,
       fingering-position: attachments.fingering-position,
       lyrics: attachments.lyrics,
@@ -483,6 +516,8 @@
           fingering: attachments.fingering,
           fingering-position: attachments.fingering-position,
           chord-symbol: attachments.chord-symbol,
+          staff-text: attachments.staff-text,
+          expression-text: attachments.expression-text,
           lyrics: attachments.lyrics,
         ))
       }
@@ -649,6 +684,8 @@
         fingering: note.fingering,
         fingering-position: note.fingering-position,
         chord-symbol: note.chord-symbol,
+        staff-text: note.at("staff-text", default: none),
+        expression-text: note.at("expression-text", default: none),
         lyrics: note.lyrics,
       ))
       continue

@@ -190,6 +190,15 @@ f g a b& | c' d' e' f'} | f' e' d' c'")
 #assert-eq(events20.at(3).type, "chord", msg: "lyrics can attach to chords")
 #assert-eq(events20.at(3).at("lyrics", default: ()).at(0).text, "night", msg: "chord lyric text parses")
 
+== Text / Expression Text
+
+#let events21 = parse-music("c4 d etext[Some Text]exp[rit.] | <c e g>4text[Soli]exp[espress.]")
+#assert-eq(events21.at(2).at("staff-text", default: none), "Some Text", msg: "text annotation attaches to note")
+#assert-eq(events21.at(2).at("expression-text", default: none), "rit.", msg: "expression text attaches to note")
+#assert-eq(events21.at(4).type, "chord", msg: "staff/expression text can attach to chords")
+#assert-eq(events21.at(4).at("staff-text", default: none), "Soli", msg: "text annotation attaches to chord")
+#assert-eq(events21.at(4).at("expression-text", default: none), "espress.", msg: "expression text attaches to chord")
+
 == Pitch Calculations
 
 #assert-eq(pitch-to-diatonic("c", 4), 28, msg: "C4 diatonic")

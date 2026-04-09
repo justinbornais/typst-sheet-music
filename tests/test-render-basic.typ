@@ -831,3 +831,23 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
     ),
   ),
 )
+
+#v(1cm)
+
+== Test 65: Text annotations and expression text
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "c4[Am]n[1] dtext[Solo Entrance] en[3][F] gtext[With Chords][G] | end{1.:a4text[Hold Back] b c d} |
+      e4v[mf]exp[rit.] f gtext[Above Ending] a | end{2.:b4[Gsus]n[2]text[Second Time] c'v[p]exp[dolce] d' e'}",
+    ),
+    (
+      clef: "bass",
+      music: "c2exp[sim.] g | c1 | c2v[p]exp[subito] g | c1",
+    ),
+  ),
+)
