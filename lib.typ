@@ -1,6 +1,6 @@
 // lib.typ - Main entry point for the scorify package
 //
-// Exports the public API: score(), melody(), lead-sheet(), chord-chart()
+// Exports the public API: score(), melody(), chord-chart()
 
 #import "src/parser.typ": parse-music
 #import "src/layout.typ": layout-staff, layout-score
@@ -426,35 +426,6 @@
     music-font-metadata: music-font-metadata,
     width: width,
     measures-per-line: measures-per-line,
-  )
-}
-
-/// Lead sheet rendering (melody with inline chord / lyric support in `music`).
-#let lead-sheet(
-  music: "",
-  lyrics: "",
-  key: "C",
-  time: "4/4",
-  clef: "treble",
-  title: none,
-  composer: none,
-  staff-size: default-staff-space,
-  lyric-line-spacing: none,
-  music-font: "Bravura",
-  music-font-metadata: none,
-  width: auto,
-) = {
-  score(
-    staves: ((clef: clef, music: music),),
-    key: key,
-    time: time,
-    title: title,
-    composer: composer,
-    staff-size: staff-size,
-    lyric-line-spacing: lyric-line-spacing,
-    music-font: music-font,
-    music-font-metadata: music-font-metadata,
-    width: width,
   )
 }
 

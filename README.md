@@ -164,20 +164,6 @@ Convenience wrapper for a single-staff score.
 | `width` | length/auto | `auto` | Width |
 | `measures-per-line` | int | `none` | Measures per system |
 
-### `lead-sheet()`
-
-Convenience wrapper for a single-staff lead sheet. Inline lyrics still live in the `music` string using the lyric syntax documented below.
-
-```typ
-#lead-sheet(
-  music: "c4l[Hal-] dl[le-] el[lu-] fl[jah] | g4l[Sing_] al bl c'l[on]",
-  key: "C",
-  time: "4/4",
-  title: "Song Title",
-  music-font: "Bravura",
-)
-```
-
 ## Full Example
 
 Here is the Ode to Joy example demonstrating a grand staff with fingerings, chord symbols, dynamics, and articulations:
