@@ -16,14 +16,49 @@
   metadata: default-music-metadata,
 )
 
-#let make-music-font-config(font: default-music-font, metadata: none) = (
-  font: font,
-  metadata: if metadata == none { default-music-metadata } else { metadata },
-)
+#let make-music-font-config(font: default-music-font, metadata: none) = {
+  let resolved-metadata = if metadata == none { default-music-metadata } else { metadata }
+  (
+    font: font,
+    metadata: resolved-metadata,
+  )
+}
 
 #let _resolve-config(config) = if config == none { default-music-font-config } else { config }
 #let _resolve-meta(config) = _resolve-config(config).metadata
 #let font-family(config: none) = _resolve-config(config).font
+#let _default-advance-widths = {
+  let result = (:)
+  for (key, val) in default-music-metadata.glyphAdvanceWidths {
+    result.insert(key, float(val))
+  }
+  result
+}
+#let _default-bboxes = {
+  let result = (:)
+  for (key, val) in default-music-metadata.glyphBBoxes {
+    result.insert(
+      key,
+      (
+        sw: (x: float(val.bBoxSW.at(0)), y: float(val.bBoxSW.at(1))),
+        ne: (x: float(val.bBoxNE.at(0)), y: float(val.bBoxNE.at(1))),
+      ),
+    )
+  }
+  result
+}
+#let _default-anchors = {
+  let result = (:)
+  for (key, val) in default-music-metadata.glyphsWithAnchors {
+    let converted = (:)
+    for (anchor-key, anchor-val) in val {
+      converted.insert(anchor-key, (x: float(anchor-val.at(0)), y: float(anchor-val.at(1))))
+    }
+    result.insert(key, converted)
+  }
+  result
+}
+#let _is-default-config(config) = _resolve-meta(config) == default-music-metadata
 
 // --- Engraving defaults (all in staff-space units) ---
 #let engraving(config: none) = _resolve-meta(config).engravingDefaults
@@ -32,24 +67,31 @@
 // Returns (sw, ne) where sw = (x,y) of south-west corner, ne = (x,y) of north-east corner
 // All in staff-space units relative to glyph origin.
 #let bbox(glyph-name, config: none) = {
+  if _is-default-config(config) {
+    return _default-bboxes.at(glyph-name, default: none)
+  }
   let b = _resolve-meta(config).glyphBBoxes.at(glyph-name, default: none)
   if b == none { return none }
-  let sw = b.bBoxSW
-  let ne = b.bBoxNE
   (
-    sw: (x: float(sw.at(0)), y: float(sw.at(1))),
-    ne: (x: float(ne.at(0)), y: float(ne.at(1))),
+    sw: (x: float(b.bBoxSW.at(0)), y: float(b.bBoxSW.at(1))),
+    ne: (x: float(b.bBoxNE.at(0)), y: float(b.bBoxNE.at(1))),
   )
 }
 
 /// Get advance width of a glyph in staff-space units.
 #let advance-width(glyph-name, config: none) = {
+  if _is-default-config(config) {
+    return _default-advance-widths.at(glyph-name, default: 0.0)
+  }
   let w = _resolve-meta(config).glyphAdvanceWidths.at(glyph-name, default: none)
   if w == none { 0.0 } else { float(w) }
 }
 
 /// Get anchor points for a glyph (e.g., stem attachment points for noteheads).
 #let anchors(glyph-name, config: none) = {
+  if _is-default-config(config) {
+    return _default-anchors.at(glyph-name, default: (:))
+  }
   let a = _resolve-meta(config).glyphsWithAnchors.at(glyph-name, default: none)
   if a == none { return (:) }
   let result = (:)

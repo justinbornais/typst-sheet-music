@@ -528,19 +528,28 @@
       is-beamed: stem-end-override != none,
     )
   }
+  let stem-render-cache = range(items.len()).map(idx => {
+    let item = items.at(idx)
+    if item.event.type == "note" or item.event.type == "chord" {
+      stem-render-data(idx, item)
+    } else {
+      none
+    }
+  })
+  let stem-data-for = (idx, item) => stem-render-cache.at(idx, default: stem-render-data(idx, item))
 
   let anchor-event = ev => ev.type == "note" or ev.type == "chord" or ev.type == "rest"
-  let next-anchor-item-x = idx => {
-    let found = none
-    let j = idx + 1
-    while j < items.len() and found == none {
-      if anchor-event(items.at(j).event) {
-        found = item-xs.at(j)
-      }
-      j += 1
+  let next-anchor-item-xs = range(items.len()).map(_ => none)
+  let next-anchor-found = none
+  let next-anchor-idx = items.len() - 1
+  while next-anchor-idx >= 0 {
+    next-anchor-item-xs.at(next-anchor-idx) = next-anchor-found
+    if anchor-event(items.at(next-anchor-idx).event) {
+      next-anchor-found = item-xs.at(next-anchor-idx)
     }
-    found
+    next-anchor-idx -= 1
   }
+  let next-anchor-item-x = idx => next-anchor-item-xs.at(idx, default: none)
   let note-top-anchor-y = (note-center-y, stem-data) => calc.max(
     note-center-y + 1.0 * sp,
     if stem-data.actual-stem-dir == "up" { stem-data.actual-stem-end + 0.25 * sp } else { note-center-y + 1.0 * sp },
@@ -552,7 +561,7 @@
   let event-visual-top = (idx, item) => {
     let event = item.event
     if event.type == "note" {
-      let stem-data = stem-render-data(idx, item)
+      let stem-data = stem-data-for(idx, item)
       let note-center-y = y-top + item.y * sp
       let note-top = calc.max(
         note-center-y + 0.9 * sp,
@@ -570,7 +579,7 @@
         ),
       )
     } else if event.type == "chord" {
-      let stem-data = stem-render-data(idx, item)
+      let stem-data = stem-data-for(idx, item)
       let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
       let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
       let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
@@ -592,6 +601,8 @@
       y-top + 1.0 * sp
     }
   }
+  let event-visual-top-cache = range(items.len()).map(idx => event-visual-top(idx, items.at(idx)))
+  let cached-event-visual-top = (idx, item) => event-visual-top-cache.at(idx, default: event-visual-top(idx, item))
 
   let raw-final-style = if items.len() > 0 and items.last().event.type == "barline" {
     items.last().event.style
@@ -620,7 +631,7 @@
     } else if event.type == "note" {
       let is-grace = event.at("grace", default: false)
       let grace-slash = is-grace and event.at("grace-slash", default: false) and (i == 0 or not items.at(i - 1).event.at("grace", default: false))
-      let stem-data = stem-render-data(i, item)
+      let stem-data = stem-data-for(i, item)
       let note-center-y = y-top + y
       draw-note(
         x, note-center-y, event,
@@ -664,7 +675,7 @@
       let is-grace = event.at("grace", default: false)
       let grace-slash = is-grace and event.at("grace-slash", default: false) and (i == 0 or not items.at(i - 1).event.at("grace", default: false))
       let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
-      let stem-data = stem-render-data(i, item)
+      let stem-data = stem-data-for(i, item)
       let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
       let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
       draw-chord-event(
@@ -933,7 +944,7 @@
     let span-lowest-y = indices.fold(y-bottom, (lowest, idx) => {
       let item = items.at(idx)
       let event = item.event
-      let stem-data = stem-render-data(idx, item)
+      let stem-data = stem-data-for(idx, item)
       let reference-y = if event.type == "chord" {
         item.chord-ys.map(vy => y-top + vy * sp).fold(y-top + item.y * sp, calc.min)
       } else {
@@ -1166,7 +1177,7 @@
       continue
     }
     let x = item-xs.at(idx)
-    let trill-y = calc.max(event-visual-top(idx, item) + 0.75 * sp, tr-min-y)
+    let trill-y = calc.max(cached-event-visual-top(idx, item) + 0.75 * sp, tr-min-y)
     draw-trill-symbol(x - 0.55 * tr-width, trill-y, sp: sp, music-font-config: music-font-config)
   }
 
@@ -1178,8 +1189,8 @@
     let last = indices.last()
     let x-first = item-xs.at(first)
     let x-last = item-xs.at(last)
-    let line-top = indices.fold(event-visual-top(first, items.at(first)), (top, idx) => {
-      calc.max(top, event-visual-top(idx, items.at(idx)))
+    let line-top = indices.fold(cached-event-visual-top(first, items.at(first)), (top, idx) => {
+      calc.max(top, cached-event-visual-top(idx, items.at(idx)))
     })
     let trill-y = calc.max(line-top + 0.75 * sp, tr-min-y)
     let next-x = next-anchor-item-x(last)
@@ -1207,8 +1218,17 @@
     calc.max(count, item.event.at("lyrics", default: ()).len())
   })
   if lyric-line-count > 0 {
+    let lyric-width-cache = (:)
+    for item in items {
+      for lyric-entry in item.event.at("lyrics", default: ()) {
+        let lyric = lyric-entry.at("text", default: none)
+        if lyric != none and lyric != "" and lyric-width-cache.at(lyric, default: none) == none {
+          lyric-width-cache.insert(lyric, measure(text(size: lyric-font-size, lyric)).width / 1mm)
+        }
+      }
+    }
     let lyric-text-width = lyric => {
-      if lyric == none or lyric == "" { 0.0 } else { measure(text(size: lyric-font-size, lyric)).width / 1mm }
+      if lyric == none or lyric == "" { 0.0 } else { lyric-width-cache.at(lyric, default: 0.0) }
     }
     let draw-lyric-text = (x-pos, top-y, value, anchor: "north") => {
       if value != none and value != "" {
@@ -1227,19 +1247,6 @@
         )
       }
     }
-    let anchor-event = ev => ev.type == "note" or ev.type == "chord" or ev.type == "rest"
-    let next-anchor-x = idx => {
-      let found = none
-      let j = idx + 1
-      while j < items.len() and found == none {
-        if anchor-event(items.at(j).event) {
-          found = item-xs.at(j)
-        }
-        j += 1
-      }
-      found
-    }
-
     let lyric-lowest-content = y-bottom
     for (idx, item) in items.enumerate() {
       let event = item.event
@@ -1250,7 +1257,7 @@
         continue
       }
 
-      let stem-data = stem-render-data(idx, item)
+      let stem-data = stem-data-for(idx, item)
       let below-arts = below-articulations(event.at("articulations", default: ()))
       let reference-y = if event.type == "chord" {
         item.chord-ys.map(vy => y-top + vy * sp).fold(y-top + item.y * sp, calc.min)
@@ -1309,7 +1316,7 @@
           let value = entry.at("text", default: none)
           if not entry.at("carry", default: false) and value != none and value != "" {
             let width = lyric-text-width(value)
-            let next-x = next-anchor-x(idx)
+            let next-x = next-anchor-item-x(idx)
             first-lyric-layouts.at(li) = (
               index: idx,
               width: width,
@@ -1556,7 +1563,7 @@
         let item = items.at(idx)
         let event = item.event
         if event.type == "note" {
-          let stem-data = stem-render-data(idx, item)
+          let stem-data = stem-data-for(idx, item)
           let note-center-y = y-top + item.y * sp
           let note-top = calc.max(
             note-center-y + 0.9 * sp,
@@ -1575,7 +1582,7 @@
             ),
           )
         } else if event.type == "chord" {
-          let stem-data = stem-render-data(idx, item)
+          let stem-data = stem-data-for(idx, item)
           let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
           let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
           let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
