@@ -250,12 +250,13 @@
   let lyric-text-gap = 0.28 * sp
   
   let stacked-values = value => if type(value) == array { value } else { (value,) }
+  let fingering-stack-step = 1.0 * sp
 
   let fingering-top-y = (base-y, fng-val) => {
     let cur-y = base-y
     for fng in stacked-values(fng-val) {
       if fng != none and fng != 0 {
-        cur-y += 0.9 * sp
+        cur-y += fingering-stack-step
       }
     }
     cur-y
@@ -263,7 +264,7 @@
 
   // Helper: draw one or more stacked fingering numbers at the given x position,
   // placing the first (bottom) fingering just above base-y.
-  let draw-fingering = (x-pos, base-y, fng-val, anchor: "south", step: 0.9 * sp) => {
+  let draw-fingering = (x-pos, base-y, fng-val, anchor: "south", step: fingering-stack-step) => {
     // Normalise: single value → single-element array
     let cur-y = base-y
     for fng in stacked-values(fng-val) {
@@ -385,7 +386,7 @@
         if below-arts.len() > 0 {
           fng-base-y -= below-arts.len() * 1.0 * sp
         }
-        draw-fingering(x-pos, fng-base-y - 0.9 * sp, fng, anchor: "north", step: -0.9 * sp)
+        draw-fingering(x-pos, fng-base-y - fingering-stack-step, fng, anchor: "north", step: -fingering-stack-step)
       } else {
         let fng-base-y = calc.max(y-top + 1.5 * sp, above-anchor-y)
         if fermata-clearance-y != none and event.articulations.contains("fermata") {
@@ -1298,7 +1299,7 @@
         }
         lyric-lowest-content = calc.min(
           lyric-lowest-content,
-          fng-base-y - stacked-values(fng).len() * 0.9 * sp - 0.55 * sp,
+          fng-base-y - stacked-values(fng).len() * fingering-stack-step - 0.55 * sp,
         )
       }
     }
