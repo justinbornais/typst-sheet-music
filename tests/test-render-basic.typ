@@ -851,3 +851,23 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
     ),
   ),
 )
+
+#v(1cm)
+
+== Test 66: Manual spacing with repeated spaces
+
+#score(
+  key: "C",
+  time: "4/4",
+  staff-group: "grand",
+  staves: (
+    (
+      clef: "treble",
+      music: "c4 e   g c | f d e     c",
+    ),
+    (
+      clef: "bass",
+      music: "c2 e4 c | g,2 c"
+    )
+  )
+)

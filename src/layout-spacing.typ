@@ -115,6 +115,8 @@
   } else if event.type == "key-sig" {
     // Non-rhythmic events: fixed width
     2.0
+  } else if event.type == "gap" {
+    0.7 * event.at("amount", default: 1)
   } else {
     if event.at("grace", default: false) {
       let body = grace-body-width(event, prev-event: prev-event, next-event: next-event, music-font-config: music-font-config)
@@ -181,7 +183,7 @@
     (ev.type == "note" or ev.type == "rest" or ev.type == "spacer" or ev.type == "chord") and not is-grace-event(ev)
   }
   let is-boundary-event(ev) = {
-    ev.type == "barline" or ev.type == "clef" or ev.type == "key-sig" or ev.type == "time-sig"
+    ev.type == "barline" or ev.type == "clef" or ev.type == "key-sig" or ev.type == "time-sig" or ev.type == "gap"
   }
   let is-pre-barline-boundary(items, idx) = {
     (

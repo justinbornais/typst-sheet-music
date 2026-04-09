@@ -181,6 +181,14 @@
   ending-end: ending-end,
 )
 
+/// Create a manual spacing gap event.
+#let make-gap(
+  amount: 1,
+) = (
+  type: "gap",
+  amount: amount,
+)
+
 /// Create a barline event.
 /// - style: "single", "double", "final", "repeat-start", "repeat-end", "repeat-both"
 #let make-barline(

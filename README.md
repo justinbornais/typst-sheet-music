@@ -264,6 +264,7 @@ This section documents the inline music-string syntax accepted by `score()`, `me
   - Examples: `c4`, `d8.`, `f#4`, `g'2`, `a,16` (comma lowers octave, apostrophe raises it).
   - Accidentals: `#` (sharp), `##` (double-sharp), `&` (flat), `&&` (double-flat), `=` (natural).
   - Duration is sticky: if omitted the note uses the last explicit duration (e.g., `c4 d e f` uses quarter notes for all).
+  - Repeated literal spaces add extra horizontal room between events: `c e   g c` leaves more space between `e` and `g` than `c e g c`.
 
 - Rests and spacers:
   - Rest: `r4`, `r8.`

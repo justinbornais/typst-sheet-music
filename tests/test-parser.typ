@@ -199,6 +199,14 @@ f g a b& | c' d' e' f'} | f' e' d' c'")
 #assert-eq(events21.at(4).at("staff-text", default: none), "Soli", msg: "text annotation attaches to chord")
 #assert-eq(events21.at(4).at("expression-text", default: none), "espress.", msg: "expression text attaches to chord")
 
+== Manual Spacing
+
+#let events22 = parse-music("c e   g c | f d e  c")
+#assert-eq(events22.at(2).type, "gap", msg: "repeated spaces produce a gap event")
+#assert-eq(events22.at(2).at("amount", default: 0), 2, msg: "three spaces add two units of manual gap")
+#assert-eq(events22.at(9).type, "gap", msg: "second repeated-space group also produces a gap event")
+#assert-eq(events22.at(9).at("amount", default: 0), 1, msg: "two spaces add one unit of manual gap")
+
 == Pitch Calculations
 
 #assert-eq(pitch-to-diatonic("c", 4), 28, msg: "C4 diatonic")

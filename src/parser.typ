@@ -3,7 +3,7 @@
 // Converts a music string like "c'4 d' e' f' | g'2 g'" into an array
 // of event dictionaries (notes, rests, barlines, etc.)
 
-#import "model.typ": make-note, make-rest, make-spacer, make-barline, make-line-break, make-chord, make-clef, make-time-sig
+#import "model.typ": make-note, make-rest, make-spacer, make-gap, make-barline, make-line-break, make-chord, make-clef, make-time-sig
 #import "constants.typ": supported-clefs, clef-default-base-octave
 #import "utils.typ": is-digit, is-lower, is-whitespace
 
@@ -53,6 +53,13 @@
   // Helper: peek at current character (returns none at end)
   let peek(p) = {
     if p < len { input.at(p) } else { none }
+  }
+  let next-nonspace-char(p) = {
+    let next-pos = p
+    while next-pos < len and (input.at(next-pos) == " " or input.at(next-pos) == "\t" or input.at(next-pos) == "\r") {
+      next-pos += 1
+    }
+    peek(next-pos)
   }
 
   let is-word-char(ch) = {
@@ -393,7 +400,24 @@
 
     // --- Skip whitespace ---
     if ch == " " or ch == "\t" or ch == "\r" {
-      pos += 1
+      let start = pos
+      while pos < len and (input.at(pos) == " " or input.at(pos) == "\t" or input.at(pos) == "\r") {
+        pos += 1
+      }
+      let run-len = pos - start
+      let next = next-nonspace-char(pos)
+      let prev-event = if events.len() > 0 { events.last() } else { none }
+      if (
+        run-len > 1
+        and prev-event != none
+        and prev-event.type != "barline"
+        and prev-event.type != "line-break"
+        and next != none
+        and next != "\n"
+        and next != "|"
+      ) {
+        events.push(make-gap(amount: run-len - 1))
+      }
       continue
     }
 
