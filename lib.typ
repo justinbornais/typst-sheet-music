@@ -295,28 +295,36 @@
         )
       } else {
         let ev-list = staves-events.at(si)
-        let split = ()
-        let remaining = ev-list
-        for (mc-idx, mc) in measure-counts.enumerate() {
-          let is-last = mc-idx == measure-counts.len() - 1
-          // Grab `mc` barlines worth of events from remaining.
-          // On the last system, grab everything so trailing events after the
-          // final barline are not silently dropped.
-          let seg = ()
-          let bars-seen = 0
-          let j = 0
-          while j < remaining.len() and (is-last or bars-seen < mc or mc == 0) {
-            seg.push(remaining.at(j))
-            if remaining.at(j).type == "barline" { bars-seen += 1 }
-            j += 1
+        let split = if has-line-breaks(first-events) and has-line-breaks(ev-list) {
+          split-at-line-breaks(ev-list)
+        } else {
+          let mirrored = ()
+          let remaining = ev-list
+          for (mc-idx, mc) in measure-counts.enumerate() {
+            let is-last = mc-idx == measure-counts.len() - 1
+            // Grab `mc` barlines worth of events from remaining.
+            // On the last system, grab everything so trailing events after the
+            // final barline are not silently dropped.
+            let seg = ()
+            let bars-seen = 0
+            let j = 0
+            while j < remaining.len() and (is-last or bars-seen < mc) {
+              seg.push(remaining.at(j))
+              if remaining.at(j).type == "barline" { bars-seen += 1 }
+              j += 1
+            }
+            if mc == 0 and not is-last and remaining.len() > 0 and remaining.at(0).type == "line-break" {
+              seg.push(remaining.at(0))
+              j = 1
+            } else if is-last {
+              j = remaining.len()
+            }
+            mirrored.push(seg)
+            remaining = remaining.slice(j)
           }
-          // Ensure j is at the end when mc == 0 or it's the last system
-          if mc == 0 or is-last { j = remaining.len() }
-          split.push(seg)
-          remaining = remaining.slice(j)
+          if remaining.len() > 0 { mirrored.push(remaining) }
+          mirrored
         }
-        // Any leftover goes into a final system
-        if remaining.len() > 0 { split.push(remaining) }
         systems-events-per-staff.at(si) = prepare-staff-systems(
           split,
           initial-clef,

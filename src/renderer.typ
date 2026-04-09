@@ -541,6 +541,14 @@
     }
     found
   }
+  let note-top-anchor-y = (note-center-y, stem-data) => calc.max(
+    note-center-y + 1.0 * sp,
+    if stem-data.actual-stem-dir == "up" { stem-data.actual-stem-end + 0.25 * sp } else { note-center-y + 1.0 * sp },
+  )
+  let chord-top-anchor-y = (top-y, stem-data) => calc.max(
+    top-y + 1.0 * sp,
+    if stem-data.actual-stem-dir == "up" { stem-data.actual-stem-end + 0.25 * sp } else { top-y + 1.0 * sp },
+  )
   let event-visual-top = (idx, item) => {
     let event = item.event
     if event.type == "note" {
@@ -548,14 +556,14 @@
       let note-center-y = y-top + item.y * sp
       let note-top = calc.max(
         note-center-y + 0.9 * sp,
-        if stem-data.actual-stem-dir == "down" { stem-data.actual-stem-end } else { note-center-y + 0.9 * sp },
+        note-top-anchor-y(note-center-y, stem-data),
       )
       calc.max(
         note-top,
         articulation-top(note-center-y, event.at("articulations", default: ()), stem-data.actual-stem-dir),
         inline-text-top(
           event,
-          note-center-y + 1.0 * sp,
+          note-top-anchor-y(note-center-y, stem-data),
           note-center-y + 1.5 * sp,
           fingering-position,
           fermata-clearance-y: calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp,
@@ -568,14 +576,14 @@
       let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
       let chord-top = calc.max(
         top-y + 0.9 * sp,
-        if stem-data.actual-stem-dir == "down" { stem-data.actual-stem-end } else { top-y + 0.9 * sp },
+        chord-top-anchor-y(top-y, stem-data),
       )
       calc.max(
         chord-top,
         articulation-top(top-y, event.at("articulations", default: ()), stem-data.actual-stem-dir),
         inline-text-top(
           event,
-          top-y + 1.0 * sp,
+          chord-top-anchor-y(top-y, stem-data),
           top-y + 1.5 * sp,
           fingering-position,
         ),
@@ -644,7 +652,7 @@
       draw-inline-text(
         x,
         event,
-        note-center-y + 1.0 * sp,
+        note-top-anchor-y(note-center-y, stem-data),
         calc.min(y-bottom - 0.5 * sp, note-center-y - 1.0 * sp),
         note-center-y + 1.5 * sp,
         fingering-position,
@@ -701,7 +709,7 @@
       draw-inline-text(
         x,
         event,
-        top-y + 1.0 * sp,
+        chord-top-anchor-y(top-y, stem-data),
         calc.min(y-bottom - 0.5 * sp, bottom-y - 1.0 * sp),
         top-y + 1.5 * sp,
         fingering-position,
@@ -1552,7 +1560,7 @@
           let note-center-y = y-top + item.y * sp
           let note-top = calc.max(
             note-center-y + 0.9 * sp,
-            if stem-data.actual-stem-dir == "down" { stem-data.actual-stem-end } else { note-center-y + 0.9 * sp },
+            note-top-anchor-y(note-center-y, stem-data),
           )
           calc.max(
             top,
@@ -1560,7 +1568,7 @@
             articulation-top(note-center-y, event.at("articulations", default: ()), stem-data.actual-stem-dir),
             inline-text-top(
               event,
-              note-center-y + 1.0 * sp,
+              note-top-anchor-y(note-center-y, stem-data),
               note-center-y + 1.5 * sp,
               fingering-position,
               fermata-clearance-y: calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp,
@@ -1573,7 +1581,7 @@
           let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
           let chord-top = calc.max(
             top-y + 0.9 * sp,
-            if stem-data.actual-stem-dir == "down" { stem-data.actual-stem-end } else { top-y + 0.9 * sp },
+            chord-top-anchor-y(top-y, stem-data),
           )
           calc.max(
             top,
@@ -1581,7 +1589,7 @@
             articulation-top(top-y, event.at("articulations", default: ()), stem-data.actual-stem-dir),
             inline-text-top(
               event,
-              top-y + 1.0 * sp,
+              chord-top-anchor-y(top-y, stem-data),
               top-y + 1.5 * sp,
               fingering-position,
             ),
