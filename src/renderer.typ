@@ -612,9 +612,6 @@
     let tn = tup.number
     if indices.len() == 0 { continue }
 
-    // Use note/chord anchors for bracket geometry; rests contribute span width
-    // but do not have stem tips to bracket against.
-    let tup-xs = indices.map(idx => item-xs.at(idx))
     let stem-anchor-indices = indices.filter(idx => {
       let ev = items.at(idx).event
       ev.type == "note" or ev.type == "chord"
@@ -628,6 +625,23 @@
       }
     })
     let stem-dir = if raw-stem-dir != none { raw-stem-dir } else { "up" }
+
+    // Use note/chord stem anchors for bracket geometry; rests contribute span
+    // width but do not have stem tips to bracket against.
+    let tup-xs = indices.map(idx => {
+      let item = items.at(idx)
+      if item.event.type == "note" or item.event.type == "chord" {
+        note-stem-x(
+          item-xs.at(idx),
+          item.event.duration,
+          stem-dir,
+          sp: sp,
+          music-font-config: music-font-config,
+        )
+      } else {
+        item-xs.at(idx)
+      }
+    })
 
     let tup-stem-ends = stem-ref-indices.map(idx => {
       let override = adj-stem-ends.at(str(idx), default: none)
@@ -644,6 +658,9 @@
 
     let x-first = tup-xs.first()
     let x-last  = tup-xs.last()
+    let tup-pad = 0.26 * sp
+    let x-first = x-first - tup-pad
+    let x-last = x-last + tup-pad
 
     // Place bracket on same side as beam (stem-tip side)
     let bracket-y = if stem-dir == "up" {
