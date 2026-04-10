@@ -341,6 +341,7 @@
 #let default-ledger-line-extension = 0.4   // how far ledger lines extend past the notehead
 
 // Horizontal spacing constants (in staff spaces)
+#let default-inline-clef-scale = 0.8       // Cue-sized clefs for mid-system clef changes
 #let default-clef-padding = 0.5            // Space after clef
 #let default-key-sig-padding = 1.0         // Space after key signature
 #let default-time-sig-padding = 1.25       // Space after time signature

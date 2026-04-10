@@ -7,9 +7,9 @@
 // ===== Width calculation functions (pure, no drawing) =====
 
 /// Compute the width of a clef in staff-space units.
-#let clef-advance(clef-name: "treble", sp: 1.0, music-font-config: none) = {
+#let clef-advance(clef-name: "treble", sp: 1.0, scale: 1.0, music-font-config: none) = {
   let smufl = clef-smufl-name.at(clef-name, default: "gClef")
-  advance-width(smufl, config: music-font-config) * sp + default-clef-padding * sp
+  advance-width(smufl, config: music-font-config) * sp * scale + default-clef-padding * sp
 }
 
 /// Compute the width of a key signature in staff-space units.
@@ -51,12 +51,12 @@
 // ===== Drawing functions (CeTZ canvas side-effects only) =====
 
 /// Draw a clef at the given position (no return value).
-#let draw-clef(x, y-top, clef-name, sp: 1.0, music-font-config: none) = {
+#let draw-clef(x, y-top, clef-name, sp: 1.0, scale: 1.0, music-font-config: none) = {
   let smufl = clef-smufl-name.at(clef-name, default: "gClef")
   let origin-offset = clef-origin-offset.at(clef-name, default: 3.0)
   let glyph = clef-config.at(clef-name).glyph
   let origin-y = y-top - origin-offset * sp
-  place-glyph(x, origin-y, glyph, smufl, sp, config: music-font-config)
+  place-glyph(x, origin-y, glyph, smufl, sp * scale, config: music-font-config)
 }
 
 /// Draw a key signature at the given position (no return value).

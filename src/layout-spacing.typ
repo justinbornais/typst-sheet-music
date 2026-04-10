@@ -3,7 +3,7 @@
 // Converts event durations into horizontal spacing values.
 
 #import "utils.typ": duration-to-beats, duration-spacing-factor
-#import "constants.typ": default-note-spacing-base, default-time-sig-padding, default-accidental-padding
+#import "constants.typ": default-note-spacing-base, default-time-sig-padding, default-accidental-padding, default-inline-clef-scale
 #import "render-clef-key-time.typ": clef-advance, time-sig-advance
 #import "glyph-metadata.typ": advance-width
 
@@ -109,7 +109,7 @@
       2.5
     }
   } else if event.type == "clef" {
-    clef-advance(clef-name: event.clef, sp: 1.0, music-font-config: music-font-config)
+    clef-advance(clef-name: event.clef, sp: 1.0, scale: default-inline-clef-scale, music-font-config: music-font-config)
   } else if event.type == "time-sig" {
     inline-time-sig-width(event, prev-event: prev-event, next-event: next-event, music-font-config: music-font-config)
   } else if event.type == "key-sig" {

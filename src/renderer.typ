@@ -7,11 +7,12 @@
 #import "render-staff.typ": draw-staff-lines, draw-barline, draw-system-line, draw-brace, draw-bracket
 #import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance
 #import "render-notes.typ": draw-note, draw-rest, note-stem-x, draw-chord-event
-#import "render-beams.typ": draw-beam-group
+#import "render-beams.typ": draw-beam-group, beam-count
 #import "render-slurs-ties.typ": draw-ties-and-slurs
 #import "render-chords.typ": format-chord-symbol
 #import "render-articulations.typ": draw-articulations, draw-dynamic, draw-hairpin, draw-trill-symbol, draw-trill-wiggle, trill-symbol-width, draw-staff-marker
 #import "pitch.typ": compute-stem-end-y
+#import "glyph-metadata.typ": bbox
 
 
 /// Render a single system (one line of music) for one staff.
@@ -58,6 +59,9 @@
   let items = laid-out.items
   let total-layout-width = laid-out.total-width
   let grace-note-scale = 0.68
+  let black-notehead-bbox = bbox("noteheadBlack", config: music-font-config)
+  let black-notehead-top = if black-notehead-bbox != none { black-notehead-bbox.ne.y } else { 0.82 }
+  let black-notehead-bottom = if black-notehead-bbox != none { black-notehead-bbox.sw.y } else { -0.82 }
 
   // Y coordinates
   let y-top = 0.0   // Top staff line
@@ -143,6 +147,21 @@
 
   // ── Pre-compute per-item x positions (needed for beam geometry) ─────────
   let item-xs = items.map(item => music-start-x + item.x * scale-x * sp)
+  let note-edge-in-staff-sp = (item, stem-dir, note-scale) => {
+    if item.event.type == "chord" {
+      if stem-dir == "up" {
+        item.chord-ys.fold(item.chord-ys.at(0), calc.max) + black-notehead-top * note-scale
+      } else {
+        item.chord-ys.fold(item.chord-ys.at(0), calc.min) + black-notehead-bottom * note-scale
+      }
+    } else {
+      if stem-dir == "up" {
+        item.y + black-notehead-top * note-scale
+      } else {
+        item.y + black-notehead-bottom * note-scale
+      }
+    }
+  }
 
   // ── Auto-beaming: group consecutive notes with duration ≥ 8 ─────────────
   // Groups are broken by barlines, rests, notes with duration < 8, or when
@@ -195,6 +214,41 @@
 
     let x0 = item-xs.at(group.first())
     let xn = item-xs.at(group.last())
+    let beam-thickness-staff = default-beam-thickness * beam-scale
+    let beam-step-staff = (default-beam-thickness + default-beam-spacing) * beam-scale
+    let min-beam-clearance = 0.25 * beam-scale
+    let required-shift = 0.0
+
+    for idx in group {
+      let item = items.at(idx)
+      let xi = item-xs.at(idx)
+      let t = if xn != x0 { (xi - x0) / (xn - x0) } else { 0.0 }
+      let by-staff = sy0 + t * (syn - sy0)
+      let beam-levels = beam-count(item.event.duration)
+      let nearest-beam-edge = if stem-dir == "up" {
+        by-staff - (beam-levels - 1) * beam-step-staff - beam-thickness-staff
+      } else {
+        by-staff + (beam-levels - 1) * beam-step-staff + beam-thickness-staff
+      }
+      let note-edge = note-edge-in-staff-sp(item, stem-dir, beam-scale)
+      let actual-clearance = if stem-dir == "up" {
+        nearest-beam-edge - note-edge
+      } else {
+        note-edge - nearest-beam-edge
+      }
+      if actual-clearance < min-beam-clearance {
+        let original-stem-height = calc.abs(by-staff - item.y)
+        let proportional-lift = 0.25 * original-stem-height
+        let needed-lift = calc.max(min-beam-clearance - actual-clearance, proportional-lift)
+        required-shift = calc.max(required-shift, needed-lift)
+      }
+    }
+
+    if required-shift > 0.0 {
+      let outward-shift = if stem-dir == "up" { required-shift } else { -required-shift }
+      sy0 += outward-shift
+      syn += outward-shift
+    }
 
     let beam-note-data = ()
     for idx in group {
@@ -618,14 +672,51 @@
   }
   let opening-barline-x = default-barline-thickness / 2.0 * sp
 
+  let event-needs-leading-accidental-space = ev => {
+    if ev == none { return false }
+    if ev.type == "note" {
+      ev.at("accidental", default: none) != none
+    } else if ev.type == "chord" {
+      ev.at("notes", default: ()).any(n => n.at("accidental", default: none) != none)
+    } else {
+      false
+    }
+  }
+  let inline-clef-draw-offset = (prev-event, next-event) => {
+    let prev-is-music = prev-event != none and (
+      prev-event.type == "note" or prev-event.type == "chord" or prev-event.type == "rest" or prev-event.type == "spacer"
+    )
+    let next-is-music = next-event != none and (
+      next-event.type == "note" or next-event.type == "chord" or next-event.type == "rest" or next-event.type == "spacer"
+    )
+    if not prev-is-music or not next-is-music {
+      return 0.0
+    }
+    let base-shift = 0.5 * default-clef-padding * sp
+    if event-needs-leading-accidental-space(next-event) {
+      base-shift + 0.1 * sp
+    } else {
+      base-shift
+    }
+  }
   let current-clef = if clef-name == none { "treble" } else { clef-name }
   for (i, item) in items.enumerate() {
     let event = item.event
     let x = item-xs.at(i)
     let y = item.y * sp
+    let prev-event = if i > 0 { items.at(i - 1).event } else { none }
+    let next-event = if i + 1 < items.len() { items.at(i + 1).event } else { none }
 
     if event.type == "clef" {
-      draw-clef(x, y-top, event.clef, sp: sp, music-font-config: music-font-config)
+      let clef-x = x - inline-clef-draw-offset(prev-event, next-event)
+      draw-clef(
+        clef-x,
+        y-top,
+        event.clef,
+        sp: sp,
+        scale: default-inline-clef-scale,
+        music-font-config: music-font-config,
+      )
       current-clef = event.clef
     } else if event.type == "time-sig" {
       draw-time-signature(x, y-top, event.upper, event.lower, symbol: event.symbol, sp: sp, music-font-config: music-font-config)
