@@ -304,7 +304,7 @@
   let lyric-text-gap = 0.28 * sp
   
   let stacked-values = value => if type(value) == array { value } else { (value,) }
-  let fingering-stack-step = 1.0 * sp
+  let fingering-stack-step = 1.3 * sp
 
   let fingering-top-y = (base-y, fng-val) => {
     let cur-y = base-y
