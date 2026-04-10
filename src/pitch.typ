@@ -2,6 +2,8 @@
 
 #import "constants.typ": note-to-diatonic-index, clef-config
 
+
+
 /// Compute the diatonic number of a pitch.
 /// Diatonic number = note_index + octave * 7
 /// where C=0, D=1, E=2, F=3, G=4, A=5, B=6

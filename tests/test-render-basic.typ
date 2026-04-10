@@ -796,7 +796,7 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
   staves: (
     (
       clef: "treble",
-      music: "|: c4 e g c | end{1.:f4n[2][C] d e c | g[G] g c c} :| | end{2.:g4[G] g g g | b[Bdim] b c' c'} |.",
+      music: "|: c4 e g c | end{1.:f4n[2][C] d e c | g[G] g c c} :| end{2.:g4[G] g g g | b[Bdim] b c' c'} |.",
     ),
   ),
 )

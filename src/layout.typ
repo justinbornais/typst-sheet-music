@@ -31,6 +31,7 @@
 ) = {
   let positions = compute-event-positions(events, music-font-config: music-font-config)
   let items = ()
+  let sp_cache = (:)
   // Use `treble` for internal layout calculations when no explicit
   // initial clef was provided, but remember the original `clef` value
   // so the renderer can decide whether to draw an opening clef glyph.
@@ -46,15 +47,36 @@
     let stem-y-end = none
 
     if event.type == "note" {
-      // Compute staff position and Y coordinate
-      let sp = staff-position(event.name, event.octave, clef: current-clef)
+      // Compute staff position and Y coordinate (cached per-staff pass)
+      let key = event.name + ":" + str(event.octave) + ":" + current-clef
+      let sp = sp_cache.at(key, default: none)
+      if sp == none {
+        sp = staff-position(event.name, event.octave, clef: current-clef)
+        sp_cache.insert(key, sp)
+      }
       y = -sp / 2.0
       stem-dir = auto-stem-direction(sp)
       stem-y-end = compute-stem-end-y(y, sp, stem-dir, 1.0)
-      items.push(make-laid-out-event(event, x: x, y: y, stem-dir: stem-dir, stem-y-end: stem-y-end))
+      items.push((
+        event: event,
+        x: x,
+        y: y,
+        stem-dir: stem-dir,
+        stem-y-end: stem-y-end,
+        width: pos-info.width,
+      ))
     } else if event.type == "chord" {
-      // Compute per-note staff positions and y values
-      let sp-list = event.notes.map(n => staff-position(n.name, n.octave, clef: current-clef))
+      // Compute per-note staff positions and y values (cached)
+      let sp-list = ()
+      for n in event.notes {
+        let key = n.name + ":" + str(n.octave) + ":" + current-clef
+        let spos = sp_cache.at(key, default: none)
+        if spos == none {
+          spos = staff-position(n.name, n.octave, clef: current-clef)
+          sp_cache.insert(key, spos)
+        }
+        sp-list.push(spos)
+      }
       let y-list  = sp-list.map(spos => -spos / 2.0)
       // Stem direction from average staff position
       let avg-sp = sp-list.fold(0.0, (acc, spos) => acc + spos) / sp-list.len()
@@ -83,6 +105,7 @@
         stem-y-end: stem-y-end,
         chord-ys: y-list,
         chord-staff-positions: sp-list,
+        width: pos-info.width,
       ))
     } else if event.type == "rest" {
       // Rests are centered vertically on the staff
@@ -93,16 +116,37 @@
       } else {
         y = -2.0
       }
-      items.push(make-laid-out-event(event, x: x, y: y, stem-dir: stem-dir, stem-y-end: stem-y-end))
+      items.push((
+        event: event,
+        x: x,
+        y: y,
+        stem-dir: stem-dir,
+        stem-y-end: stem-y-end,
+        width: pos-info.width,
+      ))
     } else if event.type == "clef" {
       current-clef = event.clef
-      items.push(make-laid-out-event(event, x: x, y: y, stem-dir: stem-dir, stem-y-end: stem-y-end))
+      items.push((
+        event: event,
+        x: x,
+        y: y,
+        stem-dir: stem-dir,
+        stem-y-end: stem-y-end,
+        width: pos-info.width,
+      ))
     } else {
-      items.push(make-laid-out-event(event, x: x, y: y, stem-dir: stem-dir, stem-y-end: stem-y-end))
+      items.push((
+        event: event,
+        x: x,
+        y: y,
+        stem-dir: stem-dir,
+        stem-y-end: stem-y-end,
+        width: pos-info.width,
+      ))
     }
   }
 
-  let tw = total-events-width(events, music-font-config: music-font-config)
+  let tw = if positions.len() > 0 { positions.last().x + positions.last().width } else { 0.0 }
 
   (
     items: items,
