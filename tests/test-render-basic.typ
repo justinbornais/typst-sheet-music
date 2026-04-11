@@ -886,3 +886,17 @@ Mid-system `:||:` should render with dots on both sides, and a line-ending
     ),
   ),
 )
+
+== Test 68: 2nd Intervals
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "<c d>4 <d e> <e f> <f g> <g a> <a b>2 <b c'> <c' d'>1
+      <c d f a>4 <d f g> <e g a c> <f g> <g a> <a b>2 <b c'> <c' d'>1",
+    ),
+  ),
+)
