@@ -123,29 +123,44 @@
 
 #import "@preview/cetz:0.4.2"
 
+#let glyph-placement(x, y, glyph-char, glyph-name, sp, config: none) = {
+  let fsize = 4.0 * sp * 1mm
+  let family = font-family(config: config)
+  let body = text(font: family, size: fsize, top-edge: "bounds", bottom-edge: "bounds", glyph-char)
+  let bb = bbox(glyph-name, config: config)
+  if bb == none {
+    return (x: x, y: y, anchor: "south-west", body: body)
+  }
+  (
+    x: x + bb.sw.x * sp,
+    y: y + bb.sw.y * sp,
+    anchor: "south-west",
+    body: body,
+  )
+}
+
+#let content-placement(x, y, body, anchor: "south-west") = (
+  x: x,
+  y: y,
+  anchor: anchor,
+  body: body,
+)
+
 /// Place a SMuFL glyph at exact (x, y) in a CeTZ canvas.
 /// - x, y: canvas coordinates where the glyph origin should be (in mm units)
 /// - glyph-char: the Unicode character(s) to render
 /// - glyph-name: the SMuFL glyph name for looking up bbox in metadata
 /// - sp: staff-space size (dimensionless mm number)
-#let place-glyph(x, y, glyph-char, glyph-name, sp, config: none) = {
+#let place-glyph(x, y, glyph-char, glyph-name, sp, config: none, emit: none) = {
   import cetz.draw: *
-  let fsize = 4.0 * sp * 1mm
-  let family = font-family(config: config)
-  let bb = bbox(glyph-name, config: config)
-  if bb == none {
-    content(
-      (x, y),
-      anchor: "south-west",
-      text(font: family, size: fsize, top-edge: "bounds", bottom-edge: "bounds", glyph-char),
-    )
+  let placement = glyph-placement(x, y, glyph-char, glyph-name, sp, config: config)
+  if emit != none {
+    emit(placement.x, placement.y, placement.body, anchor: placement.anchor)
     return
   }
-  let px = x + bb.sw.x * sp
-  let py = y + bb.sw.y * sp
   content(
-    (px, py),
-    anchor: "south-west",
-    text(font: family, size: fsize, top-edge: "bounds", bottom-edge: "bounds", glyph-char),
+    (placement.x, placement.y),
+    anchor: placement.anchor,
+    placement.body,
   )
 }

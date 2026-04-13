@@ -5,14 +5,14 @@
 #import "@preview/cetz:0.4.2"
 #import "constants.typ": *
 #import "render-staff.typ": draw-staff-lines, draw-barline, draw-system-line, draw-brace, draw-bracket
-#import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance
-#import "render-notes.typ": draw-note, draw-rest, note-stem-x, draw-chord-event
+#import "render-clef-key-time.typ": draw-clef, draw-key-signature, draw-time-signature, clef-advance, key-sig-advance, time-sig-advance, clef-placement, key-signature-placements, time-signature-placements
+#import "render-notes.typ": draw-rest, draw-ledger-lines, draw-stem, draw-dots, draw-grace-slash, note-stem-x, chord-notehead-x-offsets, notehead-glyph, notehead-smufl-name, flag-glyph, flag-smufl-name, rest-glyph, rest-smufl-name, local-sp
 #import "render-beams.typ": draw-beam-group, beam-count
 #import "render-slurs-ties.typ": draw-ties-and-slurs
 #import "render-chords.typ": format-chord-symbol
-#import "render-articulations.typ": draw-articulations, draw-dynamic, draw-hairpin, draw-trill-symbol, draw-trill-wiggle, trill-symbol-width, draw-staff-marker
+#import "render-articulations.typ": draw-articulations, draw-dynamic, draw-hairpin, draw-trill-symbol, draw-trill-wiggle, trill-symbol-width, draw-staff-marker, articulation-placements, dynamic-placement, trill-symbol-placement, trill-wiggle-placements
 #import "pitch.typ": compute-stem-end-y
-#import "glyph-metadata.typ": bbox
+#import "glyph-metadata.typ": bbox, advance-width, anchors, glyph-placement
 
 
 /// Render a single system (one line of music) for one staff.
@@ -62,10 +62,59 @@
   let black-notehead-bbox = bbox("noteheadBlack", config: music-font-config)
   let black-notehead-top = if black-notehead-bbox != none { black-notehead-bbox.ne.y } else { 0.82 }
   let black-notehead-bottom = if black-notehead-bbox != none { black-notehead-bbox.sw.y } else { -0.82 }
+  let accidental-glyph-data = accidental => {
+    if accidental == "sharp" {
+      (glyph: smufl-accidentals.sharp, smufl: "accidentalSharp")
+    } else if accidental == "flat" {
+      (glyph: smufl-accidentals.flat, smufl: "accidentalFlat")
+    } else if accidental == "natural" {
+      (glyph: smufl-accidentals.natural, smufl: "accidentalNatural")
+    } else if accidental == "double-sharp" {
+      (glyph: smufl-accidentals.double-sharp, smufl: "accidentalDoubleSharp")
+    } else if accidental == "double-flat" {
+      (glyph: smufl-accidentals.double-flat, smufl: "accidentalDoubleFlat")
+    } else {
+      none
+    }
+  }
 
   // Y coordinates
   let y-top = 0.0   // Top staff line
   let y-bottom = y-top - 4.0 * sp  // Bottom staff line (4 staff spaces down)
+  let base-content-items = ()
+  let overlay-content-items = ()
+  let late-content-items = ()
+  let content-alignment = anchor => {
+    if anchor == "south-west" { bottom + left }
+    else if anchor == "south" { bottom }
+    else if anchor == "north" { top }
+    else if anchor == "north-west" { top + left }
+    else if anchor == "center-west" { horizon + left }
+    else { bottom + left }
+  }
+  let draw-content-batch = items => {
+    if items.len() == 0 { return }
+    let bounds-pad-x = 2.5 * sp
+    let bounds-pad-y = 2.5 * sp
+    let min-x = items.fold(items.first().x, (acc, item) => calc.min(acc, item.x)) - bounds-pad-x
+    let max-x = items.fold(items.first().x, (acc, item) => calc.max(acc, item.x)) + bounds-pad-x
+    let min-y = items.fold(items.first().y, (acc, item) => calc.min(acc, item.y)) - bounds-pad-y
+    let max-y = items.fold(items.first().y, (acc, item) => calc.max(acc, item.y)) + bounds-pad-y
+    content(
+      (min-x, min-y),
+      anchor: "south-west",
+      box(width: (max-x - min-x) * 1mm, height: (max-y - min-y) * 1mm)[],
+    )
+    content(
+      (0, 0),
+      anchor: "south-west",
+      box(width: 0pt, height: 0pt)[
+        #for item in items [
+          #place(content-alignment(item.anchor), dx: item.x * 1mm, dy: -item.y * 1mm, item.body)
+        ]
+      ],
+    )
+  }
 
   // Compute prefix width (clef + key sig + time sig)
   let prefix-x = 0.5 * sp  // Left margin
@@ -128,20 +177,24 @@
   // Draw clef
   let cx = prefix-x
   if show-clef and clef-name != none {
-    draw-clef(cx, y-top, clef-name, sp: sp, music-font-config: music-font-config)
+    base-content-items.push(clef-placement(cx, y-top, clef-name, sp: sp, music-font-config: music-font-config))
     cx += clef-w
   }
 
   // Draw key signature
   if show-key {
-    draw-key-signature(cx, y-top, key, clef-name, sp: sp, music-font-config: music-font-config)
+    for placement in key-signature-placements(cx, y-top, key, clef-name, sp: sp, music-font-config: music-font-config) {
+      base-content-items.push(placement)
+    }
     cx += key-w
   }
 
   // Draw time signature
   if show-opening-time {
     let time-x = if forced-time-signature-x != none { forced-time-signature-x } else { cx }
-    draw-time-signature(time-x, y-top, opening-time-upper, opening-time-lower, symbol: opening-time-symbol, sp: sp, music-font-config: music-font-config)
+    for placement in time-signature-placements(time-x, y-top, opening-time-upper, opening-time-lower, symbol: opening-time-symbol, sp: sp, music-font-config: music-font-config) {
+      base-content-items.push(placement)
+    }
     cx = time-x + time-w
   }
 
@@ -336,31 +389,19 @@
   // Helper: draw a chord symbol above the given y position.
   let draw-chord-symbol = (x-pos, base-y, sym-val) => {
     if sym-val != none and sym-val != "" {
-      content(
-        (x-pos, base-y),
-        anchor: "south",
-        format-chord-symbol(sym-val),
-      )
+      content((x-pos, base-y), anchor: "south", format-chord-symbol(sym-val))
     }
   }
 
   let draw-staff-text = (x-pos, base-y, value) => {
     if value != none and value != "" {
-      content(
-        (x-pos, base-y),
-        anchor: "south",
-        text(size: staff-text-font-size, value),
-      )
+      content((x-pos, base-y), anchor: "south", text(size: staff-text-font-size, value))
     }
   }
 
   let draw-expression-text = (x-pos, base-y, value) => {
     if value != none and value != "" {
-      content(
-        (x-pos, base-y),
-        anchor: "north",
-        text(size: expression-font-size, style: "italic", value),
-      )
+      content((x-pos, base-y), anchor: "north", text(size: expression-font-size, style: "italic", value))
     }
   }
 
@@ -699,7 +740,6 @@
       base-shift
     }
   }
-  let current-clef = if clef-name == none { "treble" } else { clef-name }
   for (i, item) in items.enumerate() {
     let event = item.event
     let x = item-xs.at(i)
@@ -709,116 +749,67 @@
 
     if event.type == "clef" {
       let clef-x = x - inline-clef-draw-offset(prev-event, next-event)
-      draw-clef(
+      base-content-items.push(clef-placement(
         clef-x,
         y-top,
         event.clef,
         sp: sp,
         scale: default-inline-clef-scale,
         music-font-config: music-font-config,
-      )
-      current-clef = event.clef
+      ))
     } else if event.type == "time-sig" {
-      draw-time-signature(x, y-top, event.upper, event.lower, symbol: event.symbol, sp: sp, music-font-config: music-font-config)
-    } else if event.type == "note" {
-      let is-grace = event.at("grace", default: false)
-      let grace-slash = is-grace and event.at("grace-slash", default: false) and (i == 0 or not items.at(i - 1).event.at("grace", default: false))
-      let stem-data = stem-data-for(i, item)
-      let note-center-y = y-top + y
-      draw-note(
-        x, note-center-y, event,
-        stem-data.actual-stem-dir, stem-data.actual-stem-end,
-        y-top,
-        clef: current-clef,
-        sp: sp,
-        beamed: stem-data.is-beamed,
-        note-scale: if is-grace { grace-note-scale } else { 1.0 },
-        grace-slash: grace-slash,
-        music-font-config: music-font-config,
-      )
-      if event.articulations.len() > 0 {
-        draw-articulations(x, note-center-y, event.articulations, stem-data.actual-stem-dir, y-top, sp: sp, music-font-config: music-font-config)
-      }
-      let base-below-offset = dynamic-extra-offset(note-center-y, event.articulations, stem-data.actual-stem-dir)
-      let expression-base-y = calc.min(
-        y-bottom - 0.75 * sp - base-below-offset,
-        calc.min(y-bottom - 0.55 * sp, note-center-y - 1.0 * sp) - 0.35 * sp,
-      )
-      if event.dynamic != none {
-        draw-dynamic(
-          x, y-bottom, event.dynamic,
-          sp: sp,
-          extra-offset: base-below-offset + if event.at("expression-text", default: none) != none { 1.0 * sp } else { 0.0 },
-          music-font-config: music-font-config,
-        )
-      }
-      draw-inline-text(
+      for placement in time-signature-placements(
         x,
-        event,
-        note-top-anchor-y(note-center-y, stem-data),
-        calc.min(y-bottom - 0.5 * sp, note-center-y - 1.0 * sp),
-        note-center-y + 1.5 * sp,
-        fingering-position,
-        expression-base-y: expression-base-y,
-        fermata-clearance-y: calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp,
-      )
-
+        y-top,
+        event.upper,
+        event.lower,
+        symbol: event.symbol,
+        sp: sp,
+        music-font-config: music-font-config,
+      ) {
+        base-content-items.push(placement)
+      }
+    } else if event.type == "note" {
+      let note-scale = if event.at("grace", default: false) { grace-note-scale } else { 1.0 }
+      let note-center-y = y-top + y
+      let staff-pos = calc.round(-2.0 * item.y)
+      let lsp = local-sp(sp, note-scale)
+      let smufl = notehead-smufl-name(event.duration)
+      let glyph = notehead-glyph(event.duration)
+      let nh-w = advance-width(smufl, config: music-font-config)
+      draw-ledger-lines(x, y-top, staff-pos, sp: sp, note-scale: note-scale, music-font-config: music-font-config)
+      if event.accidental != none {
+        let acc-info = accidental-glyph-data(event.accidental)
+        if acc-info != none {
+          let acc-w = advance-width(acc-info.smufl, config: music-font-config)
+          let acc-x = x - nh-w / 2.0 * lsp - default-accidental-padding * lsp - acc-w * lsp
+          base-content-items.push(glyph-placement(acc-x, note-center-y, acc-info.glyph, acc-info.smufl, lsp, config: music-font-config))
+        }
+      }
+      base-content-items.push(glyph-placement(x - nh-w / 2.0 * lsp, note-center-y, glyph, smufl, lsp, config: music-font-config))
     } else if event.type == "chord" {
-      let is-grace = event.at("grace", default: false)
-      let grace-slash = is-grace and event.at("grace-slash", default: false) and (i == 0 or not items.at(i - 1).event.at("grace", default: false))
+      let note-scale = if event.at("grace", default: false) { grace-note-scale } else { 1.0 }
       let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
       let stem-data = stem-data-for(i, item)
-      let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
-      let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
-      draw-chord-event(
-        x,
-        chord-ys-abs,
-        item.chord-staff-positions,
-        event,
-        stem-data.actual-stem-dir,
-        stem-data.actual-stem-end,
-        y-top,
-        clef: current-clef,
-        sp: sp,
-        beamed: stem-data.is-beamed,
-        note-scale: if is-grace { grace-note-scale } else { 1.0 },
-        grace-slash: grace-slash,
-        music-font-config: music-font-config,
-      )
-      if event.articulations.len() > 0 {
-        draw-articulations(
-          x,
-          if stem-data.actual-stem-dir == "down" { top-y } else { bottom-y },
-          event.articulations,
-          stem-data.actual-stem-dir,
-          y-top,
-          sp: sp,
-          music-font-config: music-font-config,
-        )
+      let lsp = local-sp(sp, note-scale)
+      let smufl = notehead-smufl-name(event.duration)
+      let nh-w = advance-width(smufl, config: music-font-config)
+      let notehead-offsets = chord-notehead-x-offsets(item.chord-staff-positions, stem-data.actual-stem-dir, nh-w, lsp)
+      for (ni, note) in event.notes.enumerate() {
+        let ny = chord-ys-abs.at(ni)
+        let nsp = item.chord-staff-positions.at(ni)
+        let nx = x + notehead-offsets.at(ni)
+        draw-ledger-lines(nx, y-top, nsp, sp: sp, note-scale: note-scale, music-font-config: music-font-config)
+        if note.accidental != none {
+          let acc-info = accidental-glyph-data(note.accidental)
+          if acc-info != none {
+            let acc-w = advance-width(acc-info.smufl, config: music-font-config)
+            let acc-x = nx - nh-w / 2.0 * lsp - default-accidental-padding * lsp - acc-w * lsp
+            base-content-items.push(glyph-placement(acc-x, ny, acc-info.glyph, acc-info.smufl, lsp, config: music-font-config))
+          }
+        }
+        base-content-items.push(glyph-placement(nx - nh-w / 2.0 * lsp, ny, notehead-glyph(event.duration), smufl, lsp, config: music-font-config))
       }
-      let base-below-offset = dynamic-extra-offset(bottom-y, event.articulations, stem-data.actual-stem-dir)
-      let expression-base-y = calc.min(
-        y-bottom - 0.75 * sp - base-below-offset,
-        calc.min(y-bottom - 0.55 * sp, bottom-y - 1.0 * sp) - 0.35 * sp,
-      )
-      if event.dynamic != none {
-        draw-dynamic(
-          x, y-bottom, event.dynamic,
-          sp: sp,
-          extra-offset: base-below-offset + if event.at("expression-text", default: none) != none { 1.0 * sp } else { 0.0 },
-          music-font-config: music-font-config,
-        )
-      }
-      draw-inline-text(
-        x,
-        event,
-        chord-top-anchor-y(top-y, stem-data),
-        calc.min(y-bottom - 0.5 * sp, bottom-y - 1.0 * sp),
-        top-y + 1.5 * sp,
-        fingering-position,
-        expression-base-y: expression-base-y,
-      )
-
     } else if event.type == "rest" {
       draw-rest(
         x,
@@ -830,14 +821,183 @@
         music-font-config: music-font-config,
       )
     } else if event.type == "barline" {
-      // All barlines except the very last item are drawn at their layout position.
-      // The last barline is drawn at the right edge (handled below).
       if not skip-barlines and i < items.len() - 1 {
         draw-barline(x + 0.5 * sp, y-top, y-bottom, style: event.style, sp: sp)
       }
     }
-    // spacers: invisible, nothing to draw
   }
+
+  draw-content-batch(base-content-items)
+
+  for (i, item) in items.enumerate() {
+    let event = item.event
+    let x = item-xs.at(i)
+    let y = item.y * sp
+
+    if event.type == "note" {
+      let is-grace = event.at("grace", default: false)
+      let note-scale = if is-grace { grace-note-scale } else { 1.0 }
+      let grace-slash = is-grace and event.at("grace-slash", default: false) and (i == 0 or not items.at(i - 1).event.at("grace", default: false))
+      let stem-data = stem-data-for(i, item)
+      let note-center-y = y-top + y
+      let lsp = local-sp(sp, note-scale)
+
+      if event.duration >= 2 and stem-data.actual-stem-dir != none {
+        let smufl = notehead-smufl-name(event.duration)
+        let nh-w = advance-width(smufl, config: music-font-config)
+        let nh-anch = anchors(smufl, config: music-font-config)
+        let stem-att = if stem-data.actual-stem-dir == "up" {
+          nh-anch.at("stemUpSE", default: (x: nh-w, y: 0.168))
+        } else {
+          nh-anch.at("stemDownNW", default: (x: 0.0, y: -0.168))
+        }
+        let stem-x = x - nh-w / 2.0 * lsp + stem-att.x * lsp
+        let half-thin = default-stem-thickness / 2.0 * lsp
+        let stem-x = stem-x + if stem-data.actual-stem-dir == "up" { -half-thin } else { half-thin }
+        let stem-start-y = note-center-y + stem-att.y * lsp
+
+        draw-stem(stem-x, stem-start-y, stem-data.actual-stem-end, sp: sp, note-scale: note-scale)
+
+        if event.duration >= 8 and not stem-data.is-beamed {
+          let flag = flag-glyph(event.duration, stem-data.actual-stem-dir)
+          let flag-smufl = flag-smufl-name(event.duration, stem-data.actual-stem-dir)
+          if flag != none and flag-smufl != none {
+            overlay-content-items.push(glyph-placement(stem-x, stem-data.actual-stem-end, flag, flag-smufl, lsp, config: music-font-config))
+          }
+        }
+        if grace-slash {
+          draw-grace-slash(stem-x, note-center-y, stem-data.actual-stem-dir, sp: sp, note-scale: note-scale)
+        }
+      }
+
+      if event.dots > 0 {
+        draw-dots(x, note-center-y, event.dots, event.duration, sp: sp, note-scale: note-scale, music-font-config: music-font-config)
+      }
+      if event.articulations.len() > 0 {
+        for placement in articulation-placements(x, note-center-y, event.articulations, stem-data.actual-stem-dir, y-top, sp: sp, music-font-config: music-font-config) {
+          overlay-content-items.push(placement)
+        }
+      }
+      let base-below-offset = dynamic-extra-offset(note-center-y, event.articulations, stem-data.actual-stem-dir)
+      let expression-base-y = calc.min(
+        y-bottom - 0.75 * sp - base-below-offset,
+        calc.min(y-bottom - 0.55 * sp, note-center-y - 1.0 * sp) - 0.35 * sp,
+      )
+      if event.dynamic != none {
+        let placement = dynamic-placement(
+          x,
+          y-bottom,
+          event.dynamic,
+          sp: sp,
+          extra-offset: base-below-offset + if event.at("expression-text", default: none) != none { 1.0 * sp } else { 0.0 },
+          music-font-config: music-font-config,
+        )
+        if placement != none { overlay-content-items.push(placement) }
+      }
+      draw-inline-text(
+        x,
+        event,
+        note-top-anchor-y(note-center-y, stem-data),
+        calc.min(y-bottom - 0.5 * sp, note-center-y - 1.0 * sp),
+        note-center-y + 1.5 * sp,
+        fingering-position,
+        expression-base-y: expression-base-y,
+        fermata-clearance-y: calc.max(note-center-y + 0.1 * sp, y-top + 0.5 * sp) + 1.5 * sp,
+      )
+    } else if event.type == "chord" {
+      let is-grace = event.at("grace", default: false)
+      let note-scale = if is-grace { grace-note-scale } else { 1.0 }
+      let grace-slash = is-grace and event.at("grace-slash", default: false) and (i == 0 or not items.at(i - 1).event.at("grace", default: false))
+      let chord-ys-abs = item.chord-ys.map(vy => y-top + vy * sp)
+      let stem-data = stem-data-for(i, item)
+      let top-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+      let bottom-y = chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
+      let lsp = local-sp(sp, note-scale)
+      let smufl = notehead-smufl-name(event.duration)
+      let nh-w = advance-width(smufl, config: music-font-config)
+      let nh-anch = anchors(smufl, config: music-font-config)
+      let notehead-offsets = chord-notehead-x-offsets(item.chord-staff-positions, stem-data.actual-stem-dir, nh-w, lsp)
+
+      for (ni, note) in event.notes.enumerate() {
+        let ny = chord-ys-abs.at(ni)
+        let nx = x + notehead-offsets.at(ni)
+        if event.dots > 0 {
+          draw-dots(nx, ny, event.dots, event.duration, sp: sp, note-scale: note-scale, music-font-config: music-font-config)
+        }
+      }
+
+      if event.duration >= 2 and stem-data.actual-stem-dir != none {
+        let stem-att = if stem-data.actual-stem-dir == "up" {
+          nh-anch.at("stemUpSE", default: (x: nh-w, y: 0.168))
+        } else {
+          nh-anch.at("stemDownNW", default: (x: 0.0, y: -0.168))
+        }
+        let stem-x = x - nh-w / 2.0 * lsp + stem-att.x * lsp
+        let half-thin = default-stem-thickness / 2.0 * lsp
+        let stem-x = stem-x + if stem-data.actual-stem-dir == "up" { -half-thin } else { half-thin }
+        let primary-y-abs = if stem-data.actual-stem-dir == "up" {
+          chord-ys-abs.fold(chord-ys-abs.at(0), calc.min)
+        } else {
+          chord-ys-abs.fold(chord-ys-abs.at(0), calc.max)
+        }
+        let stem-start-y = primary-y-abs + stem-att.y * lsp
+
+        draw-stem(stem-x, stem-start-y, stem-data.actual-stem-end, sp: sp, note-scale: note-scale)
+
+        if event.duration >= 8 and not stem-data.is-beamed {
+          let flag = flag-glyph(event.duration, stem-data.actual-stem-dir)
+          let flag-smufl = flag-smufl-name(event.duration, stem-data.actual-stem-dir)
+          if flag != none and flag-smufl != none {
+            overlay-content-items.push(glyph-placement(stem-x, stem-data.actual-stem-end, flag, flag-smufl, lsp, config: music-font-config))
+          }
+        }
+        if grace-slash {
+          draw-grace-slash(stem-x, primary-y-abs, stem-data.actual-stem-dir, sp: sp, note-scale: note-scale)
+        }
+      }
+
+      if event.articulations.len() > 0 {
+        for placement in articulation-placements(
+          x,
+          if stem-data.actual-stem-dir == "down" { top-y } else { bottom-y },
+          event.articulations,
+          stem-data.actual-stem-dir,
+          y-top,
+          sp: sp,
+          music-font-config: music-font-config,
+        ) {
+          overlay-content-items.push(placement)
+        }
+      }
+      let base-below-offset = dynamic-extra-offset(bottom-y, event.articulations, stem-data.actual-stem-dir)
+      let expression-base-y = calc.min(
+        y-bottom - 0.75 * sp - base-below-offset,
+        calc.min(y-bottom - 0.55 * sp, bottom-y - 1.0 * sp) - 0.35 * sp,
+      )
+      if event.dynamic != none {
+        let placement = dynamic-placement(
+          x,
+          y-bottom,
+          event.dynamic,
+          sp: sp,
+          extra-offset: base-below-offset + if event.at("expression-text", default: none) != none { 1.0 * sp } else { 0.0 },
+          music-font-config: music-font-config,
+        )
+        if placement != none { overlay-content-items.push(placement) }
+      }
+      draw-inline-text(
+        x,
+        event,
+        chord-top-anchor-y(top-y, stem-data),
+        calc.min(y-bottom - 0.5 * sp, bottom-y - 1.0 * sp),
+        top-y + 1.5 * sp,
+        fingering-position,
+        expression-base-y: expression-base-y,
+      )
+    }
+  }
+
+  draw-content-batch(overlay-content-items)
 
   // ── Draw final barline at right edge (always) ────────────────────────────
   if not skip-barlines {
@@ -934,18 +1094,10 @@
     let num-offset = 0.25 * sp
     if stem-dir == "up" {
       let num-y = bracket-y + num-offset
-      content(
-        (mid-x, num-y),
-        anchor: "south",
-        text(size: tuplet-font-size, weight: "regular", style: "italic", str(tn)),
-      )
+      content((mid-x, num-y), anchor: "south", text(size: tuplet-font-size, weight: "regular", style: "italic", str(tn)))
     } else {
       let num-y = bracket-y - num-offset
-      content(
-        (mid-x, num-y),
-        anchor: "north",
-        text(size: tuplet-font-size, weight: "regular", style: "italic", str(tn)),
-      )
+      content((mid-x, num-y), anchor: "north", text(size: tuplet-font-size, weight: "regular", style: "italic", str(tn)))
     }
   }
 
@@ -1270,7 +1422,7 @@
     }
     let x = item-xs.at(idx)
     let trill-y = calc.max(cached-event-visual-top(idx, item) + 0.75 * sp, tr-min-y)
-    draw-trill-symbol(x - 0.55 * tr-width, trill-y, sp: sp, music-font-config: music-font-config)
+    late-content-items.push(trill-symbol-placement(x - 0.55 * tr-width, trill-y, sp: sp, music-font-config: music-font-config))
   }
 
   for tg in trill-line-groups {
@@ -1288,7 +1440,7 @@
     let next-x = next-anchor-item-x(last)
     let symbol-x = x-first - 0.55 * tr-width
     if tg.starts_here {
-      draw-trill-symbol(symbol-x, trill-y, sp: sp, music-font-config: music-font-config)
+      late-content-items.push(trill-symbol-placement(symbol-x, trill-y, sp: sp, music-font-config: music-font-config))
     }
     let wiggle-start = if tg.starts_here {
       symbol-x + tr-width + tr-gap
@@ -1303,8 +1455,12 @@
       calc.min(final-barline-x - tr-line-end-gap, x-last + tr-tail)
     }
     let wiggle-end = calc.max(raw-wiggle-end, wiggle-start + 0.4 * sp)
-    draw-trill-wiggle(wiggle-start, wiggle-end, trill-y + 0.02 * sp, sp: sp, music-font-config: music-font-config)
+    for placement in trill-wiggle-placements(wiggle-start, wiggle-end, trill-y + 0.02 * sp, sp: sp, music-font-config: music-font-config) {
+      late-content-items.push(placement)
+    }
   }
+
+  draw-content-batch(late-content-items)
 
   let lyric-line-count = items.fold(lyric-prefix-states.len(), (count, item) => {
     calc.max(count, item.event.at("lyrics", default: ()).len())
@@ -1720,11 +1876,7 @@
         )
       }
       if eg.starts_here and eg.label != none and eg.label != "" {
-        content(
-          (x0 + 0.45 * sp, bracket-y - 0.05 * sp),
-          anchor: "north-west",
-          text(size: tuplet-font-size * 1.15, weight: "regular", eg.label),
-        )
+        content((x0 + 0.45 * sp, bracket-y - 0.05 * sp), anchor: "north-west", text(size: tuplet-font-size * 1.15, weight: "regular", eg.label))
       }
     }
   }

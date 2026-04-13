@@ -80,12 +80,12 @@
 #let local-sp(sp, note-scale) = sp * note-scale
 
 /// Draw a single notehead at the given position (centered at x, y).
-#let draw-notehead(x, y, duration, sp: 1.0, note-scale: 1.0, music-font-config: none) = {
+#let draw-notehead(x, y, duration, sp: 1.0, note-scale: 1.0, music-font-config: none, emit: none) = {
   let glyph = notehead-glyph(duration)
   let smufl = notehead-smufl-name(duration)
   let lsp = local-sp(sp, note-scale)
   let w = advance-width(smufl, config: music-font-config)
-  place-glyph(x - w / 2.0 * lsp, y, glyph, smufl, lsp, config: music-font-config)
+  place-glyph(x - w / 2.0 * lsp, y, glyph, smufl, lsp, config: music-font-config, emit: emit)
 }
 
 /// Draw a stem line.
@@ -100,12 +100,12 @@
 }
 
 /// Draw a flag at the stem tip.
-#let draw-flag(stem-x, stem-end-y, duration, stem-dir, sp: 1.0, note-scale: 1.0, music-font-config: none) = {
+#let draw-flag(stem-x, stem-end-y, duration, stem-dir, sp: 1.0, note-scale: 1.0, music-font-config: none, emit: none) = {
   let glyph = flag-glyph(duration, stem-dir)
   if glyph == none { return }
   let smufl = flag-smufl-name(duration, stem-dir)
   if smufl == none { return }
-  place-glyph(stem-x, stem-end-y, glyph, smufl, local-sp(sp, note-scale), config: music-font-config)
+  place-glyph(stem-x, stem-end-y, glyph, smufl, local-sp(sp, note-scale), config: music-font-config, emit: emit)
 }
 
 /// Draw augmentation dots next to a notehead.
@@ -158,11 +158,11 @@
 }
 
 /// Draw a rest symbol.
-#let draw-rest(x, y, duration, dots: 0, sp: 1.0, note-scale: 1.0, music-font-config: none) = {
+#let draw-rest(x, y, duration, dots: 0, sp: 1.0, note-scale: 1.0, music-font-config: none, emit: none) = {
   let glyph = rest-glyph(duration)
   let smufl = rest-smufl-name(duration)
   let lsp = local-sp(sp, note-scale)
-  place-glyph(x, y, glyph, smufl, lsp, config: music-font-config)
+  place-glyph(x, y, glyph, smufl, lsp, config: music-font-config, emit: emit)
   if dots > 0 {
     import cetz.draw: *
     let bb = bbox(smufl, config: music-font-config)
@@ -180,7 +180,7 @@
 }
 
 /// Draw an accidental to the left of a notehead.
-#let draw-accidental(x, y, accidental, duration, sp: 1.0, note-scale: 1.0, music-font-config: none) = {
+#let draw-accidental(x, y, accidental, duration, sp: 1.0, note-scale: 1.0, music-font-config: none, emit: none) = {
   if accidental == none { return }
 
   let glyph = if accidental == "sharp" { smufl-accidentals.sharp }
@@ -201,7 +201,7 @@
   let nh-w = advance-width(notehead-smufl-name(duration), config: music-font-config)
   let acc-w = advance-width(smufl, config: music-font-config)
   let acc-x = x - nh-w / 2.0 * lsp - default-accidental-padding * lsp - acc-w * lsp
-  place-glyph(acc-x, y, glyph, smufl, lsp, config: music-font-config)
+  place-glyph(acc-x, y, glyph, smufl, lsp, config: music-font-config, emit: emit)
 }
 
 #let draw-grace-slash(stem-x, note-y, stem-dir, sp: 1.0, note-scale: 1.0) = {
