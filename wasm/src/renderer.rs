@@ -202,8 +202,10 @@ fn staff_marker_codepoint(kind: &str) -> Option<u32> {
     }
 }
 
-// ─── Glyph placement helper ───────────────────────────────────────────
+// ─── Glyph placement helpers ──────────────────────────────────────────
 
+/// Place a glyph using its SMuFL bounding-box SW corner as the south-west anchor.
+/// The rendered origin (reference point) ends up at (x, y).
 fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoint: u32, sp: f64) {
     let fsize = 4.0 * sp;
     let bb = glyph::bbox(smufl_name);
@@ -218,6 +220,19 @@ fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoi
         c: codepoint,
         s: fsize,
         a: "south-west".into(),
+    });
+}
+
+/// Place a glyph with an explicit CeTZ anchor and NO bounding-box offset.
+/// Use this for articulations and dynamics where the coordinate is the
+/// desired glyph edge ("south" = bottom at y, "north" = top at y, etc.).
+fn emit_glyph_anchored(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, codepoint: u32, sp: f64, anchor: &str) {
+    cmds.push(DrawCmd::Glyph {
+        x,
+        y,
+        c: codepoint,
+        s: 4.0 * sp,
+        a: anchor.into(),
     });
 }
 
@@ -341,7 +356,7 @@ pub fn render_system_group(
     let mut cmds = Vec::new();
     let num_staves = laid_out_staves.len();
     let staff_height_mm = 4.0 * sp_unit;
-    let use_spanning_barlines = staff_group == "grand" && num_staves > 1;
+    let use_spanning_barlines = num_staves > 1;
 
     // Compute shared prefix data
     let (shared_time_x, shared_music_start_x) = compute_shared_prefix(
@@ -455,7 +470,7 @@ pub fn render_system_group(
             show_time && si == 0,
             Some(shared_time_x),
             Some(shared_music_start_x),
-            use_spanning_barlines && si > 0,
+            use_spanning_barlines,  // all staves skip barlines when spanning
             fng_pos,
             y_top,
         );
@@ -468,11 +483,6 @@ pub fn render_system_group(
     if num_staves > 1 {
         let first_y_top = -header_height;
         let last_y_bottom = y_offset + staff_height_mm - 4.0 * sp_unit;
-
-        // System line on the left
-        emit_line(&mut cmds, BARLINE_THICKNESS / 2.0 * sp_unit, first_y_top,
-                  BARLINE_THICKNESS / 2.0 * sp_unit, last_y_bottom,
-                  BARLINE_THICKNESS * sp_unit);
 
         // Brace or bracket
         if staff_group == "grand" {
@@ -500,13 +510,59 @@ pub fn render_system_group(
             emit_line(&mut cmds, bx, last_y_bottom, bx + serif, last_y_bottom, thick);
         }
 
-        // Spanning barlines (grand staff)
-        if use_spanning_barlines {
+        // Spanning barlines — opening, all internal measure barlines, and final,
+        // all spanning the full height from the first staff top to the last staff bottom.
+        {
+            let staff0 = &laid_out_staves[0];
+            let s0_total_w = staff0.total_width;
+            let avail_music_w = if let Some(w) = avail_width_mm {
+                w / sp_unit - shared_music_start_x / sp_unit - 1.0
+            } else {
+                s0_total_w + 2.0
+            };
+            let scale_x = if s0_total_w > 0.0 { avail_music_w / s0_total_w } else { 1.0 };
             let total_w = compute_total_width(laid_out_staves, sp_unit, avail_width_mm, shared_music_start_x);
-            // Final barline spans all staves
-            let final_x = total_w * sp_unit - THICK_BARLINE / 2.0 * sp_unit;
-            emit_line(&mut cmds, final_x - 0.5 * sp_unit, first_y_top, final_x - 0.5 * sp_unit, last_y_bottom, BARLINE_THICKNESS * sp_unit);
-            emit_line(&mut cmds, final_x, first_y_top, final_x, last_y_bottom, THICK_BARLINE * sp_unit);
+
+            // Opening barline (left edge)
+            emit_line(&mut cmds, BARLINE_THICKNESS / 2.0 * sp_unit, first_y_top,
+                      BARLINE_THICKNESS / 2.0 * sp_unit, last_y_bottom,
+                      BARLINE_THICKNESS * sp_unit);
+
+            // Internal measure barlines and final barline.
+            // Key rule: if the last item in staff0 IS a barline, that barline is the
+            // system-closing barline (skip it in the internal loop, render it as final).
+            // If the last item is NOT a barline (music ends mid-measure), render ALL
+            // barlines as internal ones and append a synthetic final barline.
+            let items = &staff0.items;
+            let last_item_is_barline = items.last().map_or(false, |i| i.event.is_barline());
+            let last_barline_idx: Option<usize> = if last_item_is_barline {
+                items.iter().rposition(|it| it.event.is_barline())
+            } else {
+                None // all barlines are internal; final will be synthesised
+            };
+            for (idx, item) in items.iter().enumerate() {
+                if let Event::Barline(b) = &item.event {
+                    if Some(idx) == last_barline_idx { continue; } // handled below as final
+                    let bx = shared_music_start_x + item.x * scale_x * sp_unit + 0.5 * sp_unit;
+                    render_barline(&mut cmds, bx, first_y_top, last_y_bottom, &b.style, sp_unit);
+                }
+            }
+
+            // Final barline
+            let raw_final_style = if last_item_is_barline {
+                items.last()
+                    .and_then(|item| if let Event::Barline(b) = &item.event { Some(b.style.as_str()) } else { None })
+                    .unwrap_or("final")
+            } else {
+                "final" // music ends with a note — emit standard final barline
+            };
+            let final_style = if raw_final_style == "repeat-both" { "repeat-end" } else { raw_final_style };
+            let final_x = if matches!(final_style, "final" | "repeat-end") {
+                total_w * sp_unit - THICK_BARLINE / 2.0 * sp_unit
+            } else {
+                total_w * sp_unit - BARLINE_THICKNESS / 2.0 * sp_unit
+            };
+            render_barline(&mut cmds, final_x, first_y_top, last_y_bottom, final_style, sp_unit);
         }
     }
 
@@ -660,9 +716,11 @@ fn render_system(
         emit_line(cmds, 0.0, y, total_width * sp, y, STAFF_LINE_THICKNESS * sp);
     }
 
-    // Opening barline
-    emit_line(cmds, BARLINE_THICKNESS / 2.0 * sp, y_top,
-              BARLINE_THICKNESS / 2.0 * sp, y_bottom, BARLINE_THICKNESS * sp);
+    // Opening barline — skipped when the group renderer draws a spanning barline
+    if !skip_barlines {
+        emit_line(cmds, BARLINE_THICKNESS / 2.0 * sp, y_top,
+                  BARLINE_THICKNESS / 2.0 * sp, y_bottom, BARLINE_THICKNESS * sp);
+    }
 
     // Draw clef
     cx = 0.5 * sp;
@@ -1270,33 +1328,38 @@ fn render_articulations(cmds: &mut Vec<DrawCmd>, x: f64, note_y: f64, articulati
     let fermata: Vec<&String> = articulations.iter().filter(|a| a.as_str() == "fermata").collect();
     let non_fermata: Vec<&String> = articulations.iter().filter(|a| a.as_str() != "fermata").collect();
     let art_above = stem_dir == "down";
-    let gap = if art_above { 0.75 * sp } else { -1.0 * sp };
+    // gap_above: positive = above note_center; gap_below: positive = below note_center
+    let gap_above = 0.75 * sp;  // first art starts 0.75sp above notehead center ("south" anchor)
+    let gap_below = 1.0 * sp;   // first art starts 1sp below notehead center ("north" anchor)
     let art_spacing = 1.0 * sp;
 
     if art_above {
-        let mut cur_y = note_y + gap;
+        // Stem points down → articulations go ABOVE the note
+        let mut cur_y = note_y + gap_above;
         for art in &non_fermata {
             if let Some(cp) = articulation_codepoint(art, true) {
-                emit_glyph(cmds, x, cur_y, art, cp, sp);
+                emit_glyph_anchored(cmds, x, cur_y, cp, sp, "south");
                 cur_y += art_spacing;
             }
         }
+        if !fermata.is_empty() {
+            let fermata_y = cur_y.max(y_top + 0.5 * sp);
+            emit_glyph_anchored(cmds, x, fermata_y, 0xE4C0, sp, "south");
+        }
     } else {
-        let mut cur_y = note_y - gap;
+        // Stem points up → articulations go BELOW the note
+        let mut cur_y = note_y - gap_below;
         for art in &non_fermata {
             if let Some(cp) = articulation_codepoint(art, false) {
-                emit_glyph(cmds, x, cur_y, art, cp, sp);
+                emit_glyph_anchored(cmds, x, cur_y, cp, sp, "north");
                 cur_y -= art_spacing;
             }
         }
-    }
-
-    if !fermata.is_empty() {
-        let mut fermata_y = (note_y + gap).max(y_top + 0.5 * sp);
-        if art_above && !non_fermata.is_empty() {
-            fermata_y = (note_y + gap).max(y_top + 0.5 * sp) + non_fermata.len() as f64 * art_spacing;
+        // Fermata always above, regardless of stem direction
+        if !fermata.is_empty() {
+            let fermata_y = (note_y + gap_above).max(y_top + 0.5 * sp);
+            emit_glyph_anchored(cmds, x, fermata_y, 0xE4C0, sp, "south");
         }
-        emit_glyph(cmds, x, fermata_y, "artFermataAbove", 0xE4C0, sp);
     }
 }
 
@@ -1308,15 +1371,19 @@ fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y_bottom: f64, dynamic: &str,
     // Check if all chars are SMuFL dynamics
     let all_smufl = dynamic.chars().all(|ch| dynamic_codepoint(ch).is_some());
     if all_smufl {
-        // Combine into a single glyph string via codepoints
-        let mut dx = 0.0;
-        for ch in dynamic.chars() {
-            if let Some(cp) = dynamic_codepoint(ch) {
-                let name = format!("dynamic{}", ch.to_uppercase().next().unwrap_or(ch));
-                let w = glyph::advance_width(&name);
-                emit_glyph(cmds, x + dx, dyn_y, &name, cp, sp);
-                dx += w * sp;
-            }
+        // Build a single Unicode string of all SMuFL codepoints and render it as one
+        // music-font text element so the font handles kerning/ligatures (e.g. "mf", "mp").
+        let dyn_str: String = dynamic.chars()
+            .filter_map(|ch| dynamic_codepoint(ch))
+            .filter_map(|cp| char::from_u32(cp))
+            .collect();
+        if !dyn_str.is_empty() {
+            cmds.push(DrawCmd::MusicText {
+                x, y: dyn_y,
+                v: dyn_str,
+                s: 4.0 * sp,
+                a: "north".into(),
+            });
         }
     } else {
         cmds.push(DrawCmd::Text {
@@ -1434,6 +1501,10 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
     let default_sp_numeric = 1.75; // default-staff-space in mm
     let fng_font_size = 7.25 * (sp / default_sp_numeric);
 
+    // Track the topmost y of items placed above the staff so chord/staff-text
+    // can stack above them with a clear gap.
+    let mut above_stack_top = above_anchor_y;
+
     // Fingering
     if let Some(fng) = ev.fingering() {
         let event_fng_pos = ev.fingering_position();
@@ -1471,13 +1542,18 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
                     cur_y += fng_stack_step;
                 }
             }
+            // cur_y is now the y of the NEXT potential fingering slot — use it as
+            // the new floor so chord/staff-text sit above the whole fingering stack.
+            above_stack_top = above_stack_top.max(cur_y);
         }
     }
 
-    // Chord symbol
+    // Chord symbol — must clear the fingering stack with a visible gap.
     if let Some(cs) = ev.chord_symbol() {
         if !cs.is_empty() {
-            let chord_base_y = (y_top + 2.5 * sp).max(above_anchor_y + 0.8 * sp);
+            // Push chord symbol at least 1.5 sp above the last fingering,
+            // or at the standard chord height floor (2.5 sp above staff top).
+            let chord_base_y = (y_top + 2.5 * sp).max(above_stack_top + 1.5 * sp);
             cmds.push(DrawCmd::Text {
                 x, y: chord_base_y,
                 v: cs.to_string(),
@@ -1486,14 +1562,17 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
                 i: false,
                 a: "south".into(),
             });
+            // Chord text is ~10pt ≈ 3.5mm ≈ 2 sp — advance stack by that
+            above_stack_top = above_stack_top.max(chord_base_y + 2.0 * sp);
         }
     }
 
-    // Staff text
+    // Staff text — sits above chord symbols with a clear gap.
     if let Some(st) = ev.staff_text() {
         if !st.is_empty() {
             let staff_font_size = 12.0 * (sp / 1.75);
-            let staff_base_y = (y_top + 2.7 * sp).max(above_anchor_y + 0.45 * sp);
+            // At least 1.0 sp above chord/fingering stack
+            let staff_base_y = (y_top + 2.7 * sp).max(above_stack_top + 1.0 * sp);
             cmds.push(DrawCmd::Text {
                 x, y: staff_base_y,
                 v: st.to_string(),
@@ -1505,11 +1584,12 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
         }
     }
 
-    // Expression text
+    // Expression text — below the staff, clear of dynamics (which sit at y_bottom - 1*sp).
+    // Place it 2.0 sp below the staff bottom so it doesn't overlap dynamic marks.
     if let Some(et) = ev.expression_text() {
         if !et.is_empty() {
             let exp_font_size = 8.75 * (sp / 1.75);
-            let exp_base_y = (y_bottom - 0.75 * sp).min((y_bottom - 0.55 * sp).min(note_y - 1.0 * sp) - 0.35 * sp);
+            let exp_base_y = y_bottom - 2.0 * sp;
             cmds.push(DrawCmd::Text {
                 x, y: exp_base_y,
                 v: et.to_string(),
@@ -1529,7 +1609,9 @@ fn render_staff_markers(cmds: &mut Vec<DrawCmd>, x: f64, markers: &[String], y_t
     // Right-aligned markers (breath mark, caesura)
     for mk in &right {
         let marker_x = x + if mk.as_str() == "caesura" { 1.75 * sp } else { 1.55 * sp };
-        let marker_y = if mk.as_str() == "caesura" { y_top } else { y_top + 0.12 * sp };
+        // Caesura bbox sw_y ≈ 0, ne_y ≈ 2.13 sp — lower placement by 1 sp so it is
+        // visually centred around the top staff line rather than sitting entirely above it.
+        let marker_y = if mk.as_str() == "caesura" { y_top - 1.0 * sp } else { y_top + 0.12 * sp };
         if let Some(cp) = staff_marker_codepoint(mk) {
             emit_glyph(cmds, marker_x, marker_y, mk, cp, sp);
         }

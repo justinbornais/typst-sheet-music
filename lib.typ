@@ -61,18 +61,30 @@
         stroke: (paint: black, thickness: cmd.w * 1mm, cap: "butt"),
       )
     } else if cmd.t == "G" {
-      // Music glyph — cmd.s is in mm (4 * staff-space), canvas length = 1mm
+      // Music glyph — cmd.s is in mm (4 * staff-space); bounds constrain the
+      // content box to the visual ink so the south-west anchor is exact.
       content(
         (cmd.x, cmd.y),
-        text(font: music-font, size: cmd.s * 1mm, str.from-unicode(cmd.c)),
+        text(font: music-font, size: cmd.s * 1mm,
+             top-edge: "bounds", bottom-edge: "bounds",
+             str.from-unicode(cmd.c)),
+        anchor: cmd.a,
+      )
+    } else if cmd.t == "GM" {
+      // Multi-codepoint music text (e.g. "mf", "mp") — let the font handle kerning
+      content(
+        (cmd.x, cmd.y),
+        text(font: music-font, size: cmd.s * 1mm,
+             top-edge: "bounds", bottom-edge: "bounds",
+             cmd.v),
         anchor: cmd.a,
       )
     } else if cmd.t == "T" {
-      // Text — cmd.s is in mm
+      // Text — cmd.s is in pt (standard typographic point sizes)
       content(
         (cmd.x, cmd.y),
         text(
-          size: cmd.s * 1mm,
+          size: cmd.s * 1pt,
           weight: cmd.w,
           style: if cmd.i { "italic" } else { "normal" },
           cmd.v,
