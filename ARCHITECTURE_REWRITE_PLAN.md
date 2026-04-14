@@ -7,6 +7,7 @@ Rebuild Scorify so it can deliver a large compile/render speedup, ideally in the
 1. Future features must remain easy to add.
 2. Placement and engraving logic must stay equivalent to the current behavior.
 3. The public Typst import must stay the same, e.g. `#import "@preview/scorify:0.3.0": score, melody`, with no extra user setup.
+4. Packaging constraint for the Typst package registry ("Typst Universe"): packages distributed through the official Typst registry must be platform-independent. Therefore, any native Rust core or binary components intended to be shipped with the Typst package should be compiled to WebAssembly (WASM) and included with the package (or otherwise provided in a registry-supported, platform-independent form). Verify the current registry policy before publishing.
 
 ## Recommendation
 
