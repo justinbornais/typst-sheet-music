@@ -1551,9 +1551,15 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
     // Chord symbol — must clear the fingering stack with a visible gap.
     if let Some(cs) = ev.chord_symbol() {
         if !cs.is_empty() {
-            // Push chord symbol at least 1.5 sp above the last fingering,
-            // or at the standard chord height floor (2.5 sp above staff top).
-            let chord_base_y = (y_top + 2.5 * sp).max(above_stack_top + 1.5 * sp);
+            // When this note is inside a 1st/2nd ending bracket, force the chord symbol
+            // inside (below) the bracket line so it doesn't float above the bracket.
+            // Otherwise use the standard height floor.
+            let is_inside_ending = ev.ending().is_some();
+            let chord_base_y = if is_inside_ending {
+                y_top + 1.5 * sp  // stays below bracket line at y_top + 3.5 sp
+            } else {
+                (y_top + 2.5 * sp).max(above_stack_top + 1.5 * sp)
+            };
             cmds.push(DrawCmd::Text {
                 x, y: chord_base_y,
                 v: cs.to_string(),
@@ -1585,11 +1591,13 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
     }
 
     // Expression text — below the staff, clear of dynamics (which sit at y_bottom - 1*sp).
-    // Place it 2.0 sp below the staff bottom so it doesn't overlap dynamic marks.
+    // When a dynamic is also present on this note, push expression text further down so
+    // the two don't overlap (dynamics can extend ~2‑3 sp below their top anchor).
     if let Some(et) = ev.expression_text() {
         if !et.is_empty() {
             let exp_font_size = 8.75 * (sp / 1.75);
-            let exp_base_y = y_bottom - 2.0 * sp;
+            let has_dynamic = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
+            let exp_base_y = if has_dynamic { y_bottom - 3.5 * sp } else { y_bottom - 2.0 * sp };
             cmds.push(DrawCmd::Text {
                 x, y: exp_base_y,
                 v: et.to_string(),
@@ -1737,7 +1745,7 @@ fn render_hairpins(
     item_xs: &[f64],
     _adj_stem_ends: &std::collections::HashMap<usize, f64>,
     _adj_stem_dirs: &std::collections::HashMap<usize, String>,
-    _y_top: f64,
+    y_top: f64,
     y_bottom: f64,
     sp: f64,
     music_start_x: f64,
@@ -1826,7 +1834,27 @@ fn render_hairpins(
         let raw_x1 = if hg.ends_here { x_last + 0.95 * sp } else { total_width * sp - 1.0 * sp };
         let x1 = raw_x1.max(x0 + 1.5 * sp);
 
-        let baseline_y = y_bottom - 1.9 * sp;
+        // Compute the lowest note y in this group so the hairpin clears any ledger-line notes.
+        let mut min_note_y = y_bottom;
+        for &idx in &hg.indices {
+            let item = &items[idx];
+            match &item.event {
+                Event::Note(_) => {
+                    let ny = y_top + item.y * sp;
+                    if ny < min_note_y { min_note_y = ny; }
+                }
+                Event::Chord(_) => {
+                    for &cy in &item.chord_ys {
+                        let ny = y_top + cy * sp;
+                        if ny < min_note_y { min_note_y = ny; }
+                    }
+                }
+                _ => {}
+            }
+        }
+        // The hairpin must be at least 1.5 sp below the lowest notehead.
+        let note_floor_y = min_note_y - 1.5 * sp;
+        let baseline_y = (y_bottom - 1.9 * sp).min(note_floor_y);
         let y_center = baseline_y;
 
         let full_half = 0.55 * sp;
@@ -1997,7 +2025,7 @@ fn render_trills(
         });
     }
 
-    let tr_gap = 0.18 * sp;
+    let tr_gap = 0.45 * sp;  // enough space so "tr" glyph and wiggle line don't collide
     let wiggle_w = glyph::advance_width("wiggleTrill") * sp;
 
     for tg in &trill_groups {
@@ -2311,8 +2339,10 @@ fn render_endings(
             final_barline_x
         };
 
-        let bracket_y = y_top + 2.5 * sp; // simplified content top
-        let hook_depth = 1.35 * sp;
+        // Bracket sits high enough that chord symbols (which appear inside it
+        // at y_top + 1.5 sp) are clearly below the bracket line.
+        let bracket_y = y_top + 3.5 * sp;
+        let hook_depth = 0.65 * sp;
 
         emit_line(cmds, x0, bracket_y, x1, bracket_y, line_w);
         emit_line(cmds, x0, bracket_y, x0, bracket_y - hook_depth, line_w);
@@ -2435,7 +2465,9 @@ fn render_lyrics(
                                         a: "north".into(),
                                     });
                                 } else if cont == "extender" {
-                                    let ext_end = x - lyric_text_gap;
+                                    // Add extra padding at both ends so the underscore line
+                                    // doesn't visually collide with the surrounding syllables.
+                                    let ext_end = x - 0.5 * sp;
                                     if ext_end > px {
                                         let ext_y = top_y - 0.92 * sp - 0.2 * sp;
                                         emit_line(cmds, px, ext_y, ext_end, ext_y, 0.09 * sp);
@@ -2445,8 +2477,9 @@ fn render_lyrics(
                         }
                         _prev_text_x = Some(x);
                         prev_continuation = Some(entry.continuation.clone());
-                        // Estimate text right edge (approximation)
-                        prev_right_x = Some(x + text.len() as f64 * 0.3 * sp + lyric_text_gap);
+                        // Estimate text right edge — use a larger per-character width so the
+                        // extender line starts clearly after wide characters like 'W' or 'y'.
+                        prev_right_x = Some(x + text.len() as f64 * 0.45 * sp + lyric_text_gap);
                     }
                 }
             }
