@@ -2,6 +2,7 @@ use crate::glyph;
 use crate::pitch;
 use crate::types::*;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 // ─── Constants (mirrors constants.typ) ─────────────────────────────────
 
@@ -405,10 +406,19 @@ pub fn layout_staff(
     lyric_prefix_states: &[Option<String>],
 ) -> LaidOutStaff {
     let positions = compute_event_positions(events);
-    let mut items = Vec::new();
+    let mut items = Vec::with_capacity(events.len());
     let layout_clef = clef.unwrap_or("treble");
     let mut current_clef = layout_clef.to_string();
-    let mut sp_cache: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+    // Cache key: (note_name_byte, octave, clef_id) — avoids format!/String allocation.
+    // clef_id is a compact hash of the clef string (first 4 bytes packed into u32).
+    let clef_id = |c: &str| -> u32 {
+        let b = c.as_bytes();
+        let mut v = 0u32;
+        for (i, &byte) in b.iter().take(4).enumerate() { v |= (byte as u32) << (i * 8); }
+        v
+    };
+    let mut sp_cache: HashMap<(u8, i32, u32), i32> = HashMap::new();
+    let mut cur_clef_id = clef_id(&current_clef);
 
     for (i, event) in events.iter().enumerate() {
         let pos_info = &positions[i];
@@ -421,8 +431,8 @@ pub fn layout_staff(
 
         match event {
             Event::Note(n) => {
-                let key = format!("{}:{}:{}", n.name, n.octave, current_clef);
-                let sp = *sp_cache.entry(key).or_insert_with(|| {
+                let cache_key = (n.name.as_bytes()[0], n.octave, cur_clef_id);
+                let sp = *sp_cache.entry(cache_key).or_insert_with(|| {
                     pitch::staff_position(&n.name, n.octave, &current_clef)
                 });
                 y = -sp as f64 / 2.0;
@@ -430,10 +440,10 @@ pub fn layout_staff(
                 stem_y_end = Some(pitch::compute_stem_end_y(y, sp, stem_dir.as_deref().unwrap(), 1.0, 3.5));
             }
             Event::Chord(c) => {
-                let mut sp_list = Vec::new();
+                let mut sp_list = Vec::with_capacity(c.notes.len());
                 for cn in &c.notes {
-                    let key = format!("{}:{}:{}", cn.name, cn.octave, current_clef);
-                    let spos = *sp_cache.entry(key).or_insert_with(|| {
+                    let cache_key = (cn.name.as_bytes()[0], cn.octave, cur_clef_id);
+                    let spos = *sp_cache.entry(cache_key).or_insert_with(|| {
                         pitch::staff_position(&cn.name, cn.octave, &current_clef)
                     });
                     sp_list.push(spos);
@@ -466,6 +476,7 @@ pub fn layout_staff(
             }
             Event::Clef(c) => {
                 current_clef = c.clef.clone();
+                cur_clef_id = clef_id(&current_clef);
             }
             _ => {}
         }
@@ -518,12 +529,12 @@ fn is_pre_barline_boundary(items: &[LaidOutItem], idx: usize) -> bool {
         && items[idx + 1].event.is_barline()
 }
 
-fn rounded_beat(beat: f64) -> f64 {
-    (beat * 1_000_000.0).round() / 1_000_000.0
-}
-
-fn beat_key(beat: f64) -> String {
-    format!("{:.6}", rounded_beat(beat))
+/// Convert a beat position to a fixed‑point integer key (micro-beats).
+/// This replaces the previous `format!("{:.6}", ...)` String keys, eliminating
+/// thousands of heap allocations during beat alignment.
+#[inline]
+fn beat_ikey(beat: f64) -> i64 {
+    (beat * 1_000_000.0).round() as i64
 }
 
 pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaff> {
@@ -535,14 +546,14 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
 
     // 1. For each beat boundary, compute the maximum number of non-rhythmic
     //    columns that occur before the next rhythmic event on any staff.
-    let mut beat_boundary_widths: BTreeMap<String, usize> = BTreeMap::new();
+    let mut beat_boundary_widths: HashMap<i64, usize> = HashMap::new();
     for laid_out in laid_out_staves {
         let mut beat = 0.0;
         let mut boundary_count = 0usize;
         let items = &laid_out.items;
         for (ii, item) in items.iter().enumerate() {
             let ev = &item.event;
-            let key = beat_key(beat);
+            let key = beat_ikey(beat);
             if is_pre_barline_boundary(items, ii) {
                 continue;
             } else if is_grace_event(ev) || is_boundary_event(ev) {
@@ -569,7 +580,7 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
                 beat += dur_beats;
             }
         }
-        let final_key = beat_key(beat);
+        let final_key = beat_ikey(beat);
         let current = *beat_boundary_widths.get(&final_key).unwrap_or(&0);
         if boundary_count > current {
             beat_boundary_widths.insert(final_key, boundary_count);
@@ -577,25 +588,26 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
     }
 
     // 2. Compute cumulative beat offsets for every item in every staff.
-    let mut staves_beats: Vec<Vec<f64>> = Vec::new();
-    let mut staff_terminal_beats: Vec<f64> = Vec::new();
+    let num_staves = laid_out_staves.len();
+    let mut staves_beat_keys: Vec<Vec<i64>> = Vec::with_capacity(num_staves);
+    let mut staff_terminal_keys: Vec<i64> = Vec::with_capacity(num_staves);
     for laid_out in laid_out_staves {
-        let mut beats = Vec::new();
+        let items = &laid_out.items;
+        let mut keys = Vec::with_capacity(items.len());
         let mut beat = 0.0;
         let mut boundary_phase = 0usize;
-        let items = &laid_out.items;
         for (ii, item) in items.iter().enumerate() {
             let ev = &item.event;
-            let rb = rounded_beat(beat);
-            let boundary_width = *beat_boundary_widths.get(&beat_key(beat)).unwrap_or(&0);
+            let rb = (beat * 1_000_000.0_f64).round() / 1_000_000.0;
+            let boundary_width = *beat_boundary_widths.get(&beat_ikey(beat)).unwrap_or(&0);
 
             if is_pre_barline_boundary(items, ii) {
-                beats.push(rounded_beat(rb - barline_epsilon));
+                keys.push(beat_ikey(rb - barline_epsilon));
             } else if is_grace_event(ev) || is_boundary_event(ev) {
-                beats.push(rounded_beat(rb + boundary_phase as f64 * barline_epsilon));
+                keys.push(beat_ikey(rb + boundary_phase as f64 * barline_epsilon));
                 boundary_phase += 1;
             } else if is_rhythmic_event(ev) {
-                beats.push(rounded_beat(rb + boundary_width as f64 * barline_epsilon));
+                keys.push(beat_ikey(rb + boundary_width as f64 * barline_epsilon));
 
                 let dur = ev.duration();
                 let dots = ev.dots();
@@ -608,44 +620,45 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
                 beat += dur_beats;
                 boundary_phase = 0;
             } else {
-                beats.push(rounded_beat(rb + boundary_width as f64 * barline_epsilon));
+                keys.push(beat_ikey(rb + boundary_width as f64 * barline_epsilon));
             }
         }
-        staves_beats.push(beats);
-        let terminal_bw = *beat_boundary_widths.get(&beat_key(beat)).unwrap_or(&0);
-        staff_terminal_beats.push(rounded_beat(rounded_beat(beat) + terminal_bw as f64 * barline_epsilon));
+        let terminal_bw = *beat_boundary_widths.get(&beat_ikey(beat)).unwrap_or(&0);
+        let rb = (beat * 1_000_000.0).round() / 1_000_000.0;
+        staff_terminal_keys.push(beat_ikey(rb + terminal_bw as f64 * barline_epsilon));
+        staves_beat_keys.push(keys);
     }
 
-    // 3. Sorted unique beat positions.
-    let mut beat_set: BTreeMap<String, f64> = BTreeMap::new();
-    for staff_beats in &staves_beats {
-        for &b in staff_beats {
-            beat_set.insert(format!("{:.6}", b), b);
+    // 3. Sorted unique beat positions using a BTreeMap<i64, ()>.
+    let mut beat_set: BTreeMap<i64, ()> = BTreeMap::new();
+    for staff_keys in &staves_beat_keys {
+        for &k in staff_keys {
+            beat_set.entry(k).or_insert(());
         }
     }
-    for &b in &staff_terminal_beats {
-        beat_set.insert(format!("{:.6}", b), b);
+    for &k in &staff_terminal_keys {
+        beat_set.entry(k).or_insert(());
     }
-    let all_beats: Vec<f64> = beat_set.values().copied().collect();
+    let all_keys: Vec<i64> = beat_set.keys().copied().collect();
+    let n_cols = all_keys.len();
 
     // 4. Beat -> column index map.
-    let mut beat_to_col: BTreeMap<String, usize> = BTreeMap::new();
-    for (ci, &b) in all_beats.iter().enumerate() {
-        beat_to_col.insert(format!("{:.6}", b), ci);
+    let mut key_to_col: HashMap<i64, usize> = HashMap::with_capacity(n_cols);
+    for (ci, &k) in all_keys.iter().enumerate() {
+        key_to_col.insert(k, ci);
     }
-    let n_cols = all_beats.len();
 
     // 5. Compute column widths using the distributed-width approach.
     let mut col_widths = vec![0.0_f64; n_cols];
 
     for (si, laid_out) in laid_out_staves.iter().enumerate() {
-        let staff_beats = &staves_beats[si];
-        let terminal_col = *beat_to_col.get(&format!("{:.6}", staff_terminal_beats[si])).unwrap_or(&0);
+        let staff_keys = &staves_beat_keys[si];
+        let terminal_col = *key_to_col.get(&staff_terminal_keys[si]).unwrap_or(&0);
         let items = &laid_out.items;
         for (ii, item) in items.iter().enumerate() {
-            let start_col = *beat_to_col.get(&format!("{:.6}", staff_beats[ii])).unwrap_or(&0);
+            let start_col = *key_to_col.get(&staff_keys[ii]).unwrap_or(&0);
             let end_col = if ii + 1 < items.len() {
-                *beat_to_col.get(&format!("{:.6}", staff_beats[ii + 1])).unwrap_or(&0)
+                *key_to_col.get(&staff_keys[ii + 1]).unwrap_or(&0)
             } else {
                 terminal_col
             };
@@ -672,12 +685,12 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
     let total_w = x;
 
     // 7. Reassign x to each item based on its column.
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(num_staves);
     for (si, laid_out) in laid_out_staves.iter().enumerate() {
-        let staff_beats = &staves_beats[si];
-        let mut new_items = Vec::new();
+        let staff_keys = &staves_beat_keys[si];
+        let mut new_items = Vec::with_capacity(laid_out.items.len());
         for (ii, item) in laid_out.items.iter().enumerate() {
-            let ci = *beat_to_col.get(&format!("{:.6}", staff_beats[ii])).unwrap_or(&0);
+            let ci = *key_to_col.get(&staff_keys[ii]).unwrap_or(&0);
             new_items.push(LaidOutItem {
                 event: item.event.clone(),
                 x: col_xs[ci],

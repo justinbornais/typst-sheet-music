@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 // ─── Event types (mirrors model.typ) ───────────────────────────────────
 
@@ -636,16 +637,16 @@ pub enum DrawCmd {
 
     /// Music glyph: place at (x,y), codepoint c, font size s (mm), anchor a
     #[serde(rename = "G")]
-    Glyph { x: f64, y: f64, c: u32, s: f64, a: String },
+    Glyph { x: f64, y: f64, c: u32, s: f64, a: Cow<'static, str> },
 
     /// Multi-codepoint music text: render string v with the music font at size s (mm)
     /// Used for composites like dynamics "mf" where kerning/ligatures must be font-handled.
     #[serde(rename = "GM")]
-    MusicText { x: f64, y: f64, v: String, s: f64, a: String },
+    MusicText { x: f64, y: f64, v: String, s: f64, a: Cow<'static, str> },
 
     /// Text: place at (x,y), string v, size s (pt), weight w, italic i, anchor a
     #[serde(rename = "T")]
-    Text { x: f64, y: f64, v: String, s: f64, w: String, i: bool, a: String },
+    Text { x: f64, y: f64, v: String, s: f64, w: Cow<'static, str>, i: bool, a: Cow<'static, str> },
 
     /// Filled polygon (beams): flat array of x,y pairs
     #[serde(rename = "P")]

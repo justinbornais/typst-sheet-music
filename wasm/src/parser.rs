@@ -47,7 +47,7 @@ impl<'a> Parser<'a> {
             pos: 0,
             last_duration: 4,
             current_base_octave: base_octave,
-            events: Vec::new(),
+            events: Vec::with_capacity(input.len() / 3), // rough estimate: ~3 chars per event
             curly_open_serial: 0,
             tuplet_start_idx: None, tuplet_n: 0, tuplet_m: 0, tuplet_open_order: None,
             octline_start_idx: None, octline_number: 0, octline_dir: None, octline_open_order: None,

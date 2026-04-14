@@ -164,6 +164,11 @@ fn time_digit_codepoint(d: u32) -> u32 {
     0xE080 + d
 }
 
+const TIME_SIG_NAMES: &[&str] = &[
+    "timeSig0", "timeSig1", "timeSig2", "timeSig3", "timeSig4",
+    "timeSig5", "timeSig6", "timeSig7", "timeSig8", "timeSig9",
+];
+
 fn dynamic_codepoint(ch: char) -> Option<u32> {
     match ch {
         'p' => Some(0xE520),
@@ -206,6 +211,7 @@ fn staff_marker_codepoint(kind: &str) -> Option<u32> {
 
 /// Place a glyph using its SMuFL bounding-box SW corner as the south-west anchor.
 /// The rendered origin (reference point) ends up at (x, y).
+#[inline]
 fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoint: u32, sp: f64) {
     let fsize = 4.0 * sp;
     let bb = glyph::bbox(smufl_name);
@@ -226,7 +232,8 @@ fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoi
 /// Place a glyph with an explicit CeTZ anchor and NO bounding-box offset.
 /// Use this for articulations and dynamics where the coordinate is the
 /// desired glyph edge ("south" = bottom at y, "north" = top at y, etc.).
-fn emit_glyph_anchored(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, codepoint: u32, sp: f64, anchor: &str) {
+#[inline]
+fn emit_glyph_anchored(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, codepoint: u32, sp: f64, anchor: &'static str) {
     cmds.push(DrawCmd::Glyph {
         x,
         y,
@@ -240,6 +247,7 @@ fn emit_glyph_scaled(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, 
     emit_glyph(cmds, x, y, smufl_name, codepoint, sp);
 }
 
+#[inline]
 fn emit_line(cmds: &mut Vec<DrawCmd>, x1: f64, y1: f64, x2: f64, y2: f64, w: f64) {
     cmds.push(DrawCmd::Line { x1, y1, x2, y2, w });
 }
@@ -407,7 +415,9 @@ pub fn render_system_group(
     show_time: bool,
     fingering_positions: &[&str],
 ) -> SystemOutput {
-    let mut cmds = Vec::new();
+    // Estimate ~20 draw commands per event (lines, glyphs, text, etc.)
+    let estimated_cmds = laid_out_staves.iter().map(|s| s.items.len()).sum::<usize>() * 20 + 100;
+    let mut cmds = Vec::with_capacity(estimated_cmds);
     let num_staves = laid_out_staves.len();
     let staff_height_mm = 4.0 * sp_unit;
     let use_spanning_barlines = num_staves > 1;
@@ -811,8 +821,8 @@ fn render_system(
     let black_bottom = black_bb.map_or(-0.82, |b| b.sw_y);
 
     // ── Auto-beaming ──
-    let mut raw_beam_groups: Vec<Vec<usize>> = Vec::new();
-    let mut cur_beam: Vec<usize> = Vec::new();
+    let mut raw_beam_groups: Vec<Vec<usize>> = Vec::with_capacity(16);
+    let mut cur_beam: Vec<usize> = Vec::with_capacity(8);
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
         let beamable = (ev.is_note() || ev.is_chord()) && ev.duration() >= 8;
@@ -840,7 +850,7 @@ fn render_system(
     let mut adj_stem_ends: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     let mut adj_stem_dirs: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
 
-    let mut beam_groups_data: Vec<BeamGroupData> = Vec::new();
+    let mut beam_groups_data: Vec<BeamGroupData> = Vec::with_capacity(raw_beam_groups.len());
 
     for group in &raw_beam_groups {
         let group_is_grace = items[*group.first().unwrap()].event.grace();
@@ -897,7 +907,7 @@ fn render_system(
             syn += outward;
         }
 
-        let mut beam_note_data = Vec::new();
+        let mut beam_note_data = Vec::with_capacity(group.len());
         for &idx in group {
             let item = &items[idx];
             let xi = item_xs[idx];
@@ -1294,10 +1304,10 @@ fn render_time_signature(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, upper: i32
             let mut dx = 0.0;
             for ch in upper_s.chars() {
                 if let Some(d) = ch.to_digit(10) {
-                    let name = format!("timeSig{}", d);
+                    let name = TIME_SIG_NAMES[d as usize];
                     let cp = time_digit_codepoint(d);
-                    emit_glyph(cmds, x + dx, y_top - 1.0 * sp, &name, cp, sp);
-                    dx += glyph::advance_width(&name) * sp;
+                    emit_glyph(cmds, x + dx, y_top - 1.0 * sp, name, cp, sp);
+                    dx += glyph::advance_width(name) * sp;
                 }
             }
             // Lower digits
@@ -1305,10 +1315,10 @@ fn render_time_signature(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, upper: i32
             dx = 0.0;
             for ch in lower_s.chars() {
                 if let Some(d) = ch.to_digit(10) {
-                    let name = format!("timeSig{}", d);
+                    let name = TIME_SIG_NAMES[d as usize];
                     let cp = time_digit_codepoint(d);
-                    emit_glyph(cmds, x + dx, y_top - 3.0 * sp, &name, cp, sp);
-                    dx += glyph::advance_width(&name) * sp;
+                    emit_glyph(cmds, x + dx, y_top - 3.0 * sp, name, cp, sp);
+                    dx += glyph::advance_width(name) * sp;
                 }
             }
         }
@@ -1704,8 +1714,8 @@ fn render_tuplets(
     sp: f64,
 ) {
     // Find tuplet groups
-    let mut tuplet_groups: Vec<(Vec<usize>, i32)> = Vec::new();
-    let mut cur_indices = Vec::new();
+    let mut tuplet_groups: Vec<(Vec<usize>, i32)> = Vec::with_capacity(items.len() / 3);
+    let mut cur_indices = Vec::with_capacity(8);
     let mut cur_number = 0;
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
@@ -1815,8 +1825,8 @@ fn render_hairpins(
         starts_here: bool,
         ends_here: bool,
     }
-    let mut groups: Vec<HairpinGroup> = Vec::new();
-    let mut cur_indices = Vec::new();
+    let mut groups: Vec<HairpinGroup> = Vec::with_capacity(4);
+    let mut cur_indices = Vec::with_capacity(8);
     let mut cur_kind: Option<String> = None;
 
     for (i, item) in items.iter().enumerate() {
@@ -1977,7 +1987,7 @@ fn render_ties_and_slurs(
     }
 
     // Slurs
-    let mut slur_starts: Vec<usize> = Vec::new();
+    let mut slur_starts: Vec<usize> = Vec::with_capacity(4);
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
         if !ev.is_note() && !ev.is_chord() { continue; }
@@ -2056,8 +2066,8 @@ fn render_trills(
         starts_here: bool,
         ends_here: bool,
     }
-    let mut trill_groups: Vec<TrillLineGroup> = Vec::new();
-    let mut cur_indices = Vec::new();
+    let mut trill_groups: Vec<TrillLineGroup> = Vec::with_capacity(4);
+    let mut cur_indices = Vec::with_capacity(8);
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
         if ev.is_anchor() && ev.trill_line() {
@@ -2137,8 +2147,8 @@ fn render_octave_lines(
         starts_here: bool,
         ends_here: bool,
     }
-    let mut groups: Vec<OctGroup> = Vec::new();
-    let mut cur_indices = Vec::new();
+    let mut groups: Vec<OctGroup> = Vec::with_capacity(4);
+    let mut cur_indices = Vec::with_capacity(8);
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
         if ev.is_anchor() && ev.octave_line_number() > 0 {
@@ -2289,8 +2299,8 @@ fn render_endings(
         starts_here: bool,
         ends_here: bool,
     }
-    let mut groups: Vec<EndingGroup> = Vec::new();
-    let mut cur_indices = Vec::new();
+    let mut groups: Vec<EndingGroup> = Vec::with_capacity(4);
+    let mut cur_indices = Vec::with_capacity(8);
     let mut cur_label: Option<String> = None;
 
     for (i, item) in items.iter().enumerate() {
