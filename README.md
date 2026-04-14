@@ -4,7 +4,7 @@ Render sheet music directly inside Typst using SMuFL-aware glyph placement and C
 
 ## Features
 
-- Pure Typst: no WASM plugin and no LilyPond or MuseScore CLI dependency.
+- WASM-backed Typst API with no LilyPond or MuseScore CLI dependency.
 - Notes, rests, spacers, chords, accidentals, key signatures, time signatures, and supported clefs.
 - Inline annotations: dynamics, hairpins, articulations, fingerings, chord symbols, expression text, staff text, staff markers, and lyrics.
 - Notation features: beams, ties, slurs, tuplets, octave lines, trills, grace notes / acciaccaturas, repeat barlines, endings, and dotted notes.
@@ -36,7 +36,7 @@ typst compile your-file.typ --font-path /path/to/bravura/
 
 ### Manual Installation
 
-Copy `lib.typ`, `src/`, and `data/` into your project, then import locally:
+Copy `lib.typ` and `scorify_wasm.wasm` into your project, then import locally:
 
 ```typ
 #import "lib.typ": score, melody
@@ -301,7 +301,7 @@ See `examples/` and `tests/test-render-basic.typ` for more combinations and edge
 
 - Scorify defaults to the Bravura SMuFL font and bundled Bravura metadata.
 - Alternate SMuFL fonts may need spacing adjustments depending on their metadata quality.
-- Core spacing constants live in `src/constants.typ`.
+- Core parsing, layout, glyph metrics, and rendering command generation live in `wasm/src/`.
 - The library requires Typst `0.14.0+` and CeTZ `0.4.2`.
 
 ## Contributing
