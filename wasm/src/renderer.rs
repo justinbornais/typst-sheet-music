@@ -337,6 +337,60 @@ struct BeamGroupData {
 
 // ─── Main rendering functions ──────────────────────────────────────────
 
+/// Returns how far below `y_bottom` the given events' below-staff elements extend, in sp units.
+/// Used to auto-expand inter-staff spacing within a system so low elements don't intrude into
+/// the next staff's area.
+fn compute_below_extent_sp(items: &[LaidOutItem]) -> f64 {
+    let mut max_sp = 0.0_f64;
+    for item in items {
+        let ev = &item.event;
+        let has_dynamic   = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
+        let has_expression = ev.expression_text().map_or(false, |e| !e.is_empty());
+        let has_hairpin   = ev.hairpin().is_some();
+        let lyric_count   = ev.lyrics().iter().filter(|l| l.text.is_some()).count();
+        // Dynamic glyph sits at y_bottom-1 sp (north anchor), extends ~2.5 sp downward → 3.5 sp.
+        // Expression text at y_bottom-3.5 sp (with dynamic) or y_bottom-2.0 sp (alone), ~1.5 sp tall.
+        if has_dynamic && has_expression {
+            max_sp = max_sp.max(6.0);  // dyn (3.5) + expression below that (~2 sp more)
+        } else if has_dynamic {
+            max_sp = max_sp.max(3.5);
+        } else if has_expression {
+            max_sp = max_sp.max(3.5);
+        }
+        if has_hairpin {
+            max_sp = max_sp.max(3.0);
+        }
+        if lyric_count > 0 {
+            max_sp = max_sp.max(3.1 + lyric_count as f64 * 1.75 + 2.0);
+        }
+    }
+    max_sp
+}
+
+/// Returns how far above `y_top` the given events' above-staff elements extend, in sp units.
+fn compute_above_extent_sp(items: &[LaidOutItem]) -> f64 {
+    let mut max_sp = 0.0_f64;
+    for item in items {
+        let ev = &item.event;
+        let has_chord      = ev.chord_symbol().map_or(false, |c| !c.is_empty());
+        let has_staff_text = ev.staff_text().map_or(false, |t| !t.is_empty());
+        let has_ending     = ev.ending().is_some();
+        let has_fingering  = ev.fingering().is_some();
+        if has_ending {
+            if has_chord || has_staff_text {
+                max_sp = max_sp.max(9.0); // chord/text above bracket line + bracket height
+            } else {
+                max_sp = max_sp.max(5.0); // just the bracket
+            }
+        } else if has_staff_text || has_chord {
+            max_sp = max_sp.max(5.5);
+        } else if has_fingering {
+            max_sp = max_sp.max(3.0);
+        }
+    }
+    max_sp
+}
+
 pub fn render_system_group(
     laid_out_staves: &[LaidOutStaff],
     key: &str,
@@ -448,7 +502,12 @@ pub fn render_system_group(
 
     for (si, laid_out) in laid_out_staves.iter().enumerate() {
         if si > 0 {
-            let spacing = staff_spacing_mm;
+            // Expand the gap if below-staff content of the upper staff or above-staff content
+            // of the lower staff needs more room than the configured default spacing.
+            let below_sp = compute_below_extent_sp(&laid_out_staves[si - 1].items);
+            let above_sp = compute_above_extent_sp(&laid_out.items);
+            let required_mm = (below_sp + above_sp + 0.5) * sp_unit;
+            let spacing = staff_spacing_mm.max(required_mm);
             y_offset -= spacing;
             total_height += spacing;
         }
@@ -1548,18 +1607,17 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
         }
     }
 
+    // When this note is inside a volta/ending bracket, push the placement floor above
+    // the bracket line so chord symbols and staff text don't collide with the bracket
+    // frame or its label ("1.", "2.", etc.).  The bracket line lives at y_top + 3.5 sp.
+    if ev.ending().is_some() {
+        above_stack_top = above_stack_top.max(y_top + 3.5 * sp);
+    }
+
     // Chord symbol — must clear the fingering stack with a visible gap.
     if let Some(cs) = ev.chord_symbol() {
         if !cs.is_empty() {
-            // When this note is inside a 1st/2nd ending bracket, force the chord symbol
-            // inside (below) the bracket line so it doesn't float above the bracket.
-            // Otherwise use the standard height floor.
-            let is_inside_ending = ev.ending().is_some();
-            let chord_base_y = if is_inside_ending {
-                y_top + 1.5 * sp  // stays below bracket line at y_top + 3.5 sp
-            } else {
-                (y_top + 2.5 * sp).max(above_stack_top + 1.5 * sp)
-            };
+            let chord_base_y = (y_top + 2.5 * sp).max(above_stack_top + 1.5 * sp);
             cmds.push(DrawCmd::Text {
                 x, y: chord_base_y,
                 v: cs.to_string(),
@@ -2467,7 +2525,10 @@ fn render_lyrics(
                                 } else if cont == "extender" {
                                     // Add extra padding at both ends so the underscore line
                                     // doesn't visually collide with the surrounding syllables.
-                                    let ext_end = x - 0.5 * sp;
+                                    // Estimate the half-width of the NEXT syllable (text is
+                                    // centred at x) and leave 0.4 sp of clear space before it.
+                                    let next_half_w = text.len() as f64 * 0.25 * sp;
+                                    let ext_end = x - next_half_w - 0.4 * sp;
                                     if ext_end > px {
                                         let ext_y = top_y - 0.92 * sp - 0.2 * sp;
                                         emit_line(cmds, px, ext_y, ext_end, ext_y, 0.09 * sp);
