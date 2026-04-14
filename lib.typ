@@ -61,18 +61,18 @@
         stroke: (paint: black, thickness: cmd.w * 1mm, cap: "butt"),
       )
     } else if cmd.t == "G" {
-      // Music glyph
+      // Music glyph — cmd.s is in mm (4 * staff-space), canvas length = 1mm
       content(
         (cmd.x, cmd.y),
-        text(font: music-font, size: cmd.s * 1pt, str.from-unicode(cmd.c)),
+        text(font: music-font, size: cmd.s * 1mm, str.from-unicode(cmd.c)),
         anchor: cmd.a,
       )
     } else if cmd.t == "T" {
-      // Text
+      // Text — cmd.s is in mm
       content(
         (cmd.x, cmd.y),
         text(
-          size: cmd.s * 1pt,
+          size: cmd.s * 1mm,
           weight: cmd.w,
           style: if cmd.i { "italic" } else { "normal" },
           cmd.v,
