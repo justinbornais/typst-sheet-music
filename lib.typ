@@ -1,15 +1,13 @@
 // lib.typ - Main entry point for the scorify package (WASM-backed)
 //
-// All parsing, layout, and rendering computation is performed by a native
-// Rust core compiled to WebAssembly.  The Typst frontend serialises the
-// user-facing parameters to JSON, calls the WASM plugin, and executes the
-// returned drawing commands in a CeTZ canvas.
-
-#import "@preview/cetz:0.4.2"
+// Parsing, layout, and rendering command generation are performed by a Rust
+// core compiled to WebAssembly. The Typst frontend serializes user-facing
+// parameters to JSON, calls the WASM plugin, and embeds the returned SVG systems
+// as vector images.
 
 #let scorify-wasm = plugin("scorify_wasm.wasm")
 
-// ─── Header (standard Typst content, outside CeTZ) ────────────────────
+// Header (standard Typst content, outside the SVG systems)
 
 #let render-header(
   title: none,
@@ -48,83 +46,6 @@
     v(6pt)
   })
 }
-
-// ─── Draw-command executor ─────────────────────────────────────────────
-
-#let execute-draw-cmds(cmds, music-font: "Bravura") = {
-  import cetz.draw: *
-  for cmd in cmds {
-    if cmd.t == "L" {
-      // Line
-      line(
-        (cmd.x1, cmd.y1), (cmd.x2, cmd.y2),
-        stroke: (paint: black, thickness: cmd.w * 1mm, cap: "butt"),
-      )
-    } else if cmd.t == "G" {
-      // Music glyph — cmd.s is in mm (4 * staff-space); bounds constrain the
-      // content box to the visual ink so the south-west anchor is exact.
-      content(
-        (cmd.x, cmd.y),
-        text(font: music-font, size: cmd.s * 1mm,
-             top-edge: "bounds", bottom-edge: "bounds",
-             str.from-unicode(cmd.c)),
-        anchor: cmd.a,
-      )
-    } else if cmd.t == "GM" {
-      // Multi-codepoint music text (e.g. "mf", "mp") — let the font handle kerning
-      content(
-        (cmd.x, cmd.y),
-        text(font: music-font, size: cmd.s * 1mm,
-             top-edge: "bounds", bottom-edge: "bounds",
-             cmd.v),
-        anchor: cmd.a,
-      )
-    } else if cmd.t == "T" {
-      // Text — cmd.s is in pt (standard typographic point sizes)
-      content(
-        (cmd.x, cmd.y),
-        text(
-          size: cmd.s * 1pt,
-          weight: cmd.w,
-          style: if cmd.i { "italic" } else { "normal" },
-          cmd.v,
-        ),
-        anchor: cmd.a,
-      )
-    } else if cmd.t == "P" {
-      // Filled polygon (beams)
-      let pairs = ()
-      let j = 0
-      while j + 1 < cmd.pts.len() {
-        pairs.push((cmd.pts.at(j), cmd.pts.at(j + 1)))
-        j += 2
-      }
-      line(..pairs, close: true, fill: black, stroke: none)
-    } else if cmd.t == "B" {
-      // Filled bezier (slurs, ties)
-      let p = cmd.pts
-      merge-path(fill: black, stroke: none, {
-        bezier(
-          (p.at(0), p.at(1)), (p.at(6), p.at(7)),
-          (p.at(2), p.at(3)), (p.at(4), p.at(5)),
-        )
-        bezier(
-          (p.at(6), p.at(7)), (p.at(0), p.at(1)),
-          (p.at(8), p.at(9)), (p.at(10), p.at(11)),
-        )
-      })
-    } else if cmd.t == "C" {
-      // Filled circle (dots)
-      circle((cmd.x, cmd.y), radius: cmd.r, fill: black, stroke: none)
-    } else if cmd.t == "M" {
-      // Move CeTZ origin for next staff / system
-      set-origin((cmd.dx, cmd.dy))
-    }
-    // "F" (FlushContent) is a no-op on the Typst side
-  }
-}
-
-// ─── Public API ────────────────────────────────────────────────────────
 
 /// Render a complete music score.
 ///
@@ -177,7 +98,6 @@
 ) = {
   if staves.len() == 0 { return }
 
-  // Header (Typst content, not CeTZ)
   render-header(
     title: title,
     subtitle: subtitle,
@@ -187,7 +107,6 @@
   )
 
   let render-inner(avail-width-mm) = {
-    // Build WASM input — all keys use snake_case to match Rust struct fields
     let input = (
       staves: staves.map(s => (
         clef: s.at("clef", default: none),
@@ -197,7 +116,6 @@
       )),
       key: key,
       time: time,
-      // Headers are rendered by Typst above; don't duplicate in WASM
       title: none,
       subtitle: none,
       composer: none,
@@ -217,15 +135,11 @@
     let result = json(result-bytes)
 
     for system in result.systems {
-      cetz.canvas(
-        length: 1mm,
-        execute-draw-cmds(system.cmds, music-font: music-font),
-      )
+      block(image(bytes(system.svg), format: "svg"))
       v(system-spacing)
     }
   }
 
-  // Resolve width
   if width == auto {
     layout(size => {
       render-inner(size.width / 1mm)

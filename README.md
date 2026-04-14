@@ -1,6 +1,6 @@
 # Scorify
 
-Render sheet music directly inside Typst using SMuFL-aware glyph placement and CeTZ drawing primitives.
+Render sheet music directly inside Typst using SMuFL-aware glyph placement and a WASM-backed SVG renderer.
 
 ## Features
 
@@ -302,7 +302,7 @@ See `examples/` and `tests/test-render-basic.typ` for more combinations and edge
 - Scorify defaults to the Bravura SMuFL font and bundled Bravura metadata.
 - Alternate SMuFL fonts may need spacing adjustments depending on their metadata quality.
 - Core parsing, layout, glyph metrics, and rendering command generation live in `wasm/src/`.
-- The library requires Typst `0.14.0+` and CeTZ `0.4.2`.
+- The library requires Typst `0.14.0+`.
 
 ## Contributing
 

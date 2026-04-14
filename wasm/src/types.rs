@@ -622,12 +622,14 @@ pub struct ScoreOutput {
 pub struct SystemOutput {
     pub width: f64,
     pub height: f64,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub svg: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cmds: Vec<DrawCmd>,
 }
 
-/// Drawing commands for the Typst frontend to execute.
-/// All coordinates are in the CeTZ convention: x-right, y-up, in mm.
-/// The Typst layer will create a CeTZ canvas with `length: 1mm` and execute these.
+/// Internal drawing commands converted to SVG before returning to Typst.
+/// All coordinates use the original renderer convention: x-right, y-up, in mm.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t")]
 pub enum DrawCmd {
@@ -666,7 +668,7 @@ pub enum DrawCmd {
     #[serde(rename = "F")]
     FlushContent,
 
-    /// Move the CeTZ origin for the next system/staff. dx, dy are offsets in mm.
+    /// Move the drawing origin for the next system/staff. dx, dy are offsets in mm.
     #[serde(rename = "M")]
     MoveOrigin { dx: f64, dy: f64 },
 }

@@ -132,6 +132,7 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
             if is_first { params.lyricist.as_deref() } else { None },
             is_first && show_time,
             &params.staves.iter().map(|s| s.fingering_position.as_deref().unwrap_or("above")).collect::<Vec<_>>(),
+            &params.music_font,
         );
         output_systems.push(sys_output);
     }

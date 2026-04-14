@@ -2,6 +2,8 @@ use crate::glyph;
 use crate::layout;
 use crate::pitch;
 use crate::types::*;
+use std::fmt::Write as _;
+use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 // ─── Constants ─────────────────────────────────────────────────────────
 
@@ -16,6 +18,7 @@ const ACCIDENTAL_PADDING: f64 = 0.35;
 const INLINE_CLEF_SCALE: f64 = 0.8;
 const CLEF_PADDING: f64 = 0.5;
 const GRACE_NOTE_SCALE: f64 = 0.68;
+const BRAVURA_FONT: &[u8] = include_bytes!("../../fonts/Bravura.otf");
 
 // ─── SMuFL codepoint helpers ───────────────────────────────────────────
 
@@ -229,7 +232,7 @@ fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoi
     });
 }
 
-/// Place a glyph with an explicit CeTZ anchor and NO bounding-box offset.
+/// Place a glyph with an explicit text anchor and NO bounding-box offset.
 /// Use this for articulations and dynamics where the coordinate is the
 /// desired glyph edge ("south" = bottom at y, "north" = top at y, etc.).
 #[inline]
@@ -250,6 +253,481 @@ fn emit_glyph_scaled(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, 
 #[inline]
 fn emit_line(cmds: &mut Vec<DrawCmd>, x1: f64, y1: f64, x2: f64, y2: f64, w: f64) {
     cmds.push(DrawCmd::Line { x1, y1, x2, y2, w });
+}
+
+fn xml_escape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&apos;"),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+fn svg_anchor_attrs(anchor: &str) -> (&'static str, &'static str) {
+    let text_anchor = if anchor.contains("east") {
+        "end"
+    } else if anchor.contains("west") {
+        "start"
+    } else {
+        "middle"
+    };
+
+    let baseline = if anchor.contains("north") {
+        "text-before-edge"
+    } else if anchor.contains("south") {
+        "text-after-edge"
+    } else {
+        "central"
+    };
+
+    (text_anchor, baseline)
+}
+
+fn update_bounds(bounds: &mut (f64, f64, f64, f64), x: f64, y: f64) {
+    bounds.0 = bounds.0.min(x);
+    bounds.1 = bounds.1.min(y);
+    bounds.2 = bounds.2.max(x);
+    bounds.3 = bounds.3.max(y);
+}
+
+struct SvgPathBuilder<'a> {
+    data: &'a mut String,
+    sw_x: f64,
+    sw_y: f64,
+    scale: f64,
+    x_offset: f64,
+    y_offset: f64,
+}
+
+impl SvgPathBuilder<'_> {
+    fn sx(&self, x: f32) -> f64 {
+        self.sw_x + (x as f64 + self.x_offset) * self.scale
+    }
+
+    fn sy(&self, y: f32) -> f64 {
+        self.sw_y - (y as f64 + self.y_offset) * self.scale
+    }
+}
+
+impl OutlineBuilder for SvgPathBuilder<'_> {
+    fn move_to(&mut self, x: f32, y: f32) {
+        let _ = write!(self.data, "M{:.3} {:.3}", self.sx(x), self.sy(y));
+    }
+
+    fn line_to(&mut self, x: f32, y: f32) {
+        let _ = write!(self.data, "L{:.3} {:.3}", self.sx(x), self.sy(y));
+    }
+
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        let _ = write!(
+            self.data,
+            "Q{:.3} {:.3} {:.3} {:.3}",
+            self.sx(x1),
+            self.sy(y1),
+            self.sx(x),
+            self.sy(y)
+        );
+    }
+
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        let _ = write!(
+            self.data,
+            "C{:.3} {:.3} {:.3} {:.3} {:.3} {:.3}",
+            self.sx(x1),
+            self.sy(y1),
+            self.sx(x2),
+            self.sy(y2),
+            self.sx(x),
+            self.sy(y)
+        );
+    }
+
+    fn close(&mut self) {
+        self.data.push('Z');
+    }
+}
+
+fn anchor_sw(x: f64, y: f64, width: f64, height: f64, anchor: &str) -> (f64, f64) {
+    let sw_x = if anchor.contains("east") {
+        x - width
+    } else if anchor.contains("west") {
+        x
+    } else {
+        x - width / 2.0
+    };
+
+    let sw_y = if anchor.contains("north") {
+        y - height
+    } else if anchor.contains("south") {
+        y
+    } else {
+        y - height / 2.0
+    };
+
+    (sw_x, sw_y)
+}
+
+fn glyph_id(face: &Face, ch: char) -> Option<GlyphId> {
+    face.glyph_index(ch)
+}
+
+fn music_glyph_bounds(
+    face: &Face,
+    x: f64,
+    y: f64,
+    c: u32,
+    size_mm: f64,
+    anchor: &str,
+) -> Option<(f64, f64, f64, f64)> {
+    let ch = char::from_u32(c)?;
+    let gid = glyph_id(face, ch)?;
+    let bbox = face.glyph_bounding_box(gid)?;
+    let scale = size_mm / face.units_per_em() as f64;
+    let width = (bbox.x_max - bbox.x_min) as f64 * scale;
+    let height = (bbox.y_max - bbox.y_min) as f64 * scale;
+    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
+    Some((sw_x, sw_y, sw_x + width, sw_y + height))
+}
+
+fn music_text_bounds(
+    face: &Face,
+    x: f64,
+    y: f64,
+    value: &str,
+    size_mm: f64,
+    anchor: &str,
+) -> Option<(f64, f64, f64, f64)> {
+    let scale = size_mm / face.units_per_em() as f64;
+    let mut pen = 0.0_f64;
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+
+    for ch in value.chars() {
+        let gid = glyph_id(face, ch)?;
+        if let Some(b) = face.glyph_bounding_box(gid) {
+            min_x = min_x.min(pen + b.x_min as f64);
+            min_y = min_y.min(b.y_min as f64);
+            max_x = max_x.max(pen + b.x_max as f64);
+            max_y = max_y.max(b.y_max as f64);
+        }
+        pen += face.glyph_hor_advance(gid).unwrap_or(0) as f64;
+    }
+
+    if !min_x.is_finite() {
+        return None;
+    }
+
+    let width = (max_x - min_x) * scale;
+    let height = (max_y - min_y) * scale;
+    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
+    Some((sw_x, sw_y, sw_x + width, sw_y + height))
+}
+
+fn write_music_glyph_path(
+    svg: &mut String,
+    face: &Face,
+    x: f64,
+    y: f64,
+    c: u32,
+    size_mm: f64,
+    anchor: &str,
+    tx: &impl Fn(f64) -> f64,
+    ty: &impl Fn(f64) -> f64,
+) -> bool {
+    let Some(ch) = char::from_u32(c) else { return false; };
+    let Some(gid) = glyph_id(face, ch) else { return false; };
+    let Some(bbox) = face.glyph_bounding_box(gid) else { return false; };
+    let scale = size_mm / face.units_per_em() as f64;
+    let width = (bbox.x_max - bbox.x_min) as f64 * scale;
+    let height = (bbox.y_max - bbox.y_min) as f64 * scale;
+    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
+
+    let mut path = String::new();
+    {
+        let mut builder = SvgPathBuilder {
+            data: &mut path,
+            sw_x: tx(sw_x),
+            sw_y: ty(sw_y),
+            scale,
+            x_offset: -(bbox.x_min as f64),
+            y_offset: -(bbox.y_min as f64),
+        };
+        if face.outline_glyph(gid, &mut builder).is_none() {
+            return false;
+        }
+    }
+
+    svg.push_str("<path d=\"");
+    svg.push_str(&path);
+    svg.push_str("\" fill=\"black\"/>");
+    true
+}
+
+fn write_music_text_paths(
+    svg: &mut String,
+    face: &Face,
+    x: f64,
+    y: f64,
+    value: &str,
+    size_mm: f64,
+    anchor: &str,
+    tx: &impl Fn(f64) -> f64,
+    ty: &impl Fn(f64) -> f64,
+) -> bool {
+    let scale = size_mm / face.units_per_em() as f64;
+    let mut glyphs = Vec::new();
+    let mut pen = 0.0_f64;
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+
+    for ch in value.chars() {
+        let Some(gid) = glyph_id(face, ch) else { return false; };
+        let bbox = face.glyph_bounding_box(gid);
+        if let Some(b) = bbox {
+            min_x = min_x.min(pen + b.x_min as f64);
+            min_y = min_y.min(b.y_min as f64);
+            max_x = max_x.max(pen + b.x_max as f64);
+            max_y = max_y.max(b.y_max as f64);
+        }
+        glyphs.push((gid, pen, bbox));
+        pen += face.glyph_hor_advance(gid).unwrap_or(0) as f64;
+    }
+
+    if glyphs.is_empty() || !min_x.is_finite() {
+        return false;
+    }
+
+    let width = (max_x - min_x) * scale;
+    let height = (max_y - min_y) * scale;
+    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
+    let svg_sw_x = tx(sw_x);
+    let svg_sw_y = ty(sw_y);
+
+    for (gid, glyph_pen, bbox) in glyphs {
+        if bbox.is_none() {
+            continue;
+        }
+        let mut path = String::new();
+        {
+            let mut builder = SvgPathBuilder {
+                data: &mut path,
+                sw_x: svg_sw_x,
+                sw_y: svg_sw_y,
+                scale,
+                x_offset: glyph_pen - min_x,
+                y_offset: -min_y,
+            };
+            if face.outline_glyph(gid, &mut builder).is_none() {
+                return false;
+            }
+        }
+        svg.push_str("<path d=\"");
+        svg.push_str(&path);
+        svg.push_str("\" fill=\"black\"/>");
+    }
+
+    true
+}
+
+fn svg_from_cmds(cmds: &[DrawCmd], width_mm: f64, fallback_height_mm: f64, music_font: &str) -> String {
+    let mut bounds = (0.0, -fallback_height_mm, width_mm, 0.0);
+    let mut ox = 0.0;
+    let mut oy = 0.0;
+    let music_face = if music_font == "Bravura" {
+        Face::parse(BRAVURA_FONT, 0).ok()
+    } else {
+        None
+    };
+
+    for cmd in cmds {
+        match cmd {
+            DrawCmd::Line { x1, y1, x2, y2, w } => {
+                let pad = *w * 0.5;
+                update_bounds(&mut bounds, ox + x1 - pad, oy + y1 - pad);
+                update_bounds(&mut bounds, ox + x2 + pad, oy + y2 + pad);
+            }
+            DrawCmd::Glyph { x, y, c, s, a } => {
+                if let Some((x0, y0, x1, y1)) = music_face
+                    .as_ref()
+                    .and_then(|face| music_glyph_bounds(face, ox + x, oy + y, *c, *s, a))
+                {
+                    update_bounds(&mut bounds, x0, y0);
+                    update_bounds(&mut bounds, x1, y1);
+                } else {
+                    let pad = *s;
+                    update_bounds(&mut bounds, ox + x - pad, oy + y - pad);
+                    update_bounds(&mut bounds, ox + x + pad, oy + y + pad);
+                }
+            }
+            DrawCmd::MusicText { x, y, v, s, a } => {
+                if let Some((x0, y0, x1, y1)) = music_face
+                    .as_ref()
+                    .and_then(|face| music_text_bounds(face, ox + x, oy + y, v, *s, a))
+                {
+                    update_bounds(&mut bounds, x0, y0);
+                    update_bounds(&mut bounds, x1, y1);
+                } else {
+                    let pad_x = *s * v.chars().count().max(1) as f64;
+                    update_bounds(&mut bounds, ox + x - pad_x, oy + y - *s);
+                    update_bounds(&mut bounds, ox + x + pad_x, oy + y + *s);
+                }
+            }
+            DrawCmd::Text { x, y, v, s, .. } => {
+                let size_mm = *s * 25.4 / 72.0;
+                let pad_x = size_mm * 0.65 * v.chars().count().max(1) as f64;
+                update_bounds(&mut bounds, ox + x - pad_x, oy + y - size_mm);
+                update_bounds(&mut bounds, ox + x + pad_x, oy + y + size_mm);
+            }
+            DrawCmd::Polygon { pts } => {
+                let mut i = 0;
+                while i + 1 < pts.len() {
+                    update_bounds(&mut bounds, ox + pts[i], oy + pts[i + 1]);
+                    i += 2;
+                }
+            }
+            DrawCmd::BezierFill { pts } => {
+                let mut i = 0;
+                while i + 1 < pts.len() {
+                    update_bounds(&mut bounds, ox + pts[i], oy + pts[i + 1]);
+                    i += 2;
+                }
+            }
+            DrawCmd::Circle { x, y, r } => {
+                update_bounds(&mut bounds, ox + x - r, oy + y - r);
+                update_bounds(&mut bounds, ox + x + r, oy + y + r);
+            }
+            DrawCmd::MoveOrigin { dx, dy } => {
+                ox += dx;
+                oy += dy;
+            }
+            DrawCmd::FlushContent => {}
+        }
+    }
+
+    let margin = 1.5;
+    let min_x = bounds.0.min(0.0) - margin;
+    let max_x = bounds.2.max(width_mm) + margin;
+    let min_y = bounds.1 - margin;
+    let max_y = bounds.3 + margin;
+    let vb_w = (max_x - min_x).max(1.0);
+    let vb_h = (max_y - min_y).max(1.0);
+
+    let tx = |x: f64| x - min_x;
+    let ty = |y: f64| max_y - y;
+
+    let escaped_music_font = xml_escape(music_font);
+    let mut svg = String::with_capacity(cmds.len() * 96 + 256);
+    let _ = write!(
+        svg,
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{:.3}mm\" height=\"{:.3}mm\" viewBox=\"0 0 {:.3} {:.3}\" overflow=\"visible\">",
+        vb_w, vb_h, vb_w, vb_h
+    );
+
+    ox = 0.0;
+    oy = 0.0;
+    for cmd in cmds {
+        match cmd {
+            DrawCmd::Line { x1, y1, x2, y2, w } => {
+                let _ = write!(
+                    svg,
+                    "<line x1=\"{:.3}\" y1=\"{:.3}\" x2=\"{:.3}\" y2=\"{:.3}\" stroke=\"black\" stroke-width=\"{:.3}\" stroke-linecap=\"butt\"/>",
+                    tx(ox + x1), ty(oy + y1), tx(ox + x2), ty(oy + y2), w
+                );
+            }
+            DrawCmd::Glyph { x, y, c, s, a } => {
+                let rendered_as_path = music_face.as_ref().map_or(false, |face| {
+                    write_music_glyph_path(&mut svg, face, ox + x, oy + y, *c, *s, a, &tx, &ty)
+                });
+                if !rendered_as_path {
+                    if let Some(ch) = char::from_u32(*c) {
+                    let (text_anchor, baseline) = svg_anchor_attrs(a);
+                    let _ = write!(
+                        svg,
+                        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
+                        tx(ox + x), ty(oy + y), escaped_music_font, s, text_anchor, baseline, xml_escape(&ch.to_string())
+                    );
+                    }
+                }
+            }
+            DrawCmd::MusicText { x, y, v, s, a } => {
+                let rendered_as_path = music_face.as_ref().map_or(false, |face| {
+                    write_music_text_paths(&mut svg, face, ox + x, oy + y, v, *s, a, &tx, &ty)
+                });
+                if !rendered_as_path {
+                    let (text_anchor, baseline) = svg_anchor_attrs(a);
+                    let _ = write!(
+                        svg,
+                        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
+                        tx(ox + x), ty(oy + y), escaped_music_font, s, text_anchor, baseline, xml_escape(v)
+                    );
+                }
+            }
+            DrawCmd::Text { x, y, v, s, w, i, a } => {
+                let (text_anchor, baseline) = svg_anchor_attrs(a);
+                let weight = if w.as_ref() == "bold" { "bold" } else { "normal" };
+                let style = if *i { "italic" } else { "normal" };
+                let size_mm = *s * 25.4 / 72.0;
+                let _ = write!(
+                    svg,
+                    "<text x=\"{:.3}\" y=\"{:.3}\" font-size=\"{:.3}\" font-weight=\"{}\" font-style=\"{}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
+                    tx(ox + x), ty(oy + y), size_mm, weight, style, text_anchor, baseline, xml_escape(v)
+                );
+            }
+            DrawCmd::Polygon { pts } => {
+                svg.push_str("<path d=\"M");
+                let mut i = 0;
+                while i + 1 < pts.len() {
+                    if i > 0 {
+                        svg.push('L');
+                    }
+                    let _ = write!(svg, "{:.3} {:.3}", tx(ox + pts[i]), ty(oy + pts[i + 1]));
+                    i += 2;
+                }
+                svg.push_str("Z\" fill=\"black\"/>");
+            }
+            DrawCmd::BezierFill { pts } => {
+                if pts.len() >= 12 {
+                    let _ = write!(
+                        svg,
+                        "<path d=\"M{:.3} {:.3} C{:.3} {:.3} {:.3} {:.3} {:.3} {:.3} C{:.3} {:.3} {:.3} {:.3} {:.3} {:.3}Z\" fill=\"black\"/>",
+                        tx(ox + pts[0]), ty(oy + pts[1]),
+                        tx(ox + pts[2]), ty(oy + pts[3]),
+                        tx(ox + pts[4]), ty(oy + pts[5]),
+                        tx(ox + pts[6]), ty(oy + pts[7]),
+                        tx(ox + pts[8]), ty(oy + pts[9]),
+                        tx(ox + pts[10]), ty(oy + pts[11]),
+                        tx(ox + pts[0]), ty(oy + pts[1]),
+                    );
+                }
+            }
+            DrawCmd::Circle { x, y, r } => {
+                let _ = write!(
+                    svg,
+                    "<circle cx=\"{:.3}\" cy=\"{:.3}\" r=\"{:.3}\" fill=\"black\"/>",
+                    tx(ox + x), ty(oy + y), r
+                );
+            }
+            DrawCmd::MoveOrigin { dx, dy } => {
+                ox += dx;
+                oy += dy;
+            }
+            DrawCmd::FlushContent => {}
+        }
+    }
+
+    svg.push_str("</svg>");
+    svg
 }
 
 // ─── Note stem x computation ──────────────────────────────────────────
@@ -414,6 +892,7 @@ pub fn render_system_group(
     lyricist: Option<&str>,
     show_time: bool,
     fingering_positions: &[&str],
+    music_font: &str,
 ) -> SystemOutput {
     // Estimate ~20 draw commands per event (lines, glyphs, text, etc.)
     let estimated_cmds = laid_out_staves.iter().map(|s| s.items.len()).sum::<usize>() * 20 + 100;
@@ -508,7 +987,7 @@ pub fn render_system_group(
     }
 
     let mut total_height = header_height;
-    let mut y_offset = -header_height; // CeTZ y goes up, but staff draws downward
+    let mut y_offset = -header_height; // Renderer y goes up, but staff draws downward
 
     for (si, laid_out) in laid_out_staves.iter().enumerate() {
         if si > 0 {
@@ -642,10 +1121,13 @@ pub fn render_system_group(
     // Add below-staff content depth
     total_height += 1.75 * sp_unit; // baseline below depth
 
+    let svg = svg_from_cmds(&cmds, width_mm, total_height, music_font);
+
     SystemOutput {
         width: width_mm,
         height: total_height,
-        cmds,
+        svg,
+        cmds: Vec::new(),
     }
 }
 
