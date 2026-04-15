@@ -703,11 +703,11 @@ Mid-measure, post-barline, and line-end time signature changes:
   staves: (
     (
       clef: "treble",
-      music: "c4 e g c' 3/4 g4 g c | 2/4 d4 e | \n5/4 f4 g a b c'",
+      music: "c4 e g c' 3/4 g4 g c | 12/8 d4 e | \n5/4 f4 g a b c'",
     ),
     (
       clef: "bass",
-      music: "c,4 g, c e 3/4 g,4 c e | 2/4 f g | \n5/4 c,4 d, e, f, g,",
+      music: "c,4 g, c e 3/4 g,4 c e | 12/8 f g | \n5/4 c,4 d, e, f, g,",
     ),
   ),
   staff-group: "grand",

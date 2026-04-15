@@ -169,6 +169,14 @@ const TIME_SIG_NAMES: &[&str] = &[
     "timeSig8", "timeSig9",
 ];
 
+fn time_sig_digits_width(digits: &str, sp: f64) -> f64 {
+    digits
+        .chars()
+        .filter_map(|ch| ch.to_digit(10))
+        .map(|d| glyph::advance_width(TIME_SIG_NAMES[d as usize]) * sp)
+        .sum()
+}
+
 fn dynamic_codepoint(ch: char) -> Option<u32> {
     match ch {
         'p' => Some(0xE520),
@@ -487,10 +495,25 @@ fn svg_from_cmds(
                 update_bounds(&mut bounds, ox + x1 - pad, oy + y1 - pad);
                 update_bounds(&mut bounds, ox + x2 + pad, oy + y2 + pad);
             }
-            DrawCmd::Glyph { x, y, s, .. } => {
-                let pad = *s;
-                update_bounds(&mut bounds, ox + x - pad, oy + y - pad);
-                update_bounds(&mut bounds, ox + x + pad, oy + y + pad);
+            DrawCmd::Glyph { x, y, c, s, a } => {
+                if let Some(bbox) = smufl_bbox_for_codepoint(*c) {
+                    let scale = *s / 4.0;
+                    let (text_x, text_y) = anchored_text_origin(ox + x, oy + y, bbox, *s, a);
+                    update_bounds(
+                        &mut bounds,
+                        text_x + bbox.sw_x * scale,
+                        text_y + bbox.sw_y * scale,
+                    );
+                    update_bounds(
+                        &mut bounds,
+                        text_x + bbox.ne_x * scale,
+                        text_y + bbox.ne_y * scale,
+                    );
+                } else {
+                    let pad = *s;
+                    update_bounds(&mut bounds, ox + x - pad, oy + y - pad);
+                    update_bounds(&mut bounds, ox + x + pad, oy + y + pad);
+                }
             }
             DrawCmd::MusicText { x, y, v, s, .. } => {
                 let pad_x = *s * v.chars().count().max(1) as f64;
@@ -2067,7 +2090,11 @@ fn render_time_signature(
         _ => {
             // Upper digits
             let upper_s = upper.to_string();
-            let mut dx = 0.0;
+            let lower_s = lower.to_string();
+            let upper_w = time_sig_digits_width(&upper_s, sp);
+            let lower_w = time_sig_digits_width(&lower_s, sp);
+            let column_w = upper_w.max(lower_w);
+            let mut dx = (column_w - upper_w) / 2.0;
             for ch in upper_s.chars() {
                 if let Some(d) = ch.to_digit(10) {
                     let name = TIME_SIG_NAMES[d as usize];
@@ -2077,8 +2104,7 @@ fn render_time_signature(
                 }
             }
             // Lower digits
-            let lower_s = lower.to_string();
-            dx = 0.0;
+            dx = (column_w - lower_w) / 2.0;
             for ch in lower_s.chars() {
                 if let Some(d) = ch.to_digit(10) {
                     let name = TIME_SIG_NAMES[d as usize];
