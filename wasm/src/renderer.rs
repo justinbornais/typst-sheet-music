@@ -825,12 +825,13 @@ fn compute_below_extent_sp(items: &[LaidOutItem]) -> f64 {
         let has_expression = ev.expression_text().map_or(false, |e| !e.is_empty());
         let has_hairpin = ev.hairpin().is_some();
         let lyric_count = ev.lyrics().iter().filter(|l| l.text.is_some()).count();
-        // Dynamic glyph sits at y_bottom-1 sp (north anchor), extends ~2.5 sp downward → 3.5 sp.
+        // Dynamic glyphs normally sit at y_bottom-1 sp, but may be nudged lower
+        // to clear low notes, below articulations, or below-staff slurs.
         // Expression text at y_bottom-3.5 sp (with dynamic) or y_bottom-2.0 sp (alone), ~1.5 sp tall.
         if has_dynamic && has_expression {
-            max_sp = max_sp.max(6.0); // dyn (3.5) + expression below that (~2 sp more)
+            max_sp = max_sp.max(7.0); // lowered dynamic + expression below that
         } else if has_dynamic {
-            max_sp = max_sp.max(3.5);
+            max_sp = max_sp.max(4.6);
         } else if has_expression {
             max_sp = max_sp.max(3.5);
         }
@@ -1736,7 +1737,9 @@ fn render_system(
 
                 // Dynamic
                 if let Some(ref dyn_mark) = n.dynamic {
-                    render_dynamic(cmds, x, y_bottom, dyn_mark, sp, 0.0);
+                    let dyn_y =
+                        dynamic_anchor_y(items, &item_xs, i, &adj_stem_dirs, y_top, y_bottom, sp);
+                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
                 }
             }
             Event::Chord(c) => {
@@ -1855,7 +1858,9 @@ fn render_system(
 
                 // Dynamic
                 if let Some(ref dyn_mark) = c.dynamic {
-                    render_dynamic(cmds, x, y_bottom, dyn_mark, sp, 0.0);
+                    let dyn_y =
+                        dynamic_anchor_y(items, &item_xs, i, &adj_stem_dirs, y_top, y_bottom, sp);
+                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
                 }
             }
             _ => {}
@@ -2333,19 +2338,10 @@ fn render_articulations(
     }
 }
 
-fn render_dynamic(
-    cmds: &mut Vec<DrawCmd>,
-    x: f64,
-    y_bottom: f64,
-    dynamic: &str,
-    sp: f64,
-    extra_offset: f64,
-) {
+fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, dynamic: &str, sp: f64) {
     if dynamic.is_empty() {
         return;
     }
-    let gap = 1.0 * sp;
-    let dyn_y = y_bottom - gap - extra_offset;
 
     // Check if all chars are SMuFL dynamics
     let all_smufl = dynamic.chars().all(|ch| dynamic_codepoint(ch).is_some());
@@ -2360,7 +2356,7 @@ fn render_dynamic(
         if !dyn_str.is_empty() {
             cmds.push(DrawCmd::MusicText {
                 x,
-                y: dyn_y,
+                y,
                 v: dyn_str,
                 s: 4.0 * sp,
                 a: "north".into(),
@@ -2369,7 +2365,7 @@ fn render_dynamic(
     } else {
         cmds.push(DrawCmd::Text {
             x,
-            y: dyn_y,
+            y,
             v: dynamic.to_string(),
             s: 8.0,
             w: "bold".into(),
@@ -2377,6 +2373,165 @@ fn render_dynamic(
             a: "north".into(),
         });
     }
+}
+
+fn dynamic_anchor_y(
+    items: &[LaidOutItem],
+    item_xs: &[f64],
+    idx: usize,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    y_bottom: f64,
+    sp: f64,
+) -> f64 {
+    let default_y = y_bottom - 1.0 * sp;
+    let padding = 0.42 * sp;
+    let mut safe_y = default_y;
+
+    let mut consider_obstacle = |lowest_y: f64| {
+        safe_y = safe_y.min(lowest_y - padding);
+    };
+
+    consider_obstacle(note_visual_bottom(&items[idx], y_top, sp));
+
+    if let Some(lowest_y) = below_articulation_lowest_y(&items[idx], adj_stem_dirs, idx, y_top, sp)
+    {
+        consider_obstacle(lowest_y);
+    }
+
+    if let Some(lowest_y) = below_slur_lowest_y_at(items, item_xs, idx, adj_stem_dirs, y_top, sp) {
+        consider_obstacle(lowest_y);
+    }
+
+    safe_y
+}
+
+fn note_visual_bottom(item: &LaidOutItem, y_top: f64, sp: f64) -> f64 {
+    let bottom_scale = match &item.event {
+        Event::Note(n) if n.grace => GRACE_NOTE_SCALE,
+        Event::Chord(c) if c.grace => GRACE_NOTE_SCALE,
+        _ => 1.0,
+    };
+
+    match &item.event {
+        Event::Note(_) => y_top + item.y * sp - 0.55 * sp * bottom_scale,
+        Event::Chord(_) => {
+            let lowest = item
+                .chord_ys
+                .iter()
+                .map(|&vy| y_top + vy * sp)
+                .fold(f64::INFINITY, f64::min);
+            lowest - 0.55 * sp * bottom_scale
+        }
+        _ => y_top + item.y * sp,
+    }
+}
+
+fn below_articulation_lowest_y(
+    item: &LaidOutItem,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    idx: usize,
+    y_top: f64,
+    sp: f64,
+) -> Option<f64> {
+    let articulations = item.event.articulations();
+    if articulations.is_empty() {
+        return None;
+    }
+
+    let stem_dir = adj_stem_dirs
+        .get(&idx)
+        .map(|s| s.as_str())
+        .or(item.stem_dir.as_deref())
+        .unwrap_or("up");
+    if stem_dir != "up" {
+        return None;
+    }
+
+    let ref_y = match &item.event {
+        Event::Note(_) => y_top + item.y * sp,
+        Event::Chord(_) => item
+            .chord_ys
+            .iter()
+            .map(|&vy| y_top + vy * sp)
+            .fold(f64::INFINITY, f64::min),
+        _ => return None,
+    };
+
+    let non_fermata_count = articulations
+        .iter()
+        .filter(|a| a.as_str() != "fermata")
+        .count();
+    if non_fermata_count == 0 {
+        return None;
+    }
+
+    // Below-note articulations use a north anchor at note_y - 1sp and stack downward.
+    Some(ref_y - (1.0 + non_fermata_count as f64) * sp)
+}
+
+fn below_slur_lowest_y_at(
+    items: &[LaidOutItem],
+    item_xs: &[f64],
+    idx: usize,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+) -> Option<f64> {
+    let mut stack: Vec<usize> = Vec::with_capacity(4);
+
+    for (i, item) in items.iter().enumerate() {
+        let ev = &item.event;
+        if !ev.is_note() && !ev.is_chord() {
+            continue;
+        }
+
+        if ev.slur_start() {
+            stack.push(i);
+        }
+
+        if ev.slur_end() {
+            if let Some(start_idx) = stack.pop() {
+                if idx < start_idx || idx > i {
+                    continue;
+                }
+
+                let stem_dir = adj_stem_dirs
+                    .get(&start_idx)
+                    .map(|s| s.as_str())
+                    .or(items[start_idx].stem_dir.as_deref())
+                    .unwrap_or("up");
+                if stem_dir != "up" {
+                    continue;
+                }
+
+                let x1 = item_xs[start_idx];
+                let x2 = item_xs[i];
+                // Dynamics extend to the right of their anchor; sample slightly inside
+                // that footprint so a below-slur starting on the same note still clears it.
+                let target_x = (item_xs[idx] + 1.2 * sp).min(x1.max(x2));
+                if target_x < x1.min(x2) || target_x > x1.max(x2) {
+                    continue;
+                }
+
+                let y1 = y_top + items[start_idx].y * sp - 0.5 * sp;
+                let y2 = y_top + item.y * sp - 0.5 * sp;
+                let dx = x2 - x1;
+                let arc_height = (dx.abs() * 0.3).clamp(0.8 * sp, 3.0 * sp);
+                let t = if dx.abs() > f64::EPSILON {
+                    ((target_x - x1) / dx).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let endpoint_y = y1 + (y2 - y1) * t;
+                let local_depth = (std::f64::consts::PI * t).sin() * arc_height;
+
+                return Some(endpoint_y - local_depth);
+            }
+        }
+    }
+
+    None
 }
 
 fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64) {
