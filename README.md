@@ -1,10 +1,10 @@
 # Scorify
 
-Render sheet music directly inside Typst using SMuFL-aware glyph placement and CeTZ drawing primitives.
+Render sheet music directly inside Typst using SMuFL-aware glyph placement and a WASM-backed SVG renderer.
 
 ## Features
 
-- Pure Typst: no WASM plugin and no LilyPond or MuseScore CLI dependency.
+- WASM-backed Typst API with no LilyPond or MuseScore CLI dependency.
 - Notes, rests, spacers, chords, accidentals, key signatures, time signatures, and supported clefs.
 - Inline annotations: dynamics, hairpins, articulations, fingerings, chord symbols, expression text, staff text, staff markers, and lyrics.
 - Notation features: beams, ties, slurs, tuplets, octave lines, trills, grace notes / acciaccaturas, repeat barlines, endings, and dotted notes.
@@ -36,7 +36,7 @@ typst compile your-file.typ --font-path /path/to/bravura/
 
 ### Manual Installation
 
-Copy `lib.typ`, `src/`, and `data/` into your project, then import locally:
+Copy `lib.typ` and `scorify_wasm.wasm` into your project, then import locally:
 
 ```typ
 #import "lib.typ": score, melody
@@ -50,10 +50,11 @@ typst compile your-file.typ --font-path /path/to/bravura/ --root .
 
 ## Font Setup
 
-Scorify defaults to [Bravura](https://github.com/steinbergmedia/bravura) plus bundled Bravura metadata.
+Scorify defaults to [Bravura](https://github.com/steinbergmedia/bravura) plus bundled Bravura metadata. The Bravura font file is not embedded in `scorify_wasm.wasm`; Typst must discover it from an installed system font or a directory passed with `--font-path`.
 
 1. Download `Bravura.otf` from the [Bravura releases page](https://github.com/steinbergmedia/bravura/releases).
 2. Either install it system-wide, or keep it in a project folder and pass that folder with `--font-path`.
+3. If Typst cannot find the selected `music-font`, compilation continues but the CLI prints an `unknown font family` warning.
 
 ### Alternate SMuFL Fonts
 
@@ -299,10 +300,10 @@ See `examples/` and `tests/test-render-basic.typ` for more combinations and edge
 
 ## Notes
 
-- Scorify defaults to the Bravura SMuFL font and bundled Bravura metadata.
+- Scorify defaults to the Bravura SMuFL font and bundled Bravura metadata; the font itself is resolved by Typst through installed fonts or `--font-path`.
 - Alternate SMuFL fonts may need spacing adjustments depending on their metadata quality.
-- Core spacing constants live in `src/constants.typ`.
-- The library requires Typst `0.14.0+` and CeTZ `0.4.2`.
+- Core parsing, layout, glyph metrics, and rendering command generation live in `wasm/src/`.
+- The library requires Typst `0.14.0+`.
 
 ## Contributing
 
