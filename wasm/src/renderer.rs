@@ -978,6 +978,7 @@ pub fn render_system_group(
 
     let mut total_height = header_height;
     let mut y_offset = -header_height; // Renderer y goes up, but staff draws downward
+    let mut staff_y_tops = Vec::with_capacity(num_staves);
 
     for (si, laid_out) in laid_out_staves.iter().enumerate() {
         if si > 0 {
@@ -992,6 +993,7 @@ pub fn render_system_group(
         }
 
         let y_top = y_offset;
+        staff_y_tops.push(y_top);
         let fng_pos = if si < fingering_positions.len() {
             fingering_positions[si]
         } else {
@@ -1105,7 +1107,15 @@ pub fn render_system_group(
                         continue;
                     } // handled below as final
                     let bx = shared_music_start_x + item.x * scale_x * sp_unit + 0.5 * sp_unit;
-                    render_barline(&mut cmds, bx, first_y_top, last_y_bottom, &b.style, sp_unit);
+                    render_spanning_barline(
+                        &mut cmds,
+                        bx,
+                        first_y_top,
+                        last_y_bottom,
+                        &staff_y_tops,
+                        &b.style,
+                        sp_unit,
+                    );
                 }
             }
 
@@ -1134,11 +1144,12 @@ pub fn render_system_group(
             } else {
                 total_w * sp_unit - BARLINE_THICKNESS / 2.0 * sp_unit
             };
-            render_barline(
+            render_spanning_barline(
                 &mut cmds,
                 final_x,
                 first_y_top,
                 last_y_bottom,
+                &staff_y_tops,
                 final_style,
                 sp_unit,
             );
@@ -2127,22 +2138,9 @@ fn render_barline(
 ) {
     let thin = BARLINE_THICKNESS * sp;
     let thick = THICK_BARLINE * sp;
-    let dot_radius = 0.22 * sp;
 
     let draw_bar = |cmds: &mut Vec<DrawCmd>, bx: f64, t: f64| {
         emit_line(cmds, bx, y_top, bx, y_bottom, t);
-    };
-    let draw_dots = |cmds: &mut Vec<DrawCmd>, dx: f64| {
-        cmds.push(DrawCmd::Circle {
-            x: dx,
-            y: y_top - 1.5 * sp,
-            r: dot_radius,
-        });
-        cmds.push(DrawCmd::Circle {
-            x: dx,
-            y: y_top - 2.5 * sp,
-            r: dot_radius,
-        });
     };
 
     match style {
@@ -2158,21 +2156,78 @@ fn render_barline(
         "repeat-start" => {
             draw_bar(cmds, x, thick);
             draw_bar(cmds, x + 0.5 * sp, thin);
-            draw_dots(cmds, x + 1.0 * sp);
+            draw_repeat_dots(cmds, x + 1.0 * sp, y_top, sp);
         }
         "repeat-end" => {
-            draw_dots(cmds, x - 1.0 * sp);
+            draw_repeat_dots(cmds, x - 1.0 * sp, y_top, sp);
             draw_bar(cmds, x - 0.5 * sp, thin);
             draw_bar(cmds, x, thick);
         }
         "repeat-both" => {
-            draw_dots(cmds, x - 1.0 * sp);
+            draw_repeat_dots(cmds, x - 1.0 * sp, y_top, sp);
             draw_bar(cmds, x - 0.5 * sp, thin);
             draw_bar(cmds, x, thick);
             draw_bar(cmds, x + 0.5 * sp, thin);
-            draw_dots(cmds, x + 1.0 * sp);
+            draw_repeat_dots(cmds, x + 1.0 * sp, y_top, sp);
         }
         _ => draw_bar(cmds, x, thin),
+    }
+}
+
+fn draw_repeat_dots(cmds: &mut Vec<DrawCmd>, x: f64, staff_y_top: f64, sp: f64) {
+    let dot_radius = 0.22 * sp;
+    cmds.push(DrawCmd::Circle {
+        x,
+        y: staff_y_top - 1.5 * sp,
+        r: dot_radius,
+    });
+    cmds.push(DrawCmd::Circle {
+        x,
+        y: staff_y_top - 2.5 * sp,
+        r: dot_radius,
+    });
+}
+
+fn render_spanning_barline(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y_top: f64,
+    y_bottom: f64,
+    staff_y_tops: &[f64],
+    style: &str,
+    sp: f64,
+) {
+    let thin = BARLINE_THICKNESS * sp;
+    let thick = THICK_BARLINE * sp;
+
+    let draw_bar = |cmds: &mut Vec<DrawCmd>, bx: f64, t: f64| {
+        emit_line(cmds, bx, y_top, bx, y_bottom, t);
+    };
+    let draw_dots_on_staves = |cmds: &mut Vec<DrawCmd>, dx: f64| {
+        for &staff_y_top in staff_y_tops {
+            draw_repeat_dots(cmds, dx, staff_y_top, sp);
+        }
+    };
+
+    match style {
+        "repeat-start" => {
+            draw_bar(cmds, x, thick);
+            draw_bar(cmds, x + 0.5 * sp, thin);
+            draw_dots_on_staves(cmds, x + 1.0 * sp);
+        }
+        "repeat-end" => {
+            draw_dots_on_staves(cmds, x - 1.0 * sp);
+            draw_bar(cmds, x - 0.5 * sp, thin);
+            draw_bar(cmds, x, thick);
+        }
+        "repeat-both" => {
+            draw_dots_on_staves(cmds, x - 1.0 * sp);
+            draw_bar(cmds, x - 0.5 * sp, thin);
+            draw_bar(cmds, x, thick);
+            draw_bar(cmds, x + 0.5 * sp, thin);
+            draw_dots_on_staves(cmds, x + 1.0 * sp);
+        }
+        _ => render_barline(cmds, x, y_top, y_bottom, style, sp),
     }
 }
 

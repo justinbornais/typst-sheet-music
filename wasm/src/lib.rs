@@ -88,8 +88,9 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
         let initial_clef = params.staves[si].clef.clone();
         let initial_time = ts.clone();
         if si == 0 {
+            let split = add_repeat_both_continuations(&staff0_systems);
             systems_per_staff.push(prepare_staff_systems(
-                &staff0_systems,
+                &split,
                 initial_clef.as_deref(),
                 initial_time.as_ref(),
                 show_time,
@@ -101,6 +102,7 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
                 } else {
                     layout::mirror_breaks(staff_events, &measure_counts)
                 };
+            let split = add_repeat_both_continuations(&split);
             systems_per_staff.push(prepare_staff_systems(
                 &split,
                 initial_clef.as_deref(),
@@ -295,6 +297,40 @@ fn prepare_staff_systems(
         }
     }
     prepared
+}
+
+fn add_repeat_both_continuations(systems: &[Vec<Event>]) -> Vec<Vec<Event>> {
+    let mut result = Vec::with_capacity(systems.len());
+
+    for (idx, system) in systems.iter().enumerate() {
+        let mut events = system.clone();
+        let previous_ended_repeat_both = idx > 0
+            && systems[idx - 1].last().is_some_and(
+                |event| matches!(event, Event::Barline(b) if b.style == "repeat-both"),
+            );
+
+        if previous_ended_repeat_both && !starts_with_repeat_start(&events) {
+            let insert_at = leading_prefix_event_count(&events);
+            events.insert(insert_at, Event::Barline(Barline::new("repeat-start")));
+        }
+
+        result.push(events);
+    }
+
+    result
+}
+
+fn starts_with_repeat_start(events: &[Event]) -> bool {
+    events
+        .get(leading_prefix_event_count(events))
+        .is_some_and(|event| matches!(event, Event::Barline(b) if b.style == "repeat-start"))
+}
+
+fn leading_prefix_event_count(events: &[Event]) -> usize {
+    events
+        .iter()
+        .take_while(|event| matches!(event, Event::LineBreak | Event::Clef(_) | Event::TimeSig(_)))
+        .count()
 }
 
 fn advance_lyric_states(states: &[Option<String>], event: &Event) -> Vec<Option<String>> {

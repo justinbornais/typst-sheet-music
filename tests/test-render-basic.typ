@@ -717,7 +717,7 @@ Mid-measure, post-barline, and line-end time signature changes:
 
 == Test 58: Repeat-both barlines
 
-Mid-system `:||:` should render with dots on both sides, and a line-ending
+Mid-system `:|:` should render with dots on both sides, and a line-ending
 `repeat-both` should render as `:||` plus `||:` at the next system start:
 
 #score(
