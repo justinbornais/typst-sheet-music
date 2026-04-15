@@ -29,8 +29,12 @@ pub fn duration_to_beats(duration: i32, dots: i32) -> f64 {
 pub fn duration_spacing_factor(duration: f64, dots: i32) -> f64 {
     let base_factor = (4.0_f64 / duration).log2() + 1.0;
     let mut factor = base_factor.max(0.75);
-    if dots >= 1 { factor *= 1.15; }
-    if dots >= 2 { factor *= 1.1; }
+    if dots >= 1 {
+        factor *= 1.15;
+    }
+    if dots >= 2 {
+        factor *= 1.1;
+    }
     factor
 }
 
@@ -67,26 +71,42 @@ pub fn key_sig_advance_sp(key: &str, sp: f64) -> f64 {
     if n == 0 {
         return 0.0;
     }
-    let acc_smufl = if count > 0 { "accidentalSharp" } else { "accidentalFlat" };
+    let acc_smufl = if count > 0 {
+        "accidentalSharp"
+    } else {
+        "accidentalFlat"
+    };
     let acc_w = glyph::advance_width(acc_smufl);
     n as f64 * (acc_w + 0.2) * sp + DEFAULT_KEY_SIG_PADDING * sp
 }
 
 pub fn time_sig_advance_sp(upper: i32, lower: i32, symbol: Option<&str>, sp: f64) -> f64 {
     match symbol {
-        Some("common") => glyph::advance_width("timeSigCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp,
-        Some("cut") => glyph::advance_width("timeSigCutCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp,
+        Some("common") => {
+            glyph::advance_width("timeSigCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp
+        }
+        Some("cut") => {
+            glyph::advance_width("timeSigCutCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp
+        }
         _ => {
             let upper_s = upper.to_string();
             let lower_s = lower.to_string();
-            let upper_w: f64 = upper_s.chars().filter(|c| c.is_ascii_digit()).map(|c| {
-                let name = format!("timeSig{}", c);
-                glyph::advance_width(&name) * sp
-            }).sum();
-            let lower_w: f64 = lower_s.chars().filter(|c| c.is_ascii_digit()).map(|c| {
-                let name = format!("timeSig{}", c);
-                glyph::advance_width(&name) * sp
-            }).sum();
+            let upper_w: f64 = upper_s
+                .chars()
+                .filter(|c| c.is_ascii_digit())
+                .map(|c| {
+                    let name = format!("timeSig{}", c);
+                    glyph::advance_width(&name) * sp
+                })
+                .sum();
+            let lower_w: f64 = lower_s
+                .chars()
+                .filter(|c| c.is_ascii_digit())
+                .map(|c| {
+                    let name = format!("timeSig{}", c);
+                    glyph::advance_width(&name) * sp
+                })
+                .sum();
             upper_w.max(lower_w) + DEFAULT_TIME_SIG_PADDING * sp
         }
     }
@@ -94,7 +114,9 @@ pub fn time_sig_advance_sp(upper: i32, lower: i32, symbol: Option<&str>, sp: f64
 
 fn inline_time_sig_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -> f64 {
     if let Event::TimeSig(t) = event {
-        let glyph_w = (time_sig_advance_sp(t.upper, t.lower, t.symbol.as_deref(), 1.0) - DEFAULT_TIME_SIG_PADDING).max(0.0);
+        let glyph_w = (time_sig_advance_sp(t.upper, t.lower, t.symbol.as_deref(), 1.0)
+            - DEFAULT_TIME_SIG_PADDING)
+            .max(0.0);
         let extra = if prev.map_or(false, |p| p.is_barline()) {
             0.18
         } else if next.map_or(false, |n| n.is_barline()) {
@@ -136,17 +158,25 @@ fn required_leading_accidental_space(next: Option<&Event>) -> f64 {
     };
     let next_is_grace = next.grace();
     let scale = if next_is_grace { 0.68 } else { 1.0 };
-    let cluster_factor = if next_is_grace && (next.is_note() || next.is_chord()) { 0.55 } else { 1.0 };
+    let cluster_factor = if next_is_grace && (next.is_note() || next.is_chord()) {
+        0.55
+    } else {
+        1.0
+    };
     match next {
         Event::Note(n) => {
             if n.accidental.is_some() {
-                (accidental_width(n.accidental.as_deref()) + DEFAULT_ACCIDENTAL_PADDING) * scale * cluster_factor
+                (accidental_width(n.accidental.as_deref()) + DEFAULT_ACCIDENTAL_PADDING)
+                    * scale
+                    * cluster_factor
             } else {
                 0.0
             }
         }
         Event::Chord(c) => {
-            let max_w = c.notes.iter()
+            let max_w = c
+                .notes
+                .iter()
                 .map(|n| accidental_width(n.accidental.as_deref()))
                 .fold(0.0_f64, f64::max);
             if max_w > 0.0 {
@@ -161,7 +191,9 @@ fn required_leading_accidental_space(next: Option<&Event>) -> f64 {
 
 fn leading_accidental_extra(available_space: f64, next: Option<&Event>) -> f64 {
     let required = required_leading_accidental_space(next);
-    if required <= 0.0 { return 0.0; }
+    if required <= 0.0 {
+        return 0.0;
+    }
     let comfort = 0.08;
     (required + comfort - available_space).max(0.0)
 }
@@ -198,9 +230,14 @@ fn grace_body_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -
 pub fn event_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -> f64 {
     match event {
         Event::Barline(_) => {
-            let touches_inline_boundary = prev.map_or(false, |p| matches!(p, Event::Clef(_) | Event::TimeSig(_)))
+            let touches_inline_boundary = prev
+                .map_or(false, |p| matches!(p, Event::Clef(_) | Event::TimeSig(_)))
                 || next.map_or(false, |n| matches!(n, Event::Clef(_) | Event::TimeSig(_)));
-            if touches_inline_boundary { 0.6 } else { 2.5 }
+            if touches_inline_boundary {
+                0.6
+            } else {
+                2.5
+            }
         }
         Event::Clef(c) => {
             let smufl = clef_smufl_name(&c.clef);
@@ -298,7 +335,11 @@ fn split_into_measures(events: &[Event]) -> Vec<Vec<Event>> {
 fn measure_width(events: &[Event]) -> f64 {
     let mut w = 0.0;
     for (i, ev) in events.iter().enumerate() {
-        let is_rhythmic = ev.is_note() || ev.is_rest() || matches!(ev, Event::Spacer(_)) || ev.is_chord() || ev.is_barline();
+        let is_rhythmic = ev.is_note()
+            || ev.is_rest()
+            || matches!(ev, Event::Spacer(_))
+            || ev.is_chord()
+            || ev.is_barline();
         if is_rhythmic {
             let prev = if i > 0 { Some(&events[i - 1]) } else { None };
             let next = events.get(i + 1);
@@ -381,7 +422,8 @@ pub fn mirror_breaks(events: &[Event], measure_counts: &[usize]) -> Vec<Vec<Even
             }
             j += 1;
         }
-        if mc == 0 && !is_last && !remaining.is_empty() && matches!(remaining[0], Event::LineBreak) {
+        if mc == 0 && !is_last && !remaining.is_empty() && matches!(remaining[0], Event::LineBreak)
+        {
             seg.push(remaining[0].clone());
             j = 1;
         } else if is_last {
@@ -414,7 +456,9 @@ pub fn layout_staff(
     let clef_id = |c: &str| -> u32 {
         let b = c.as_bytes();
         let mut v = 0u32;
-        for (i, &byte) in b.iter().take(4).enumerate() { v |= (byte as u32) << (i * 8); }
+        for (i, &byte) in b.iter().take(4).enumerate() {
+            v |= (byte as u32) << (i * 8);
+        }
         v
     };
     let mut sp_cache: HashMap<(u8, i32, u32), i32> = HashMap::new();
@@ -432,12 +476,18 @@ pub fn layout_staff(
         match event {
             Event::Note(n) => {
                 let cache_key = (n.name.as_bytes()[0], n.octave, cur_clef_id);
-                let sp = *sp_cache.entry(cache_key).or_insert_with(|| {
-                    pitch::staff_position(&n.name, n.octave, &current_clef)
-                });
+                let sp = *sp_cache
+                    .entry(cache_key)
+                    .or_insert_with(|| pitch::staff_position(&n.name, n.octave, &current_clef));
                 y = -sp as f64 / 2.0;
                 stem_dir = Some(pitch::auto_stem_direction(sp).to_string());
-                stem_y_end = Some(pitch::compute_stem_end_y(y, sp, stem_dir.as_deref().unwrap(), 1.0, 3.5));
+                stem_y_end = Some(pitch::compute_stem_end_y(
+                    y,
+                    sp,
+                    stem_dir.as_deref().unwrap(),
+                    1.0,
+                    3.5,
+                ));
             }
             Event::Chord(c) => {
                 let mut sp_list = Vec::with_capacity(c.notes.len());
@@ -516,11 +566,15 @@ fn is_grace_event(ev: &Event) -> bool {
 }
 
 fn is_rhythmic_event(ev: &Event) -> bool {
-    (ev.is_note() || ev.is_rest() || matches!(ev, Event::Spacer(_)) || ev.is_chord()) && !is_grace_event(ev)
+    (ev.is_note() || ev.is_rest() || matches!(ev, Event::Spacer(_)) || ev.is_chord())
+        && !is_grace_event(ev)
 }
 
 fn is_boundary_event(ev: &Event) -> bool {
-    matches!(ev, Event::Barline(_) | Event::Clef(_) | Event::KeySig(_) | Event::TimeSig(_) | Event::Gap(_))
+    matches!(
+        ev,
+        Event::Barline(_) | Event::Clef(_) | Event::KeySig(_) | Event::TimeSig(_) | Event::Gap(_)
+    )
 }
 
 fn is_pre_barline_boundary(items: &[LaidOutItem], idx: usize) -> bool {
@@ -663,7 +717,11 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
                 terminal_col
             };
             let span = (end_col.saturating_sub(start_col)).max(1);
-            let prev = if ii > 0 { Some(&items[ii - 1].event) } else { None };
+            let prev = if ii > 0 {
+                Some(&items[ii - 1].event)
+            } else {
+                None
+            };
             let next = items.get(ii + 1).map(|i| &i.event);
             let w = event_width(&item.event, prev, next);
             let distributed = w / span as f64;

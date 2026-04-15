@@ -1,24 +1,23 @@
-pub mod types;
 pub mod glyph;
-pub mod pitch;
-pub mod parser;
 pub mod layout;
+pub mod parser;
+pub mod pitch;
 pub mod renderer;
+pub mod types;
 
-use wasm_minimal_protocol::*;
 use types::*;
+use wasm_minimal_protocol::*;
 
 initiate_protocol!();
 
 #[wasm_func]
 pub fn render_score(input: &[u8]) -> Result<Vec<u8>, String> {
-    let params: ScoreInput = serde_json::from_slice(input)
-        .map_err(|e| format!("Failed to parse input: {}", e))?;
+    let params: ScoreInput =
+        serde_json::from_slice(input).map_err(|e| format!("Failed to parse input: {}", e))?;
 
     let result = process_score(&params);
 
-    serde_json::to_vec(&result)
-        .map_err(|e| format!("Failed to serialize output: {}", e))
+    serde_json::to_vec(&result).map_err(|e| format!("Failed to serialize output: {}", e))
 }
 
 fn process_score(params: &ScoreInput) -> ScoreOutput {
@@ -26,13 +25,21 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
     let sp_unit = params.staff_size_mm;
 
     // Parse music for each staff
-    let staves_events: Vec<Vec<Event>> = params.staves.iter().map(|s| {
-        let base_oct = pitch::clef_default_base_octave(s.clef.as_deref().unwrap_or("treble"));
-        parser::parse_music(&s.music, base_oct)
-    }).collect();
+    let staves_events: Vec<Vec<Event>> = params
+        .staves
+        .iter()
+        .map(|s| {
+            let base_oct = pitch::clef_default_base_octave(s.clef.as_deref().unwrap_or("treble"));
+            parser::parse_music(&s.music, base_oct)
+        })
+        .collect();
 
     // Build systems
-    let first_events = if staves_events.is_empty() { &[][..] } else { &staves_events[0] };
+    let first_events = if staves_events.is_empty() {
+        &[][..]
+    } else {
+        &staves_events[0]
+    };
     let first_clef = params.staves.first().and_then(|s| s.clef.as_deref());
 
     let show_time = ts.is_some();
@@ -53,7 +60,10 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
         let first_batch = layout::compute_system_breaks(first_events, Some(fa), None);
         if !first_batch.is_empty() {
             all_systems.push(first_batch[0].clone());
-            let rest: Vec<Event> = first_batch[1..].iter().flat_map(|s| s.iter().cloned()).collect();
+            let rest: Vec<Event> = first_batch[1..]
+                .iter()
+                .flat_map(|s| s.iter().cloned())
+                .collect();
             if !rest.is_empty() {
                 all_systems.extend(layout::compute_system_breaks(&rest, cont_avail, None));
             }
@@ -64,9 +74,10 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
     };
 
     // Count measures per system for mirroring to other staves
-    let measure_counts: Vec<usize> = staff0_systems.iter().map(|sys| {
-        sys.iter().filter(|e| e.is_barline()).count()
-    }).collect();
+    let measure_counts: Vec<usize> = staff0_systems
+        .iter()
+        .map(|sys| sys.iter().filter(|e| e.is_barline()).count())
+        .collect();
 
     let num_systems = staff0_systems.len();
     let num_staves = params.staves.len();
@@ -78,16 +89,23 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
         let initial_time = ts.clone();
         if si == 0 {
             systems_per_staff.push(prepare_staff_systems(
-                &staff0_systems, initial_clef.as_deref(), initial_time.as_ref(), show_time,
+                &staff0_systems,
+                initial_clef.as_deref(),
+                initial_time.as_ref(),
+                show_time,
             ));
         } else {
-            let split = if layout::has_line_breaks(first_events) && layout::has_line_breaks(staff_events) {
-                layout::split_at_line_breaks(staff_events)
-            } else {
-                layout::mirror_breaks(staff_events, &measure_counts)
-            };
+            let split =
+                if layout::has_line_breaks(first_events) && layout::has_line_breaks(staff_events) {
+                    layout::split_at_line_breaks(staff_events)
+                } else {
+                    layout::mirror_breaks(staff_events, &measure_counts)
+                };
             systems_per_staff.push(prepare_staff_systems(
-                &split, initial_clef.as_deref(), initial_time.as_ref(), show_time,
+                &split,
+                initial_clef.as_deref(),
+                initial_time.as_ref(),
+                show_time,
             ));
         }
     }
@@ -125,32 +143,70 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
             avail_width_mm,
             params.staff_spacing_mm,
             &params.staff_group,
-            if is_first { params.title.as_deref() } else { None },
-            if is_first { params.subtitle.as_deref() } else { None },
-            if is_first { params.composer.as_deref() } else { None },
-            if is_first { params.arranger.as_deref() } else { None },
-            if is_first { params.lyricist.as_deref() } else { None },
+            if is_first {
+                params.title.as_deref()
+            } else {
+                None
+            },
+            if is_first {
+                params.subtitle.as_deref()
+            } else {
+                None
+            },
+            if is_first {
+                params.composer.as_deref()
+            } else {
+                None
+            },
+            if is_first {
+                params.arranger.as_deref()
+            } else {
+                None
+            },
+            if is_first {
+                params.lyricist.as_deref()
+            } else {
+                None
+            },
             is_first && show_time,
-            &params.staves.iter().map(|s| s.fingering_position.as_deref().unwrap_or("above")).collect::<Vec<_>>(),
+            &params
+                .staves
+                .iter()
+                .map(|s| s.fingering_position.as_deref().unwrap_or("above"))
+                .collect::<Vec<_>>(),
             &params.music_font,
         );
         output_systems.push(sys_output);
     }
 
-    ScoreOutput { systems: output_systems }
+    ScoreOutput {
+        systems: output_systems,
+    }
 }
 
 fn parse_time_sig(ts: Option<&str>) -> Option<TimeInfo> {
     let ts = ts?;
     match ts {
-        "C" | "c" | "common" => Some(TimeInfo { upper: 4, lower: 4, symbol: Some("common".into()) }),
-        "C|" | "c|" | "cut" => Some(TimeInfo { upper: 2, lower: 2, symbol: Some("cut".into()) }),
+        "C" | "c" | "common" => Some(TimeInfo {
+            upper: 4,
+            lower: 4,
+            symbol: Some("common".into()),
+        }),
+        "C|" | "c|" | "cut" => Some(TimeInfo {
+            upper: 2,
+            lower: 2,
+            symbol: Some("cut".into()),
+        }),
         _ => {
             let parts: Vec<&str> = ts.split('/').collect();
             if parts.len() == 2 {
                 let upper = parts[0].trim().parse().ok()?;
                 let lower = parts[1].trim().parse().ok()?;
-                Some(TimeInfo { upper, lower, symbol: None })
+                Some(TimeInfo {
+                    upper,
+                    lower,
+                    symbol: None,
+                })
             } else {
                 None
             }
@@ -200,7 +256,9 @@ fn prepare_staff_systems(
 
         // Skip leading line breaks, clef and time sig changes at start of system
         let mut start = 0;
-        while start < sys.len() && matches!(sys[start], Event::LineBreak) { start += 1; }
+        while start < sys.len() && matches!(sys[start], Event::LineBreak) {
+            start += 1;
+        }
         while start < sys.len() {
             match &sys[start] {
                 Event::Clef(c) => {
@@ -209,7 +267,9 @@ fn prepare_staff_systems(
                 }
                 Event::TimeSig(t) => {
                     system_time = Some(TimeInfo {
-                        upper: t.upper, lower: t.lower, symbol: t.symbol.clone(),
+                        upper: t.upper,
+                        lower: t.lower,
+                        symbol: t.symbol.clone(),
                     });
                     show_time = true;
                     start += 1;
@@ -238,13 +298,23 @@ fn prepare_staff_systems(
 }
 
 fn advance_lyric_states(states: &[Option<String>], event: &Event) -> Vec<Option<String>> {
-    if !event.is_anchor() { return states.to_vec(); }
+    if !event.is_anchor() {
+        return states.to_vec();
+    }
     let lyrics = event.lyrics();
     let line_count = states.len().max(lyrics.len());
     let mut next_states = Vec::new();
     for li in 0..line_count {
-        let entry = if li < lyrics.len() { Some(&lyrics[li]) } else { None };
-        let current = if li < states.len() { states[li].clone() } else { None };
+        let entry = if li < lyrics.len() {
+            Some(&lyrics[li])
+        } else {
+            None
+        };
+        let current = if li < states.len() {
+            states[li].clone()
+        } else {
+            None
+        };
         if let Some(e) = entry {
             if e.carry {
                 next_states.push(current);
@@ -259,6 +329,8 @@ fn advance_lyric_states(states: &[Option<String>], event: &Event) -> Vec<Option<
         }
     }
     // Trim trailing Nones
-    while next_states.last() == Some(&None) { next_states.pop(); }
+    while next_states.last() == Some(&None) {
+        next_states.pop();
+    }
     next_states
 }

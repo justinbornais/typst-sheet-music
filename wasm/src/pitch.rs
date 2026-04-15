@@ -3,8 +3,13 @@ use std::collections::HashMap;
 /// Diatonic index for each note name (C=0..B=6).
 pub fn note_to_diatonic(name: &str) -> i32 {
     match name {
-        "c" => 0, "d" => 1, "e" => 2, "f" => 3,
-        "g" => 4, "a" => 5, "b" => 6,
+        "c" => 0,
+        "d" => 1,
+        "e" => 2,
+        "f" => 3,
+        "g" => 4,
+        "a" => 5,
+        "b" => 6,
         _ => 0,
     }
 }
@@ -12,13 +17,11 @@ pub fn note_to_diatonic(name: &str) -> i32 {
 /// Top-line diatonic number for each clef.
 pub fn clef_top_line_diatonic(clef: &str) -> i32 {
     match clef {
-        "treble" | "treble-8a" | "treble8a" | "treble-8b" | "treble8b"
-        | "treble-8" | "treble8" | "treble-15a" | "treble-15b"
-        | "percussion" => 38, // F5
-        "bass" | "bass-8a" | "bass8a" | "bass-8b" | "bass8b"
-        | "bass-15a" | "bass-15b" => 26, // A3
-        "alto" => 32,  // G4
-        "tenor" => 30, // E4
+        "treble" | "treble-8a" | "treble8a" | "treble-8b" | "treble8b" | "treble-8" | "treble8"
+        | "treble-15a" | "treble-15b" | "percussion" => 38, // F5
+        "bass" | "bass-8a" | "bass8a" | "bass-8b" | "bass8b" | "bass-15a" | "bass-15b" => 26, // A3
+        "alto" => 32,                                                                         // G4
+        "tenor" => 30,                                                                        // E4
         _ => 38,
     }
 }
@@ -26,10 +29,9 @@ pub fn clef_top_line_diatonic(clef: &str) -> i32 {
 /// Map variant clef names to their base clef for staff position calculation.
 fn base_clef(clef: &str) -> &str {
     match clef {
-        "treble-8a" | "treble8a" | "treble-8b" | "treble8b"
-        | "treble-8" | "treble8" | "treble-15a" | "treble-15b" => "treble",
-        "bass-8a" | "bass8a" | "bass-8b" | "bass8b"
-        | "bass-15a" | "bass-15b" => "bass",
+        "treble-8a" | "treble8a" | "treble-8b" | "treble8b" | "treble-8" | "treble8"
+        | "treble-15a" | "treble-15b" => "treble",
+        "bass-8a" | "bass8a" | "bass-8b" | "bass8b" | "bass-15a" | "bass-15b" => "bass",
         _ => clef,
     }
 }
@@ -50,11 +52,21 @@ pub fn staff_position(name: &str, octave: i32, clef: &str) -> i32 {
 
 /// Determine stem direction based on staff position.
 pub fn auto_stem_direction(staff_pos: i32) -> &'static str {
-    if staff_pos <= 4 { "down" } else { "up" }
+    if staff_pos <= 4 {
+        "down"
+    } else {
+        "up"
+    }
 }
 
 /// Compute stem end Y position (in staff-space units, y-up convention).
-pub fn compute_stem_end_y(note_y: f64, staff_pos: i32, stem_dir: &str, staff_space: f64, min_length: f64) -> f64 {
+pub fn compute_stem_end_y(
+    note_y: f64,
+    staff_pos: i32,
+    stem_dir: &str,
+    staff_space: f64,
+    min_length: f64,
+) -> f64 {
     let mut length = min_length * staff_space;
     if staff_pos < -2 && stem_dir == "down" {
         length = length.max((-staff_pos as f64) * staff_space / 2.0);
@@ -85,8 +97,7 @@ pub fn ledger_lines_needed(staff_pos: i32) -> (i32, Option<&'static str>) {
 /// Default base octave for a clef.
 pub fn clef_default_base_octave(clef: &str) -> i32 {
     match clef {
-        "bass" | "bass-8a" | "bass8a" | "bass-8b" | "bass8b"
-        | "bass-15a" | "bass-15b" => 3,
+        "bass" | "bass-8a" | "bass8a" | "bass-8b" | "bass8b" | "bass-15a" | "bass-15b" => 3,
         _ => 4,
     }
 }
@@ -94,10 +105,36 @@ pub fn clef_default_base_octave(clef: &str) -> i32 {
 /// Key signature accidental count (positive = sharps, negative = flats).
 pub fn key_sig_accidental_count(key: &str) -> i32 {
     match key {
-        "C" => 0, "G" => 1, "D" => 2, "A" => 3, "E" => 4, "B" => 5, "F#" => 6, "C#" => 7,
-        "F" => -1, "Bb" => -2, "Eb" => -3, "Ab" => -4, "Db" => -5, "Gb" => -6, "Cb" => -7,
-        "a" => 0, "e" => 1, "b" => 2, "f#" => 3, "c#" => 4, "g#" => 5, "d#" => 6, "a#" => 7,
-        "d" => -1, "g" => -2, "c" => -3, "f" => -4, "bb" => -5, "eb" => -6, "ab" => -7,
+        "C" => 0,
+        "G" => 1,
+        "D" => 2,
+        "A" => 3,
+        "E" => 4,
+        "B" => 5,
+        "F#" => 6,
+        "C#" => 7,
+        "F" => -1,
+        "Bb" => -2,
+        "Eb" => -3,
+        "Ab" => -4,
+        "Db" => -5,
+        "Gb" => -6,
+        "Cb" => -7,
+        "a" => 0,
+        "e" => 1,
+        "b" => 2,
+        "f#" => 3,
+        "c#" => 4,
+        "g#" => 5,
+        "d#" => 6,
+        "a#" => 7,
+        "d" => -1,
+        "g" => -2,
+        "c" => -3,
+        "f" => -4,
+        "bb" => -5,
+        "eb" => -6,
+        "ab" => -7,
         _ => 0,
     }
 }
@@ -142,11 +179,26 @@ pub fn key_sig_accidentals(key: &str) -> HashMap<String, String> {
 
 /// Check if a clef name is supported.
 pub fn is_supported_clef(clef: &str) -> bool {
-    matches!(clef,
-        "treble" | "bass" | "alto" | "tenor"
-        | "treble-8a" | "treble8a" | "treble-8b" | "treble8b"
-        | "treble-8" | "treble8" | "treble-15a" | "treble-15b"
-        | "bass-8a" | "bass8a" | "bass-8b" | "bass8b"
-        | "bass-15a" | "bass-15b" | "percussion"
+    matches!(
+        clef,
+        "treble"
+            | "bass"
+            | "alto"
+            | "tenor"
+            | "treble-8a"
+            | "treble8a"
+            | "treble-8b"
+            | "treble8b"
+            | "treble-8"
+            | "treble8"
+            | "treble-15a"
+            | "treble-15b"
+            | "bass-8a"
+            | "bass8a"
+            | "bass-8b"
+            | "bass8b"
+            | "bass-15a"
+            | "bass-15b"
+            | "percussion"
     )
 }

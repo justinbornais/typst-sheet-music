@@ -209,10 +209,18 @@ pub enum Event {
 }
 
 impl Event {
-    pub fn is_note(&self) -> bool { matches!(self, Event::Note(_)) }
-    pub fn is_rest(&self) -> bool { matches!(self, Event::Rest(_)) }
-    pub fn is_chord(&self) -> bool { matches!(self, Event::Chord(_)) }
-    pub fn is_barline(&self) -> bool { matches!(self, Event::Barline(_)) }
+    pub fn is_note(&self) -> bool {
+        matches!(self, Event::Note(_))
+    }
+    pub fn is_rest(&self) -> bool {
+        matches!(self, Event::Rest(_))
+    }
+    pub fn is_chord(&self) -> bool {
+        matches!(self, Event::Chord(_))
+    }
+    pub fn is_barline(&self) -> bool {
+        matches!(self, Event::Barline(_))
+    }
     pub fn is_anchor(&self) -> bool {
         matches!(self, Event::Note(_) | Event::Rest(_) | Event::Chord(_))
     }
@@ -635,20 +643,46 @@ pub struct SystemOutput {
 pub enum DrawCmd {
     /// Line: from (x1,y1) to (x2,y2) with thickness w (mm)
     #[serde(rename = "L")]
-    Line { x1: f64, y1: f64, x2: f64, y2: f64, w: f64 },
+    Line {
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        w: f64,
+    },
 
     /// Music glyph: place at (x,y), codepoint c, font size s (mm), anchor a
     #[serde(rename = "G")]
-    Glyph { x: f64, y: f64, c: u32, s: f64, a: Cow<'static, str> },
+    Glyph {
+        x: f64,
+        y: f64,
+        c: u32,
+        s: f64,
+        a: Cow<'static, str>,
+    },
 
     /// Multi-codepoint music text: render string v with the music font at size s (mm)
     /// Used for composites like dynamics "mf" where kerning/ligatures must be font-handled.
     #[serde(rename = "GM")]
-    MusicText { x: f64, y: f64, v: String, s: f64, a: Cow<'static, str> },
+    MusicText {
+        x: f64,
+        y: f64,
+        v: String,
+        s: f64,
+        a: Cow<'static, str>,
+    },
 
     /// Text: place at (x,y), string v, size s (pt), weight w, italic i, anchor a
     #[serde(rename = "T")]
-    Text { x: f64, y: f64, v: String, s: f64, w: Cow<'static, str>, i: bool, a: Cow<'static, str> },
+    Text {
+        x: f64,
+        y: f64,
+        v: String,
+        s: f64,
+        w: Cow<'static, str>,
+        i: bool,
+        a: Cow<'static, str>,
+    },
 
     /// Filled polygon (beams): flat array of x,y pairs
     #[serde(rename = "P")]

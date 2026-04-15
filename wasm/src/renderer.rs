@@ -3,7 +3,6 @@ use crate::layout;
 use crate::pitch;
 use crate::types::*;
 use std::fmt::Write as _;
-use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 // ─── Constants ─────────────────────────────────────────────────────────
 
@@ -18,15 +17,14 @@ const ACCIDENTAL_PADDING: f64 = 0.35;
 const INLINE_CLEF_SCALE: f64 = 0.8;
 const CLEF_PADDING: f64 = 0.5;
 const GRACE_NOTE_SCALE: f64 = 0.68;
-const BRAVURA_FONT: &[u8] = include_bytes!("../../fonts/Bravura.otf");
 
 // ─── SMuFL codepoint helpers ───────────────────────────────────────────
 
 fn notehead_codepoint(duration: i32) -> u32 {
     match duration {
-        1 => 0xE0A2,  // noteheadWhole
-        2 => 0xE0A3,  // noteheadHalf
-        _ => 0xE0A4,  // noteheadBlack
+        1 => 0xE0A2, // noteheadWhole
+        2 => 0xE0A3, // noteheadHalf
+        _ => 0xE0A4, // noteheadBlack
     }
 }
 
@@ -152,10 +150,9 @@ fn clef_codepoint(clef: &str) -> u32 {
 
 fn clef_origin_offset(clef: &str) -> f64 {
     match clef {
-        "treble" | "treble-8a" | "treble8a" | "treble-8b" | "treble8b"
-        | "treble-8" | "treble8" | "treble-15a" | "treble-15b" => 3.0,
-        "bass" | "bass-8a" | "bass8a" | "bass-8b" | "bass8b"
-        | "bass-15a" | "bass-15b" => 1.0,
+        "treble" | "treble-8a" | "treble8a" | "treble-8b" | "treble8b" | "treble-8" | "treble8"
+        | "treble-15a" | "treble-15b" => 3.0,
+        "bass" | "bass-8a" | "bass8a" | "bass-8b" | "bass8b" | "bass-15a" | "bass-15b" => 1.0,
         "alto" => 2.0,
         "tenor" => 2.0,
         "percussion" => 2.0,
@@ -168,8 +165,8 @@ fn time_digit_codepoint(d: u32) -> u32 {
 }
 
 const TIME_SIG_NAMES: &[&str] = &[
-    "timeSig0", "timeSig1", "timeSig2", "timeSig3", "timeSig4",
-    "timeSig5", "timeSig6", "timeSig7", "timeSig8", "timeSig9",
+    "timeSig0", "timeSig1", "timeSig2", "timeSig3", "timeSig4", "timeSig5", "timeSig6", "timeSig7",
+    "timeSig8", "timeSig9",
 ];
 
 fn dynamic_codepoint(ch: char) -> Option<u32> {
@@ -236,7 +233,14 @@ fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoi
 /// Use this for articulations and dynamics where the coordinate is the
 /// desired glyph edge ("south" = bottom at y, "north" = top at y, etc.).
 #[inline]
-fn emit_glyph_anchored(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, codepoint: u32, sp: f64, anchor: &'static str) {
+fn emit_glyph_anchored(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y: f64,
+    codepoint: u32,
+    sp: f64,
+    anchor: &'static str,
+) {
     cmds.push(DrawCmd::Glyph {
         x,
         y,
@@ -246,7 +250,14 @@ fn emit_glyph_anchored(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, codepoint: u32, 
     });
 }
 
-fn emit_glyph_scaled(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoint: u32, sp: f64) {
+fn emit_glyph_scaled(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y: f64,
+    smufl_name: &str,
+    codepoint: u32,
+    sp: f64,
+) {
     emit_glyph(cmds, x, y, smufl_name, codepoint, sp);
 }
 
@@ -297,258 +308,177 @@ fn update_bounds(bounds: &mut (f64, f64, f64, f64), x: f64, y: f64) {
     bounds.3 = bounds.3.max(y);
 }
 
-struct SvgPathBuilder<'a> {
-    data: &'a mut String,
-    sw_x: f64,
-    sw_y: f64,
-    scale: f64,
-    x_offset: f64,
-    y_offset: f64,
-}
-
-impl SvgPathBuilder<'_> {
-    fn sx(&self, x: f32) -> f64 {
-        self.sw_x + (x as f64 + self.x_offset) * self.scale
-    }
-
-    fn sy(&self, y: f32) -> f64 {
-        self.sw_y - (y as f64 + self.y_offset) * self.scale
+fn bbox(sw_x: f64, sw_y: f64, ne_x: f64, ne_y: f64) -> glyph::BBox {
+    glyph::BBox {
+        sw_x,
+        sw_y,
+        ne_x,
+        ne_y,
     }
 }
 
-impl OutlineBuilder for SvgPathBuilder<'_> {
-    fn move_to(&mut self, x: f32, y: f32) {
-        let _ = write!(self.data, "M{:.3} {:.3}", self.sx(x), self.sy(y));
-    }
-
-    fn line_to(&mut self, x: f32, y: f32) {
-        let _ = write!(self.data, "L{:.3} {:.3}", self.sx(x), self.sy(y));
-    }
-
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        let _ = write!(
-            self.data,
-            "Q{:.3} {:.3} {:.3} {:.3}",
-            self.sx(x1),
-            self.sy(y1),
-            self.sx(x),
-            self.sy(y)
-        );
-    }
-
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        let _ = write!(
-            self.data,
-            "C{:.3} {:.3} {:.3} {:.3} {:.3} {:.3}",
-            self.sx(x1),
-            self.sy(y1),
-            self.sx(x2),
-            self.sy(y2),
-            self.sx(x),
-            self.sy(y)
-        );
-    }
-
-    fn close(&mut self) {
-        self.data.push('Z');
+fn smufl_name_for_codepoint(codepoint: u32) -> Option<&'static str> {
+    match codepoint {
+        0xE0A2 => Some("noteheadWhole"),
+        0xE0A3 => Some("noteheadHalf"),
+        0xE0A4 => Some("noteheadBlack"),
+        0xE4E3 => Some("restWhole"),
+        0xE4E4 => Some("restHalf"),
+        0xE4E5 => Some("restQuarter"),
+        0xE4E6 => Some("rest8th"),
+        0xE4E7 => Some("rest16th"),
+        0xE4E8 => Some("rest32nd"),
+        0xE4E9 => Some("rest64th"),
+        0xE240 => Some("flag8thUp"),
+        0xE241 => Some("flag8thDown"),
+        0xE242 => Some("flag16thUp"),
+        0xE243 => Some("flag16thDown"),
+        0xE244 => Some("flag32ndUp"),
+        0xE245 => Some("flag32ndDown"),
+        0xE246 => Some("flag64thUp"),
+        0xE247 => Some("flag64thDown"),
+        0xE260 => Some("accidentalFlat"),
+        0xE261 => Some("accidentalNatural"),
+        0xE262 => Some("accidentalSharp"),
+        0xE263 => Some("accidentalDoubleSharp"),
+        0xE264 => Some("accidentalDoubleFlat"),
+        0xE050 => Some("gClef"),
+        0xE051 => Some("gClef15mb"),
+        0xE052 => Some("gClef8vb"),
+        0xE053 => Some("gClef8va"),
+        0xE054 => Some("gClef15ma"),
+        0xE05C => Some("cClef"),
+        0xE062 => Some("fClef"),
+        0xE063 => Some("fClef15mb"),
+        0xE064 => Some("fClef8vb"),
+        0xE065 => Some("fClef8va"),
+        0xE066 => Some("fClef15ma"),
+        0xE069 => Some("unpitchedPercussionClef1"),
+        0xE080..=0xE089 => TIME_SIG_NAMES.get((codepoint - 0xE080) as usize).copied(),
+        0xE08A => Some("timeSigCommon"),
+        0xE08B => Some("timeSigCutCommon"),
+        0xE566 => Some("ornamentTrill"),
+        0xEAA4 => Some("wiggleTrill"),
+        0xE4CE => Some("breathMarkComma"),
+        0xE4D1 => Some("caesura"),
+        0xE047 => Some("segno"),
+        0xE048 => Some("coda"),
+        0xE000 => Some("brace"),
+        _ => None,
     }
 }
 
-fn anchor_sw(x: f64, y: f64, width: f64, height: f64, anchor: &str) -> (f64, f64) {
-    let sw_x = if anchor.contains("east") {
-        x - width
+fn smufl_bbox_for_codepoint(codepoint: u32) -> Option<glyph::BBox> {
+    if let Some(name) = smufl_name_for_codepoint(codepoint) {
+        if let Some(bbox) = glyph::bbox(name) {
+            return Some(bbox);
+        }
+    }
+
+    match codepoint {
+        0xE520 => Some(bbox(-0.356, -0.568, 1.464, 1.096)), // dynamicPiano
+        0xE521 => Some(bbox(-0.08, -0.04, 1.784, 1.096)),   // dynamicMezzo
+        0xE522 => Some(bbox(-0.564, -0.608, 1.456, 1.776)), // dynamicForte
+        0xE523 => Some(bbox(-0.08, 0.0, 1.108, 1.096)),     // dynamicRinforzando
+        0xE524 => Some(bbox(0.0, -0.04, 0.916, 1.092)),     // dynamicSforzando
+        0xE525 => Some(bbox(-0.12, -0.04, 0.976, 1.072)),   // dynamicZ
+        0xE4A0 => Some(bbox(0.0, 0.004, 1.356, 0.98)),      // articAccentAbove
+        0xE4A1 => Some(bbox(0.0, -0.976, 1.356, 0.0)),      // articAccentBelow
+        0xE4A2 => Some(bbox(0.0, 0.0, 0.336, 0.336)),       // articStaccatoAbove
+        0xE4A3 => Some(bbox(0.0, -0.336, 0.336, 0.0)),      // articStaccatoBelow
+        0xE4A4 => Some(bbox(-0.004, 0.0, 1.352, 0.192)),    // articTenutoAbove
+        0xE4A5 => Some(bbox(-0.004, -0.192, 1.352, 0.0)),   // articTenutoBelow
+        0xE4AC => Some(bbox(-0.004, -0.004, 0.94, 1.012)),  // articMarcatoAbove
+        0xE4AD => Some(bbox(-0.004, -1.016, 0.94, 0.0)),    // articMarcatoBelow
+        0xE4C0 => Some(bbox(0.012, -0.012, 2.42, 1.316)),   // fermataAbove
+        0xE4C1 => Some(bbox(0.012, -1.328, 2.42, 0.0)),     // fermataBelow
+        _ => None,
+    }
+}
+
+fn smufl_advance_for_codepoint(codepoint: u32) -> Option<f64> {
+    if let Some(name) = smufl_name_for_codepoint(codepoint) {
+        let advance = glyph::advance_width(name);
+        if advance > 0.0 {
+            return Some(advance);
+        }
+    }
+
+    match codepoint {
+        0xE520 => Some(1.46),  // dynamicPiano
+        0xE521 => Some(1.748), // dynamicMezzo
+        0xE522 => Some(1.456), // dynamicForte
+        0xE523 => Some(1.108), // dynamicRinforzando
+        0xE524 => Some(0.916), // dynamicSforzando
+        0xE525 => Some(0.976), // dynamicZ
+        0xE4A0 | 0xE4A1 => Some(1.356),
+        0xE4A2 | 0xE4A3 => Some(0.336),
+        0xE4A4 | 0xE4A5 => Some(1.352),
+        0xE4AC | 0xE4AD => Some(0.944),
+        0xE4C0 | 0xE4C1 => Some(2.42),
+        _ => None,
+    }
+}
+
+fn music_text_bbox(value: &str) -> Option<glyph::BBox> {
+    let mut pen = 0.0;
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+
+    for ch in value.chars() {
+        let codepoint = ch as u32;
+        let bbox = smufl_bbox_for_codepoint(codepoint)?;
+        min_x = min_x.min(pen + bbox.sw_x);
+        min_y = min_y.min(bbox.sw_y);
+        max_x = max_x.max(pen + bbox.ne_x);
+        max_y = max_y.max(bbox.ne_y);
+        pen += smufl_advance_for_codepoint(codepoint)?;
+    }
+
+    if min_x.is_finite() {
+        Some(bbox(min_x, min_y, max_x, max_y))
+    } else {
+        None
+    }
+}
+
+fn anchored_text_origin(
+    x: f64,
+    y: f64,
+    bbox: glyph::BBox,
+    font_size_mm: f64,
+    anchor: &str,
+) -> (f64, f64) {
+    let scale = font_size_mm / 4.0;
+    let anchor_x = if anchor.contains("east") {
+        bbox.ne_x
     } else if anchor.contains("west") {
-        x
+        bbox.sw_x
     } else {
-        x - width / 2.0
+        (bbox.sw_x + bbox.ne_x) / 2.0
     };
-
-    let sw_y = if anchor.contains("north") {
-        y - height
+    let anchor_y = if anchor.contains("north") {
+        bbox.ne_y
     } else if anchor.contains("south") {
-        y
+        bbox.sw_y
     } else {
-        y - height / 2.0
+        (bbox.sw_y + bbox.ne_y) / 2.0
     };
 
-    (sw_x, sw_y)
+    (x - anchor_x * scale, y - anchor_y * scale)
 }
 
-fn glyph_id(face: &Face, ch: char) -> Option<GlyphId> {
-    face.glyph_index(ch)
-}
-
-fn music_glyph_bounds(
-    face: &Face,
-    x: f64,
-    y: f64,
-    c: u32,
-    size_mm: f64,
-    anchor: &str,
-) -> Option<(f64, f64, f64, f64)> {
-    let ch = char::from_u32(c)?;
-    let gid = glyph_id(face, ch)?;
-    let bbox = face.glyph_bounding_box(gid)?;
-    let scale = size_mm / face.units_per_em() as f64;
-    let width = (bbox.x_max - bbox.x_min) as f64 * scale;
-    let height = (bbox.y_max - bbox.y_min) as f64 * scale;
-    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
-    Some((sw_x, sw_y, sw_x + width, sw_y + height))
-}
-
-fn music_text_bounds(
-    face: &Face,
-    x: f64,
-    y: f64,
-    value: &str,
-    size_mm: f64,
-    anchor: &str,
-) -> Option<(f64, f64, f64, f64)> {
-    let scale = size_mm / face.units_per_em() as f64;
-    let mut pen = 0.0_f64;
-    let mut min_x = f64::INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut max_x = f64::NEG_INFINITY;
-    let mut max_y = f64::NEG_INFINITY;
-
-    for ch in value.chars() {
-        let gid = glyph_id(face, ch)?;
-        if let Some(b) = face.glyph_bounding_box(gid) {
-            min_x = min_x.min(pen + b.x_min as f64);
-            min_y = min_y.min(b.y_min as f64);
-            max_x = max_x.max(pen + b.x_max as f64);
-            max_y = max_y.max(b.y_max as f64);
-        }
-        pen += face.glyph_hor_advance(gid).unwrap_or(0) as f64;
-    }
-
-    if !min_x.is_finite() {
-        return None;
-    }
-
-    let width = (max_x - min_x) * scale;
-    let height = (max_y - min_y) * scale;
-    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
-    Some((sw_x, sw_y, sw_x + width, sw_y + height))
-}
-
-fn write_music_glyph_path(
-    svg: &mut String,
-    face: &Face,
-    x: f64,
-    y: f64,
-    c: u32,
-    size_mm: f64,
-    anchor: &str,
-    tx: &impl Fn(f64) -> f64,
-    ty: &impl Fn(f64) -> f64,
-) -> bool {
-    let Some(ch) = char::from_u32(c) else { return false; };
-    let Some(gid) = glyph_id(face, ch) else { return false; };
-    let Some(bbox) = face.glyph_bounding_box(gid) else { return false; };
-    let scale = size_mm / face.units_per_em() as f64;
-    let width = (bbox.x_max - bbox.x_min) as f64 * scale;
-    let height = (bbox.y_max - bbox.y_min) as f64 * scale;
-    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
-
-    let mut path = String::new();
-    {
-        let mut builder = SvgPathBuilder {
-            data: &mut path,
-            sw_x: tx(sw_x),
-            sw_y: ty(sw_y),
-            scale,
-            x_offset: -(bbox.x_min as f64),
-            y_offset: -(bbox.y_min as f64),
-        };
-        if face.outline_glyph(gid, &mut builder).is_none() {
-            return false;
-        }
-    }
-
-    svg.push_str("<path d=\"");
-    svg.push_str(&path);
-    svg.push_str("\" fill=\"black\"/>");
-    true
-}
-
-fn write_music_text_paths(
-    svg: &mut String,
-    face: &Face,
-    x: f64,
-    y: f64,
-    value: &str,
-    size_mm: f64,
-    anchor: &str,
-    tx: &impl Fn(f64) -> f64,
-    ty: &impl Fn(f64) -> f64,
-) -> bool {
-    let scale = size_mm / face.units_per_em() as f64;
-    let mut glyphs = Vec::new();
-    let mut pen = 0.0_f64;
-    let mut min_x = f64::INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut max_x = f64::NEG_INFINITY;
-    let mut max_y = f64::NEG_INFINITY;
-
-    for ch in value.chars() {
-        let Some(gid) = glyph_id(face, ch) else { return false; };
-        let bbox = face.glyph_bounding_box(gid);
-        if let Some(b) = bbox {
-            min_x = min_x.min(pen + b.x_min as f64);
-            min_y = min_y.min(b.y_min as f64);
-            max_x = max_x.max(pen + b.x_max as f64);
-            max_y = max_y.max(b.y_max as f64);
-        }
-        glyphs.push((gid, pen, bbox));
-        pen += face.glyph_hor_advance(gid).unwrap_or(0) as f64;
-    }
-
-    if glyphs.is_empty() || !min_x.is_finite() {
-        return false;
-    }
-
-    let width = (max_x - min_x) * scale;
-    let height = (max_y - min_y) * scale;
-    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
-    let svg_sw_x = tx(sw_x);
-    let svg_sw_y = ty(sw_y);
-
-    for (gid, glyph_pen, bbox) in glyphs {
-        if bbox.is_none() {
-            continue;
-        }
-        let mut path = String::new();
-        {
-            let mut builder = SvgPathBuilder {
-                data: &mut path,
-                sw_x: svg_sw_x,
-                sw_y: svg_sw_y,
-                scale,
-                x_offset: glyph_pen - min_x,
-                y_offset: -min_y,
-            };
-            if face.outline_glyph(gid, &mut builder).is_none() {
-                return false;
-            }
-        }
-        svg.push_str("<path d=\"");
-        svg.push_str(&path);
-        svg.push_str("\" fill=\"black\"/>");
-    }
-
-    true
-}
-
-fn svg_from_cmds(cmds: &[DrawCmd], width_mm: f64, fallback_height_mm: f64, music_font: &str) -> String {
+fn svg_from_cmds(
+    cmds: &[DrawCmd],
+    width_mm: f64,
+    fallback_height_mm: f64,
+    music_font: &str,
+) -> String {
     let mut bounds = (0.0, -fallback_height_mm, width_mm, 0.0);
     let mut ox = 0.0;
     let mut oy = 0.0;
-    let music_face = if music_font == "Bravura" {
-        Face::parse(BRAVURA_FONT, 0).ok()
-    } else {
-        None
-    };
 
     for cmd in cmds {
         match cmd {
@@ -557,31 +487,15 @@ fn svg_from_cmds(cmds: &[DrawCmd], width_mm: f64, fallback_height_mm: f64, music
                 update_bounds(&mut bounds, ox + x1 - pad, oy + y1 - pad);
                 update_bounds(&mut bounds, ox + x2 + pad, oy + y2 + pad);
             }
-            DrawCmd::Glyph { x, y, c, s, a } => {
-                if let Some((x0, y0, x1, y1)) = music_face
-                    .as_ref()
-                    .and_then(|face| music_glyph_bounds(face, ox + x, oy + y, *c, *s, a))
-                {
-                    update_bounds(&mut bounds, x0, y0);
-                    update_bounds(&mut bounds, x1, y1);
-                } else {
-                    let pad = *s;
-                    update_bounds(&mut bounds, ox + x - pad, oy + y - pad);
-                    update_bounds(&mut bounds, ox + x + pad, oy + y + pad);
-                }
+            DrawCmd::Glyph { x, y, s, .. } => {
+                let pad = *s;
+                update_bounds(&mut bounds, ox + x - pad, oy + y - pad);
+                update_bounds(&mut bounds, ox + x + pad, oy + y + pad);
             }
-            DrawCmd::MusicText { x, y, v, s, a } => {
-                if let Some((x0, y0, x1, y1)) = music_face
-                    .as_ref()
-                    .and_then(|face| music_text_bounds(face, ox + x, oy + y, v, *s, a))
-                {
-                    update_bounds(&mut bounds, x0, y0);
-                    update_bounds(&mut bounds, x1, y1);
-                } else {
-                    let pad_x = *s * v.chars().count().max(1) as f64;
-                    update_bounds(&mut bounds, ox + x - pad_x, oy + y - *s);
-                    update_bounds(&mut bounds, ox + x + pad_x, oy + y + *s);
-                }
+            DrawCmd::MusicText { x, y, v, s, .. } => {
+                let pad_x = *s * v.chars().count().max(1) as f64;
+                update_bounds(&mut bounds, ox + x - pad_x, oy + y - *s);
+                update_bounds(&mut bounds, ox + x + pad_x, oy + y + *s);
             }
             DrawCmd::Text { x, y, v, s, .. } => {
                 let size_mm = *s * 25.4 / 72.0;
@@ -646,36 +560,76 @@ fn svg_from_cmds(cmds: &[DrawCmd], width_mm: f64, fallback_height_mm: f64, music
                 );
             }
             DrawCmd::Glyph { x, y, c, s, a } => {
-                let rendered_as_path = music_face.as_ref().map_or(false, |face| {
-                    write_music_glyph_path(&mut svg, face, ox + x, oy + y, *c, *s, a, &tx, &ty)
-                });
-                if !rendered_as_path {
-                    if let Some(ch) = char::from_u32(*c) {
-                    let (text_anchor, baseline) = svg_anchor_attrs(a);
-                    let _ = write!(
-                        svg,
-                        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
-                        tx(ox + x), ty(oy + y), escaped_music_font, s, text_anchor, baseline, xml_escape(&ch.to_string())
-                    );
+                if let Some(ch) = char::from_u32(*c) {
+                    if let Some(bbox) = smufl_bbox_for_codepoint(*c) {
+                        let (text_x, text_y) = anchored_text_origin(ox + x, oy + y, bbox, *s, a);
+                        let _ = write!(
+                            svg,
+                            "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\">{}</text>",
+                            tx(text_x),
+                            ty(text_y),
+                            escaped_music_font,
+                            s,
+                            xml_escape(&ch.to_string())
+                        );
+                    } else {
+                        let (text_anchor, baseline) = svg_anchor_attrs(a);
+                        let _ = write!(
+                            svg,
+                            "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
+                            tx(ox + x),
+                            ty(oy + y),
+                            escaped_music_font,
+                            s,
+                            text_anchor,
+                            baseline,
+                            xml_escape(&ch.to_string())
+                        );
                     }
                 }
             }
             DrawCmd::MusicText { x, y, v, s, a } => {
-                let rendered_as_path = music_face.as_ref().map_or(false, |face| {
-                    write_music_text_paths(&mut svg, face, ox + x, oy + y, v, *s, a, &tx, &ty)
-                });
-                if !rendered_as_path {
+                if let Some(bbox) = music_text_bbox(v) {
+                    let (text_x, text_y) = anchored_text_origin(ox + x, oy + y, bbox, *s, a);
+                    let _ = write!(
+                        svg,
+                        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\">{}</text>",
+                        tx(text_x),
+                        ty(text_y),
+                        escaped_music_font,
+                        s,
+                        xml_escape(v)
+                    );
+                } else {
                     let (text_anchor, baseline) = svg_anchor_attrs(a);
                     let _ = write!(
                         svg,
                         "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
-                        tx(ox + x), ty(oy + y), escaped_music_font, s, text_anchor, baseline, xml_escape(v)
+                        tx(ox + x),
+                        ty(oy + y),
+                        escaped_music_font,
+                        s,
+                        text_anchor,
+                        baseline,
+                        xml_escape(v)
                     );
                 }
             }
-            DrawCmd::Text { x, y, v, s, w, i, a } => {
+            DrawCmd::Text {
+                x,
+                y,
+                v,
+                s,
+                w,
+                i,
+                a,
+            } => {
                 let (text_anchor, baseline) = svg_anchor_attrs(a);
-                let weight = if w.as_ref() == "bold" { "bold" } else { "normal" };
+                let weight = if w.as_ref() == "bold" {
+                    "bold"
+                } else {
+                    "normal"
+                };
                 let style = if *i { "italic" } else { "normal" };
                 let size_mm = *s * 25.4 / 72.0;
                 let _ = write!(
@@ -715,7 +669,9 @@ fn svg_from_cmds(cmds: &[DrawCmd], width_mm: f64, fallback_height_mm: f64, music
                 let _ = write!(
                     svg,
                     "<circle cx=\"{:.3}\" cy=\"{:.3}\" r=\"{:.3}\" fill=\"black\"/>",
-                    tx(ox + x), ty(oy + y), r
+                    tx(ox + x),
+                    ty(oy + y),
+                    r
                 );
             }
             DrawCmd::MoveOrigin { dx, dy } => {
@@ -735,7 +691,11 @@ fn svg_from_cmds(cmds: &[DrawCmd], width_mm: f64, fallback_height_mm: f64, music
 fn note_stem_x(x: f64, duration: i32, stem_dir: &str, sp: f64) -> f64 {
     let smufl = notehead_smufl(duration);
     let nh_w = glyph::advance_width(smufl);
-    let anchor_key = if stem_dir == "up" { "stemUpSE" } else { "stemDownNW" };
+    let anchor_key = if stem_dir == "up" {
+        "stemUpSE"
+    } else {
+        "stemDownNW"
+    };
     let anch = glyph::anchor(smufl, anchor_key);
     let (att_x, _att_y) = if let Some(a) = anch {
         (a.x, a.y)
@@ -746,7 +706,11 @@ fn note_stem_x(x: f64, duration: i32, stem_dir: &str, sp: f64) -> f64 {
     };
     let sx = x - nh_w / 2.0 * sp + att_x * sp;
     let half_thin = STEM_THICKNESS / 2.0 * sp;
-    sx + if stem_dir == "up" { -half_thin } else { half_thin }
+    sx + if stem_dir == "up" {
+        -half_thin
+    } else {
+        half_thin
+    }
 }
 
 // ─── Chord notehead x offsets ──────────────────────────────────────────
@@ -766,7 +730,11 @@ fn chord_notehead_x_offsets(positions: &[i32], stem_dir: &str, nh_w: f64, lsp: f
         order.sort_by(|&a, &b| positions[b].cmp(&positions[a]));
     }
 
-    let alt_offset = if stem_dir == "down" { -nh_w * lsp } else { nh_w * lsp };
+    let alt_offset = if stem_dir == "down" {
+        -nh_w * lsp
+    } else {
+        nh_w * lsp
+    };
     let mut side = 0;
     let mut prev_sp: Option<i32> = None;
     for &idx in &order {
@@ -830,14 +798,14 @@ fn compute_below_extent_sp(items: &[LaidOutItem]) -> f64 {
     let mut max_sp = 0.0_f64;
     for item in items {
         let ev = &item.event;
-        let has_dynamic   = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
+        let has_dynamic = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
         let has_expression = ev.expression_text().map_or(false, |e| !e.is_empty());
-        let has_hairpin   = ev.hairpin().is_some();
-        let lyric_count   = ev.lyrics().iter().filter(|l| l.text.is_some()).count();
+        let has_hairpin = ev.hairpin().is_some();
+        let lyric_count = ev.lyrics().iter().filter(|l| l.text.is_some()).count();
         // Dynamic glyph sits at y_bottom-1 sp (north anchor), extends ~2.5 sp downward → 3.5 sp.
         // Expression text at y_bottom-3.5 sp (with dynamic) or y_bottom-2.0 sp (alone), ~1.5 sp tall.
         if has_dynamic && has_expression {
-            max_sp = max_sp.max(6.0);  // dyn (3.5) + expression below that (~2 sp more)
+            max_sp = max_sp.max(6.0); // dyn (3.5) + expression below that (~2 sp more)
         } else if has_dynamic {
             max_sp = max_sp.max(3.5);
         } else if has_expression {
@@ -858,10 +826,10 @@ fn compute_above_extent_sp(items: &[LaidOutItem]) -> f64 {
     let mut max_sp = 0.0_f64;
     for item in items {
         let ev = &item.event;
-        let has_chord      = ev.chord_symbol().map_or(false, |c| !c.is_empty());
+        let has_chord = ev.chord_symbol().map_or(false, |c| !c.is_empty());
         let has_staff_text = ev.staff_text().map_or(false, |t| !t.is_empty());
-        let has_ending     = ev.ending().is_some();
-        let has_fingering  = ev.fingering().is_some();
+        let has_ending = ev.ending().is_some();
+        let has_fingering = ev.fingering().is_some();
         if has_ending {
             if has_chord || has_staff_text {
                 max_sp = max_sp.max(9.0); // chord/text above bracket line + bracket height
@@ -902,9 +870,8 @@ pub fn render_system_group(
     let use_spanning_barlines = num_staves > 1;
 
     // Compute shared prefix data
-    let (shared_time_x, shared_music_start_x) = compute_shared_prefix(
-        laid_out_staves, key, time, sp_unit, show_time,
-    );
+    let (shared_time_x, shared_music_start_x) =
+        compute_shared_prefix(laid_out_staves, key, time, sp_unit, show_time);
 
     // Render header text
     let mut header_height = 0.0;
@@ -1018,7 +985,7 @@ pub fn render_system_group(
             show_time && si == 0,
             Some(shared_time_x),
             Some(shared_music_start_x),
-            use_spanning_barlines,  // all staves skip barlines when spanning
+            use_spanning_barlines, // all staves skip barlines when spanning
             fng_pos,
             y_top,
         );
@@ -1055,7 +1022,14 @@ pub fn render_system_group(
             let bx = -0.5 * sp_unit;
             emit_line(&mut cmds, bx, first_y_top, bx, last_y_bottom, thick);
             emit_line(&mut cmds, bx, first_y_top, bx + serif, first_y_top, thick);
-            emit_line(&mut cmds, bx, last_y_bottom, bx + serif, last_y_bottom, thick);
+            emit_line(
+                &mut cmds,
+                bx,
+                last_y_bottom,
+                bx + serif,
+                last_y_bottom,
+                thick,
+            );
         }
 
         // Spanning barlines — opening, all internal measure barlines, and final,
@@ -1068,13 +1042,27 @@ pub fn render_system_group(
             } else {
                 s0_total_w + 2.0
             };
-            let scale_x = if s0_total_w > 0.0 { avail_music_w / s0_total_w } else { 1.0 };
-            let total_w = compute_total_width(laid_out_staves, sp_unit, avail_width_mm, shared_music_start_x);
+            let scale_x = if s0_total_w > 0.0 {
+                avail_music_w / s0_total_w
+            } else {
+                1.0
+            };
+            let total_w = compute_total_width(
+                laid_out_staves,
+                sp_unit,
+                avail_width_mm,
+                shared_music_start_x,
+            );
 
             // Opening barline (left edge)
-            emit_line(&mut cmds, BARLINE_THICKNESS / 2.0 * sp_unit, first_y_top,
-                      BARLINE_THICKNESS / 2.0 * sp_unit, last_y_bottom,
-                      BARLINE_THICKNESS * sp_unit);
+            emit_line(
+                &mut cmds,
+                BARLINE_THICKNESS / 2.0 * sp_unit,
+                first_y_top,
+                BARLINE_THICKNESS / 2.0 * sp_unit,
+                last_y_bottom,
+                BARLINE_THICKNESS * sp_unit,
+            );
 
             // Internal measure barlines and final barline.
             // Key rule: if the last item in staff0 IS a barline, that barline is the
@@ -1090,7 +1078,9 @@ pub fn render_system_group(
             };
             for (idx, item) in items.iter().enumerate() {
                 if let Event::Barline(b) = &item.event {
-                    if Some(idx) == last_barline_idx { continue; } // handled below as final
+                    if Some(idx) == last_barline_idx {
+                        continue;
+                    } // handled below as final
                     let bx = shared_music_start_x + item.x * scale_x * sp_unit + 0.5 * sp_unit;
                     render_barline(&mut cmds, bx, first_y_top, last_y_bottom, &b.style, sp_unit);
                 }
@@ -1098,24 +1088,47 @@ pub fn render_system_group(
 
             // Final barline
             let raw_final_style = if last_item_is_barline {
-                items.last()
-                    .and_then(|item| if let Event::Barline(b) = &item.event { Some(b.style.as_str()) } else { None })
+                items
+                    .last()
+                    .and_then(|item| {
+                        if let Event::Barline(b) = &item.event {
+                            Some(b.style.as_str())
+                        } else {
+                            None
+                        }
+                    })
                     .unwrap_or("final")
             } else {
                 "final" // music ends with a note — emit standard final barline
             };
-            let final_style = if raw_final_style == "repeat-both" { "repeat-end" } else { raw_final_style };
+            let final_style = if raw_final_style == "repeat-both" {
+                "repeat-end"
+            } else {
+                raw_final_style
+            };
             let final_x = if matches!(final_style, "final" | "repeat-end") {
                 total_w * sp_unit - THICK_BARLINE / 2.0 * sp_unit
             } else {
                 total_w * sp_unit - BARLINE_THICKNESS / 2.0 * sp_unit
             };
-            render_barline(&mut cmds, final_x, first_y_top, last_y_bottom, final_style, sp_unit);
+            render_barline(
+                &mut cmds,
+                final_x,
+                first_y_top,
+                last_y_bottom,
+                final_style,
+                sp_unit,
+            );
         }
     }
 
     // Compute final dimensions
-    let total_w_sp = compute_total_width(laid_out_staves, sp_unit, avail_width_mm, shared_music_start_x);
+    let total_w_sp = compute_total_width(
+        laid_out_staves,
+        sp_unit,
+        avail_width_mm,
+        shared_music_start_x,
+    );
     let width_mm = avail_width_mm.unwrap_or(total_w_sp * sp_unit);
 
     // Add below-staff content depth
@@ -1181,7 +1194,10 @@ fn compute_total_width(
     if let Some(w) = avail_width_mm {
         return w / sp;
     }
-    let max_tw = laid_out_staves.iter().map(|s| s.total_width).fold(0.0_f64, f64::max);
+    let max_tw = laid_out_staves
+        .iter()
+        .map(|s| s.total_width)
+        .fold(0.0_f64, f64::max);
     music_start_x / sp + max_tw + 1.0
 }
 
@@ -1230,13 +1246,14 @@ fn render_system(
     let music_start_x = forced_music_start_x.unwrap_or_else(|| {
         let mut msx = cx + clef_w + key_w + time_w + 1.0 * sp;
         // Extra space for first accidental
-        let first_has_acc = items.iter().find(|i| i.event.is_note() || i.event.is_chord()).map_or(false, |i| {
-            match &i.event {
+        let first_has_acc = items
+            .iter()
+            .find(|i| i.event.is_note() || i.event.is_chord())
+            .map_or(false, |i| match &i.event {
                 Event::Note(n) => n.accidental.is_some(),
                 Event::Chord(c) => c.notes.iter().any(|n| n.accidental.is_some()),
                 _ => false,
-            }
-        });
+            });
         if first_has_acc {
             msx += 1.0 * sp;
         }
@@ -1269,8 +1286,14 @@ fn render_system(
 
     // Opening barline — skipped when the group renderer draws a spanning barline
     if !skip_barlines {
-        emit_line(cmds, BARLINE_THICKNESS / 2.0 * sp, y_top,
-                  BARLINE_THICKNESS / 2.0 * sp, y_bottom, BARLINE_THICKNESS * sp);
+        emit_line(
+            cmds,
+            BARLINE_THICKNESS / 2.0 * sp,
+            y_top,
+            BARLINE_THICKNESS / 2.0 * sp,
+            y_bottom,
+            BARLINE_THICKNESS * sp,
+        );
     }
 
     // Draw clef
@@ -1290,12 +1313,23 @@ fn render_system(
     if show_opening_time {
         let time_x = forced_time_x.unwrap_or(cx);
         if let Some(t) = opening_time {
-            render_time_signature(cmds, time_x, y_top, t.upper, t.lower, t.symbol.as_deref(), sp);
+            render_time_signature(
+                cmds,
+                time_x,
+                y_top,
+                t.upper,
+                t.lower,
+                t.symbol.as_deref(),
+                sp,
+            );
         }
     }
 
     // Pre-compute item x positions
-    let item_xs: Vec<f64> = items.iter().map(|item| music_start_x + item.x * scale_x * sp).collect();
+    let item_xs: Vec<f64> = items
+        .iter()
+        .map(|item| music_start_x + item.x * scale_x * sp)
+        .collect();
 
     // Compute notehead bbox
     let black_bb = glyph::bbox("noteheadBlack");
@@ -1310,9 +1344,12 @@ fn render_system(
         let beamable = (ev.is_note() || ev.is_chord()) && ev.duration() >= 8;
         let grace = ev.grace();
         if beamable {
-            let same_grace = cur_beam.is_empty() || items[*cur_beam.first().unwrap()].event.grace() == grace;
+            let same_grace =
+                cur_beam.is_empty() || items[*cur_beam.first().unwrap()].event.grace() == grace;
             if !same_grace {
-                if cur_beam.len() >= 2 { raw_beam_groups.push(cur_beam.clone()); }
+                if cur_beam.len() >= 2 {
+                    raw_beam_groups.push(cur_beam.clone());
+                }
                 cur_beam.clear();
             }
             let limit = if grace { 8 } else { 4 };
@@ -1322,21 +1359,30 @@ fn render_system(
             }
             cur_beam.push(i);
         } else {
-            if cur_beam.len() >= 2 { raw_beam_groups.push(cur_beam.clone()); }
+            if cur_beam.len() >= 2 {
+                raw_beam_groups.push(cur_beam.clone());
+            }
             cur_beam.clear();
         }
     }
-    if cur_beam.len() >= 2 { raw_beam_groups.push(cur_beam); }
+    if cur_beam.len() >= 2 {
+        raw_beam_groups.push(cur_beam);
+    }
 
     // Compute beam geometry
     let mut adj_stem_ends: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
-    let mut adj_stem_dirs: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
+    let mut adj_stem_dirs: std::collections::HashMap<usize, String> =
+        std::collections::HashMap::new();
 
     let mut beam_groups_data: Vec<BeamGroupData> = Vec::with_capacity(raw_beam_groups.len());
 
     for group in &raw_beam_groups {
         let group_is_grace = items[*group.first().unwrap()].event.grace();
-        let beam_scale = if group_is_grace { GRACE_NOTE_SCALE } else { 1.0 };
+        let beam_scale = if group_is_grace {
+            GRACE_NOTE_SCALE
+        } else {
+            1.0
+        };
 
         // Unified stem direction
         let avg_y = group.iter().map(|&idx| items[idx].y).sum::<f64>() / group.len() as f64;
@@ -1345,8 +1391,20 @@ fn render_system(
 
         let first = &items[*group.first().unwrap()];
         let last = &items[*group.last().unwrap()];
-        let mut sy0 = pitch::compute_stem_end_y(first.y, (-2.0 * first.y).round() as i32, stem_dir, beam_scale, 3.5);
-        let mut syn = pitch::compute_stem_end_y(last.y, (-2.0 * last.y).round() as i32, stem_dir, beam_scale, 3.5);
+        let mut sy0 = pitch::compute_stem_end_y(
+            first.y,
+            (-2.0 * first.y).round() as i32,
+            stem_dir,
+            beam_scale,
+            3.5,
+        );
+        let mut syn = pitch::compute_stem_end_y(
+            last.y,
+            (-2.0 * last.y).round() as i32,
+            stem_dir,
+            beam_scale,
+            3.5,
+        );
 
         let x0 = item_xs[*group.first().unwrap()];
         let xn = item_xs[*group.last().unwrap()];
@@ -1384,7 +1442,11 @@ fn render_system(
         }
 
         if required_shift > 0.0 {
-            let outward = if stem_dir == "up" { required_shift } else { -required_shift };
+            let outward = if stem_dir == "up" {
+                required_shift
+            } else {
+                -required_shift
+            };
             sy0 += outward;
             syn += outward;
         }
@@ -1419,13 +1481,23 @@ fn render_system(
 
         match ev {
             Event::Clef(c) => {
-                let prev = if i > 0 { Some(&items[i - 1].event) } else { None };
+                let prev = if i > 0 {
+                    Some(&items[i - 1].event)
+                } else {
+                    None
+                };
                 let next = items.get(i + 1).map(|i| &i.event);
                 let offset = inline_clef_draw_offset(prev, next, sp);
                 let clef_x = x - offset;
                 let origin_y = y_top - clef_origin_offset(&c.clef) * sp;
-                emit_glyph_scaled(cmds, clef_x, origin_y, clef_smufl(&c.clef),
-                                  clef_codepoint(&c.clef), sp * INLINE_CLEF_SCALE);
+                emit_glyph_scaled(
+                    cmds,
+                    clef_x,
+                    origin_y,
+                    clef_smufl(&c.clef),
+                    clef_codepoint(&c.clef),
+                    sp * INLINE_CLEF_SCALE,
+                );
             }
             Event::TimeSig(t) => {
                 render_time_signature(cmds, x, y_top, t.upper, t.lower, t.symbol.as_deref(), sp);
@@ -1444,7 +1516,9 @@ fn render_system(
 
                 // Accidental
                 if let Some(ref acc) = n.accidental {
-                    if let (Some(acc_cp), Some(acc_sm)) = (accidental_codepoint(acc), accidental_smufl(acc)) {
+                    if let (Some(acc_cp), Some(acc_sm)) =
+                        (accidental_codepoint(acc), accidental_smufl(acc))
+                    {
                         let acc_w = glyph::advance_width(acc_sm);
                         let acc_x = x - nh_w / 2.0 * lsp - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
                         emit_glyph(cmds, acc_x, note_center_y, acc_sm, acc_cp, lsp);
@@ -1460,10 +1534,13 @@ fn render_system(
                 let smufl = notehead_smufl(c.duration);
                 let cp = notehead_codepoint(c.duration);
                 let nh_w = glyph::advance_width(smufl);
-                let stem_dir = adj_stem_dirs.get(&i).cloned()
+                let stem_dir = adj_stem_dirs
+                    .get(&i)
+                    .cloned()
                     .or(item.stem_dir.clone())
                     .unwrap_or_else(|| "up".to_string());
-                let offsets = chord_notehead_x_offsets(&item.chord_staff_positions, &stem_dir, nh_w, lsp);
+                let offsets =
+                    chord_notehead_x_offsets(&item.chord_staff_positions, &stem_dir, nh_w, lsp);
 
                 for (ni, cn) in c.notes.iter().enumerate() {
                     let ny = y_top + item.chord_ys[ni] * sp;
@@ -1471,9 +1548,12 @@ fn render_system(
                     let nx = x + offsets[ni];
                     render_ledger_lines(cmds, nx, y_top, nsp, sp, note_scale);
                     if let Some(ref acc) = cn.accidental {
-                        if let (Some(acc_cp), Some(acc_sm)) = (accidental_codepoint(acc), accidental_smufl(acc)) {
+                        if let (Some(acc_cp), Some(acc_sm)) =
+                            (accidental_codepoint(acc), accidental_smufl(acc))
+                        {
                             let acc_w = glyph::advance_width(acc_sm);
-                            let acc_x = nx - nh_w / 2.0 * lsp - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
+                            let acc_x =
+                                nx - nh_w / 2.0 * lsp - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
                             emit_glyph(cmds, acc_x, ny, acc_sm, acc_cp, lsp);
                         }
                     }
@@ -1523,10 +1603,14 @@ fn render_system(
                 let note_scale = if is_grace { GRACE_NOTE_SCALE } else { 1.0 };
                 let note_center_y = y_top + y;
                 let lsp = sp * note_scale;
-                let stem_dir = adj_stem_dirs.get(&i).cloned()
+                let stem_dir = adj_stem_dirs
+                    .get(&i)
+                    .cloned()
                     .or(item.stem_dir.clone())
                     .unwrap_or_else(|| "up".to_string());
-                let stem_end = adj_stem_ends.get(&i).copied()
+                let stem_end = adj_stem_ends
+                    .get(&i)
+                    .copied()
                     .map(|se| y_top + se * sp)
                     .or(item.stem_y_end.map(|se| y_top + se * sp));
                 let is_beamed = adj_stem_ends.contains_key(&i);
@@ -1536,18 +1620,43 @@ fn render_system(
                     if let Some(stem_end_y) = stem_end {
                         let smufl_n = notehead_smufl(n.duration);
                         let nh_w = glyph::advance_width(smufl_n);
-                        let anchor_key = if stem_dir == "up" { "stemUpSE" } else { "stemDownNW" };
+                        let anchor_key = if stem_dir == "up" {
+                            "stemUpSE"
+                        } else {
+                            "stemDownNW"
+                        };
                         let anch = glyph::anchor(smufl_n, anchor_key);
-                        let (att_x, att_y) = if let Some(a) = anch { (a.x, a.y) } else if stem_dir == "up" { (nh_w, 0.168) } else { (0.0, -0.168) };
+                        let (att_x, att_y) = if let Some(a) = anch {
+                            (a.x, a.y)
+                        } else if stem_dir == "up" {
+                            (nh_w, 0.168)
+                        } else {
+                            (0.0, -0.168)
+                        };
                         let stem_x = x - nh_w / 2.0 * lsp + att_x * lsp;
                         let half_thin = STEM_THICKNESS / 2.0 * lsp;
-                        let stem_x = stem_x + if stem_dir == "up" { -half_thin } else { half_thin };
+                        let stem_x = stem_x
+                            + if stem_dir == "up" {
+                                -half_thin
+                            } else {
+                                half_thin
+                            };
                         let stem_start_y = note_center_y + att_y * lsp;
-                        emit_line(cmds, stem_x, stem_start_y, stem_x, stem_end_y, STEM_THICKNESS * lsp);
+                        emit_line(
+                            cmds,
+                            stem_x,
+                            stem_start_y,
+                            stem_x,
+                            stem_end_y,
+                            STEM_THICKNESS * lsp,
+                        );
 
                         // Flag
                         if n.duration >= 8 && !is_beamed {
-                            if let (Some(f_cp), Some(f_sm)) = (flag_codepoint(n.duration, &stem_dir), flag_smufl(n.duration, &stem_dir)) {
+                            if let (Some(f_cp), Some(f_sm)) = (
+                                flag_codepoint(n.duration, &stem_dir),
+                                flag_smufl(n.duration, &stem_dir),
+                            ) {
                                 emit_glyph(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp);
                             }
                         }
@@ -1581,7 +1690,15 @@ fn render_system(
                 }
 
                 // Articulations
-                render_articulations(cmds, x, note_center_y, &n.articulations, &stem_dir, y_top, sp);
+                render_articulations(
+                    cmds,
+                    x,
+                    note_center_y,
+                    &n.articulations,
+                    &stem_dir,
+                    y_top,
+                    sp,
+                );
 
                 // Dynamic
                 if let Some(ref dyn_mark) = n.dynamic {
@@ -1592,22 +1709,31 @@ fn render_system(
                 let is_grace = c.grace;
                 let note_scale = if is_grace { GRACE_NOTE_SCALE } else { 1.0 };
                 let lsp = sp * note_scale;
-                let chord_ys_abs: Vec<f64> = item.chord_ys.iter().map(|&vy| y_top + vy * sp).collect();
-                let stem_dir = adj_stem_dirs.get(&i).cloned()
+                let chord_ys_abs: Vec<f64> =
+                    item.chord_ys.iter().map(|&vy| y_top + vy * sp).collect();
+                let stem_dir = adj_stem_dirs
+                    .get(&i)
+                    .cloned()
                     .or(item.stem_dir.clone())
                     .unwrap_or_else(|| "up".to_string());
-                let stem_end = adj_stem_ends.get(&i).copied()
+                let stem_end = adj_stem_ends
+                    .get(&i)
+                    .copied()
                     .map(|se| y_top + se * sp)
                     .or(item.stem_y_end.map(|se| y_top + se * sp));
                 let is_beamed = adj_stem_ends.contains_key(&i);
 
-                let top_y = chord_ys_abs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                let top_y = chord_ys_abs
+                    .iter()
+                    .copied()
+                    .fold(f64::NEG_INFINITY, f64::max);
                 let _bottom_y = chord_ys_abs.iter().copied().fold(f64::INFINITY, f64::min);
 
                 // Dots for each chord note
                 let smufl_c = notehead_smufl(c.duration);
                 let nh_w = glyph::advance_width(smufl_c);
-                let offsets = chord_notehead_x_offsets(&item.chord_staff_positions, &stem_dir, nh_w, lsp);
+                let offsets =
+                    chord_notehead_x_offsets(&item.chord_staff_positions, &stem_dir, nh_w, lsp);
                 if c.dots > 0 {
                     for (ni, &ny) in chord_ys_abs.iter().enumerate() {
                         let nx = x + offsets[ni];
@@ -1625,23 +1751,51 @@ fn render_system(
                 // Stem
                 if c.duration >= 2 {
                     if let Some(stem_end_y) = stem_end {
-                        let anchor_key = if stem_dir == "up" { "stemUpSE" } else { "stemDownNW" };
+                        let anchor_key = if stem_dir == "up" {
+                            "stemUpSE"
+                        } else {
+                            "stemDownNW"
+                        };
                         let anch = glyph::anchor(smufl_c, anchor_key);
-                        let (att_x, att_y) = if let Some(a) = anch { (a.x, a.y) } else if stem_dir == "up" { (nh_w, 0.168) } else { (0.0, -0.168) };
+                        let (att_x, att_y) = if let Some(a) = anch {
+                            (a.x, a.y)
+                        } else if stem_dir == "up" {
+                            (nh_w, 0.168)
+                        } else {
+                            (0.0, -0.168)
+                        };
                         let stem_x = x - nh_w / 2.0 * lsp + att_x * lsp;
                         let half_thin = STEM_THICKNESS / 2.0 * lsp;
-                        let stem_x = stem_x + if stem_dir == "up" { -half_thin } else { half_thin };
+                        let stem_x = stem_x
+                            + if stem_dir == "up" {
+                                -half_thin
+                            } else {
+                                half_thin
+                            };
                         let primary_y_abs = if stem_dir == "up" {
                             chord_ys_abs.iter().copied().fold(f64::INFINITY, f64::min)
                         } else {
-                            chord_ys_abs.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                            chord_ys_abs
+                                .iter()
+                                .copied()
+                                .fold(f64::NEG_INFINITY, f64::max)
                         };
                         let stem_start_y = primary_y_abs + att_y * lsp;
-                        emit_line(cmds, stem_x, stem_start_y, stem_x, stem_end_y, STEM_THICKNESS * lsp);
+                        emit_line(
+                            cmds,
+                            stem_x,
+                            stem_start_y,
+                            stem_x,
+                            stem_end_y,
+                            STEM_THICKNESS * lsp,
+                        );
 
                         // Flag
                         if c.duration >= 8 && !is_beamed {
-                            if let (Some(f_cp), Some(f_sm)) = (flag_codepoint(c.duration, &stem_dir), flag_smufl(c.duration, &stem_dir)) {
+                            if let (Some(f_cp), Some(f_sm)) = (
+                                flag_codepoint(c.duration, &stem_dir),
+                                flag_smufl(c.duration, &stem_dir),
+                            ) {
                                 emit_glyph(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp);
                             }
                         }
@@ -1665,7 +1819,7 @@ fn render_system(
                 let art_ref_y = if stem_dir == "down" { top_y } else { _bottom_y };
                 render_articulations(cmds, x, art_ref_y, &c.articulations, &stem_dir, y_top, sp);
 
-                // Dynamic 
+                // Dynamic
                 if let Some(ref dyn_mark) = c.dynamic {
                     render_dynamic(cmds, x, y_bottom, dyn_mark, sp, 0.0);
                 }
@@ -1677,29 +1831,61 @@ fn render_system(
         match ev {
             Event::Note(n) => {
                 let note_center_y = y_top + item.y * sp;
-                let stem_dir = adj_stem_dirs.get(&i).cloned()
+                let stem_dir = adj_stem_dirs
+                    .get(&i)
+                    .cloned()
                     .or(item.stem_dir.clone())
                     .unwrap_or_else(|| "up".to_string());
-                let stem_end = adj_stem_ends.get(&i).copied()
+                let stem_end = adj_stem_ends
+                    .get(&i)
+                    .copied()
                     .map(|se| y_top + se * sp)
                     .or(item.stem_y_end.map(|se| y_top + se * sp));
                 let above_anchor = note_top_anchor_y(note_center_y, &stem_dir, stem_end, sp);
-                render_inline_text(cmds, x, ev, above_anchor, note_center_y, y_top, y_bottom, sp, fng_pos);
+                render_inline_text(
+                    cmds,
+                    x,
+                    ev,
+                    above_anchor,
+                    note_center_y,
+                    y_top,
+                    y_bottom,
+                    sp,
+                    fng_pos,
+                );
 
                 // Staff markers
                 render_staff_markers(cmds, x, &n.staff_markers, y_top, above_anchor, sp);
             }
             Event::Chord(c) => {
-                let chord_ys_abs: Vec<f64> = item.chord_ys.iter().map(|&vy| y_top + vy * sp).collect();
-                let top_y = chord_ys_abs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-                let stem_dir = adj_stem_dirs.get(&i).cloned()
+                let chord_ys_abs: Vec<f64> =
+                    item.chord_ys.iter().map(|&vy| y_top + vy * sp).collect();
+                let top_y = chord_ys_abs
+                    .iter()
+                    .copied()
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let stem_dir = adj_stem_dirs
+                    .get(&i)
+                    .cloned()
                     .or(item.stem_dir.clone())
                     .unwrap_or_else(|| "up".to_string());
-                let stem_end = adj_stem_ends.get(&i).copied()
+                let stem_end = adj_stem_ends
+                    .get(&i)
+                    .copied()
                     .map(|se| y_top + se * sp)
                     .or(item.stem_y_end.map(|se| y_top + se * sp));
                 let above_anchor = chord_top_anchor_y(top_y, &stem_dir, stem_end, sp);
-                render_inline_text(cmds, x, ev, above_anchor, top_y, y_top, y_bottom, sp, fng_pos);
+                render_inline_text(
+                    cmds,
+                    x,
+                    ev,
+                    above_anchor,
+                    top_y,
+                    y_top,
+                    y_bottom,
+                    sp,
+                    fng_pos,
+                );
                 render_staff_markers(cmds, x, &c.staff_markers, y_top, above_anchor, sp);
             }
             _ => {}
@@ -1710,10 +1896,21 @@ fn render_system(
 
     // ── Final barline ──
     if !skip_barlines {
-        let raw_final_style = items.last()
-            .and_then(|item| if let Event::Barline(b) = &item.event { Some(b.style.as_str()) } else { None })
+        let raw_final_style = items
+            .last()
+            .and_then(|item| {
+                if let Event::Barline(b) = &item.event {
+                    Some(b.style.as_str())
+                } else {
+                    None
+                }
+            })
             .unwrap_or("final");
-        let final_style = if raw_final_style == "repeat-both" { "repeat-end" } else { raw_final_style };
+        let final_style = if raw_final_style == "repeat-both" {
+            "repeat-end"
+        } else {
+            raw_final_style
+        };
         let final_x = if matches!(final_style, "final" | "repeat-end" | "repeat-both") {
             total_width * sp - THICK_BARLINE / 2.0 * sp
         } else {
@@ -1728,39 +1925,118 @@ fn render_system(
     }
 
     // ── Tuplet brackets ──
-    render_tuplets(cmds, items, &item_xs, &adj_stem_ends, &adj_stem_dirs, y_top, y_bottom, sp);
+    render_tuplets(
+        cmds,
+        items,
+        &item_xs,
+        &adj_stem_ends,
+        &adj_stem_dirs,
+        y_top,
+        y_bottom,
+        sp,
+    );
 
     // ── Hairpins ──
-    render_hairpins(cmds, items, &item_xs, &adj_stem_ends, &adj_stem_dirs, y_top, y_bottom, sp, music_start_x, total_width);
+    render_hairpins(
+        cmds,
+        items,
+        &item_xs,
+        &adj_stem_ends,
+        &adj_stem_dirs,
+        y_top,
+        y_bottom,
+        sp,
+        music_start_x,
+        total_width,
+    );
 
     // ── Ties and slurs ──
     render_ties_and_slurs(cmds, items, &item_xs, &adj_stem_dirs, y_top, sp);
 
     // ── Trill lines ──
-    render_trills(cmds, items, &item_xs, &adj_stem_ends, y_top, y_bottom, sp, music_start_x, total_width);
+    render_trills(
+        cmds,
+        items,
+        &item_xs,
+        &adj_stem_ends,
+        y_top,
+        y_bottom,
+        sp,
+        music_start_x,
+        total_width,
+    );
 
     // ── Octave lines ──
-    render_octave_lines(cmds, items, &item_xs, &adj_stem_ends, y_top, y_bottom, sp, music_start_x, total_width);
+    render_octave_lines(
+        cmds,
+        items,
+        &item_xs,
+        &adj_stem_ends,
+        y_top,
+        y_bottom,
+        sp,
+        music_start_x,
+        total_width,
+    );
 
     // ── Ending brackets (voltas) ──
-    render_endings(cmds, items, &item_xs, &adj_stem_ends, &adj_stem_dirs, y_top, y_bottom, sp, total_width);
+    render_endings(
+        cmds,
+        items,
+        &item_xs,
+        &adj_stem_ends,
+        &adj_stem_dirs,
+        y_top,
+        y_bottom,
+        sp,
+        total_width,
+    );
 
     // ── Lyrics ──
-    render_lyrics(cmds, items, &item_xs, &adj_stem_ends, &adj_stem_dirs, y_top, y_bottom, sp,
-                  &laid_out.lyric_prefix_states, music_start_x, total_width, fng_pos);
+    render_lyrics(
+        cmds,
+        items,
+        &item_xs,
+        &adj_stem_ends,
+        &adj_stem_dirs,
+        y_top,
+        y_bottom,
+        sp,
+        &laid_out.lyric_prefix_states,
+        music_start_x,
+        total_width,
+        fng_pos,
+    );
 }
 
 // ─── Helper rendering functions ────────────────────────────────────────
 
-fn render_key_signature(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, key: &str, clef: Option<&str>, sp: f64) {
+fn render_key_signature(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y_top: f64,
+    key: &str,
+    clef: Option<&str>,
+    sp: f64,
+) {
     let count = pitch::key_sig_accidental_count(key);
-    if count == 0 { return; }
+    if count == 0 {
+        return;
+    }
     let n = count.unsigned_abs() as usize;
     let use_clef = clef.unwrap_or("treble");
     let (acc_cp, acc_sm, positions) = if count > 0 {
-        (0xE262u32, "accidentalSharp", pitch::key_sig_sharp_positions(use_clef))
+        (
+            0xE262u32,
+            "accidentalSharp",
+            pitch::key_sig_sharp_positions(use_clef),
+        )
     } else {
-        (0xE260u32, "accidentalFlat", pitch::key_sig_flat_positions(use_clef))
+        (
+            0xE260u32,
+            "accidentalFlat",
+            pitch::key_sig_flat_positions(use_clef),
+        )
     };
     let acc_w = glyph::advance_width(acc_sm);
     let acc_spacing = (acc_w + 0.2) * sp;
@@ -1772,7 +2048,15 @@ fn render_key_signature(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, key: &str, 
     }
 }
 
-fn render_time_signature(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, upper: i32, lower: i32, symbol: Option<&str>, sp: f64) {
+fn render_time_signature(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y_top: f64,
+    upper: i32,
+    lower: i32,
+    symbol: Option<&str>,
+    sp: f64,
+) {
     match symbol {
         Some("common") => {
             emit_glyph(cmds, x, y_top - 2.0 * sp, "timeSigCommon", 0xE08A, sp);
@@ -1807,7 +2091,14 @@ fn render_time_signature(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, upper: i32
     }
 }
 
-fn render_barline(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, y_bottom: f64, style: &str, sp: f64) {
+fn render_barline(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y_top: f64,
+    y_bottom: f64,
+    style: &str,
+    sp: f64,
+) {
     let thin = BARLINE_THICKNESS * sp;
     let thick = THICK_BARLINE * sp;
     let dot_radius = 0.22 * sp;
@@ -1816,8 +2107,16 @@ fn render_barline(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, y_bottom: f64, st
         emit_line(cmds, bx, y_top, bx, y_bottom, t);
     };
     let draw_dots = |cmds: &mut Vec<DrawCmd>, dx: f64| {
-        cmds.push(DrawCmd::Circle { x: dx, y: y_top - 1.5 * sp, r: dot_radius });
-        cmds.push(DrawCmd::Circle { x: dx, y: y_top - 2.5 * sp, r: dot_radius });
+        cmds.push(DrawCmd::Circle {
+            x: dx,
+            y: y_top - 1.5 * sp,
+            r: dot_radius,
+        });
+        cmds.push(DrawCmd::Circle {
+            x: dx,
+            y: y_top - 2.5 * sp,
+            r: dot_radius,
+        });
     };
 
     match style {
@@ -1851,9 +2150,18 @@ fn render_barline(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, y_bottom: f64, st
     }
 }
 
-fn render_ledger_lines(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, staff_pos: i32, sp: f64, note_scale: f64) {
+fn render_ledger_lines(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y_top: f64,
+    staff_pos: i32,
+    sp: f64,
+    note_scale: f64,
+) {
     let info = pitch::ledger_lines_needed(staff_pos);
-    if info.0 == 0 { return; }
+    if info.0 == 0 {
+        return;
+    }
     let lsp = sp * note_scale;
     let ext = LEDGER_LINE_EXTENSION * lsp;
     let thickness = STAFF_LINE_THICKNESS * lsp;
@@ -1863,25 +2171,55 @@ fn render_ledger_lines(cmds: &mut Vec<DrawCmd>, x: f64, y_top: f64, staff_pos: i
         for i in 0..info.0 {
             let ledger_pos = -2 - i as i32 * 2;
             let ly = y_top - ledger_pos as f64 * sp / 2.0;
-            emit_line(cmds, x - nh_w / 2.0 * lsp - ext, ly, x + nh_w / 2.0 * lsp + ext, ly, thickness);
+            emit_line(
+                cmds,
+                x - nh_w / 2.0 * lsp - ext,
+                ly,
+                x + nh_w / 2.0 * lsp + ext,
+                ly,
+                thickness,
+            );
         }
     } else {
         for i in 0..info.0 {
             let ledger_pos = 10 + i as i32 * 2;
             let ly = y_top - ledger_pos as f64 * sp / 2.0;
-            emit_line(cmds, x - nh_w / 2.0 * lsp - ext, ly, x + nh_w / 2.0 * lsp + ext, ly, thickness);
+            emit_line(
+                cmds,
+                x - nh_w / 2.0 * lsp - ext,
+                ly,
+                x + nh_w / 2.0 * lsp + ext,
+                ly,
+                thickness,
+            );
         }
     }
 }
 
-fn render_articulations(cmds: &mut Vec<DrawCmd>, x: f64, note_y: f64, articulations: &[String], stem_dir: &str, y_top: f64, sp: f64) {
-    if articulations.is_empty() { return; }
-    let fermata: Vec<&String> = articulations.iter().filter(|a| a.as_str() == "fermata").collect();
-    let non_fermata: Vec<&String> = articulations.iter().filter(|a| a.as_str() != "fermata").collect();
+fn render_articulations(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    note_y: f64,
+    articulations: &[String],
+    stem_dir: &str,
+    y_top: f64,
+    sp: f64,
+) {
+    if articulations.is_empty() {
+        return;
+    }
+    let fermata: Vec<&String> = articulations
+        .iter()
+        .filter(|a| a.as_str() == "fermata")
+        .collect();
+    let non_fermata: Vec<&String> = articulations
+        .iter()
+        .filter(|a| a.as_str() != "fermata")
+        .collect();
     let art_above = stem_dir == "down";
     // gap_above: positive = above note_center; gap_below: positive = below note_center
-    let gap_above = 0.75 * sp;  // first art starts 0.75sp above notehead center ("south" anchor)
-    let gap_below = 1.0 * sp;   // first art starts 1sp below notehead center ("north" anchor)
+    let gap_above = 0.75 * sp; // first art starts 0.75sp above notehead center ("south" anchor)
+    let gap_below = 1.0 * sp; // first art starts 1sp below notehead center ("north" anchor)
     let art_spacing = 1.0 * sp;
 
     if art_above {
@@ -1914,8 +2252,17 @@ fn render_articulations(cmds: &mut Vec<DrawCmd>, x: f64, note_y: f64, articulati
     }
 }
 
-fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y_bottom: f64, dynamic: &str, sp: f64, extra_offset: f64) {
-    if dynamic.is_empty() { return; }
+fn render_dynamic(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y_bottom: f64,
+    dynamic: &str,
+    sp: f64,
+    extra_offset: f64,
+) {
+    if dynamic.is_empty() {
+        return;
+    }
     let gap = 1.0 * sp;
     let dyn_y = y_bottom - gap - extra_offset;
 
@@ -1924,13 +2271,15 @@ fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y_bottom: f64, dynamic: &str,
     if all_smufl {
         // Build a single Unicode string of all SMuFL codepoints and render it as one
         // music-font text element so the font handles kerning/ligatures (e.g. "mf", "mp").
-        let dyn_str: String = dynamic.chars()
+        let dyn_str: String = dynamic
+            .chars()
             .filter_map(|ch| dynamic_codepoint(ch))
             .filter_map(|cp| char::from_u32(cp))
             .collect();
         if !dyn_str.is_empty() {
             cmds.push(DrawCmd::MusicText {
-                x, y: dyn_y,
+                x,
+                y: dyn_y,
                 v: dyn_str,
                 s: 4.0 * sp,
                 a: "north".into(),
@@ -1938,7 +2287,8 @@ fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y_bottom: f64, dynamic: &str,
         }
     } else {
         cmds.push(DrawCmd::Text {
-            x, y: dyn_y,
+            x,
+            y: dyn_y,
             v: dynamic.to_string(),
             s: 8.0,
             w: "bold".into(),
@@ -1950,10 +2300,16 @@ fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y_bottom: f64, dynamic: &str,
 
 fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64) {
     let n = beam_notes.len();
-    if n < 2 { return; }
+    if n < 2 {
+        return;
+    }
     let stem_dir = &beam_notes[0].stem_dir;
     let sign = if stem_dir == "up" { -1.0 } else { 1.0 };
-    let max_beams = beam_notes.iter().map(|bn| beam_count(bn.duration)).max().unwrap_or(0);
+    let max_beams = beam_notes
+        .iter()
+        .map(|bn| beam_count(bn.duration))
+        .max()
+        .unwrap_or(0);
     let beam_step = (BEAM_THICKNESS + BEAM_SPACING) * sp;
 
     for level in 1..=max_beams {
@@ -1961,36 +2317,43 @@ fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64) 
         let threshold = min_dur_for_level(level);
         let mut seg: Vec<&BeamNote> = Vec::new();
 
-        let flush_seg = |cmds: &mut Vec<DrawCmd>, seg: &[&BeamNote], stem_dir: &str, sp: f64, y_offset: f64| {
-            if seg.len() >= 2 {
-                let t = BEAM_THICKNESS * sp;
-                let (x0, y0) = (seg.first().unwrap().stem_x, seg.first().unwrap().beam_y + y_offset);
-                let (xn, yn) = (seg.last().unwrap().stem_x, seg.last().unwrap().beam_y + y_offset);
-                if stem_dir == "up" {
-                    cmds.push(DrawCmd::Polygon {
-                        pts: vec![x0, y0 - t, xn, yn - t, xn, yn, x0, y0],
-                    });
-                } else {
-                    cmds.push(DrawCmd::Polygon {
-                        pts: vec![x0, y0, xn, yn, xn, yn + t, x0, y0 + t],
-                    });
+        let flush_seg =
+            |cmds: &mut Vec<DrawCmd>, seg: &[&BeamNote], stem_dir: &str, sp: f64, y_offset: f64| {
+                if seg.len() >= 2 {
+                    let t = BEAM_THICKNESS * sp;
+                    let (x0, y0) = (
+                        seg.first().unwrap().stem_x,
+                        seg.first().unwrap().beam_y + y_offset,
+                    );
+                    let (xn, yn) = (
+                        seg.last().unwrap().stem_x,
+                        seg.last().unwrap().beam_y + y_offset,
+                    );
+                    if stem_dir == "up" {
+                        cmds.push(DrawCmd::Polygon {
+                            pts: vec![x0, y0 - t, xn, yn - t, xn, yn, x0, y0],
+                        });
+                    } else {
+                        cmds.push(DrawCmd::Polygon {
+                            pts: vec![x0, y0, xn, yn, xn, yn + t, x0, y0 + t],
+                        });
+                    }
+                } else if seg.len() == 1 {
+                    let t = BEAM_THICKNESS * sp;
+                    let sx = seg[0].stem_x;
+                    let sy = seg[0].beam_y + y_offset;
+                    let stub_w = 0.75 * sp;
+                    if stem_dir == "up" {
+                        cmds.push(DrawCmd::Polygon {
+                            pts: vec![sx, sy - t, sx + stub_w, sy - t, sx + stub_w, sy, sx, sy],
+                        });
+                    } else {
+                        cmds.push(DrawCmd::Polygon {
+                            pts: vec![sx, sy, sx + stub_w, sy, sx + stub_w, sy + t, sx, sy + t],
+                        });
+                    }
                 }
-            } else if seg.len() == 1 {
-                let t = BEAM_THICKNESS * sp;
-                let sx = seg[0].stem_x;
-                let sy = seg[0].beam_y + y_offset;
-                let stub_w = 0.75 * sp;
-                if stem_dir == "up" {
-                    cmds.push(DrawCmd::Polygon {
-                        pts: vec![sx, sy - t, sx + stub_w, sy - t, sx + stub_w, sy, sx, sy],
-                    });
-                } else {
-                    cmds.push(DrawCmd::Polygon {
-                        pts: vec![sx, sy, sx + stub_w, sy, sx + stub_w, sy + t, sx, sy + t],
-                    });
-                }
-            }
-        };
+            };
 
         for bn in beam_notes {
             if bn.duration >= threshold {
@@ -2037,17 +2400,33 @@ fn inline_clef_draw_offset(prev: Option<&Event>, next: Option<&Event>, sp: f64) 
     let next_is_music = next.map_or(false, |n| {
         n.is_note() || n.is_chord() || n.is_rest() || matches!(n, Event::Spacer(_))
     });
-    if !prev_is_music || !next_is_music { return 0.0; }
+    if !prev_is_music || !next_is_music {
+        return 0.0;
+    }
     let base_shift = 0.5 * CLEF_PADDING * sp;
     let next_has_acc = next.map_or(false, |n| match n {
         Event::Note(note) => note.accidental.is_some(),
         Event::Chord(c) => c.notes.iter().any(|n| n.accidental.is_some()),
         _ => false,
     });
-    if next_has_acc { base_shift + 0.1 * sp } else { base_shift }
+    if next_has_acc {
+        base_shift + 0.1 * sp
+    } else {
+        base_shift
+    }
 }
 
-fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_y: f64, note_y: f64, y_top: f64, y_bottom: f64, sp: f64, fng_pos_default: &str) {
+fn render_inline_text(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    ev: &Event,
+    above_anchor_y: f64,
+    note_y: f64,
+    y_top: f64,
+    y_bottom: f64,
+    sp: f64,
+    fng_pos_default: &str,
+) {
     let fng_stack_step = 1.3 * sp;
     let default_sp_numeric = 1.75; // default-staff-space in mm
     let fng_font_size = 7.25 * (sp / default_sp_numeric);
@@ -2059,7 +2438,11 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
     // Fingering
     if let Some(fng) = ev.fingering() {
         let event_fng_pos = ev.fingering_position();
-        let fng_pos = if event_fng_pos == "below" { "below" } else { fng_pos_default };
+        let fng_pos = if event_fng_pos == "below" {
+            "below"
+        } else {
+            fng_pos_default
+        };
         let values = fng.values();
         if fng_pos == "below" {
             let fng_base_y = (y_bottom - 0.5 * sp).min(note_y - 1.0 * sp);
@@ -2067,7 +2450,8 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
             for &v in &values {
                 if v != 0 {
                     cmds.push(DrawCmd::Text {
-                        x, y: cur_y,
+                        x,
+                        y: cur_y,
                         v: v.to_string(),
                         s: fng_font_size,
                         w: "regular".into(),
@@ -2083,7 +2467,8 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
             for &v in &values {
                 if v != 0 {
                     cmds.push(DrawCmd::Text {
-                        x, y: cur_y,
+                        x,
+                        y: cur_y,
                         v: v.to_string(),
                         s: fng_font_size,
                         w: "regular".into(),
@@ -2111,7 +2496,8 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
         if !cs.is_empty() {
             let chord_base_y = (y_top + 2.5 * sp).max(above_stack_top + 1.5 * sp);
             cmds.push(DrawCmd::Text {
-                x, y: chord_base_y,
+                x,
+                y: chord_base_y,
                 v: cs.to_string(),
                 s: 10.0,
                 w: "bold".into(),
@@ -2130,7 +2516,8 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
             // At least 1.0 sp above chord/fingering stack
             let staff_base_y = (y_top + 2.7 * sp).max(above_stack_top + 1.0 * sp);
             cmds.push(DrawCmd::Text {
-                x, y: staff_base_y,
+                x,
+                y: staff_base_y,
                 v: st.to_string(),
                 s: staff_font_size,
                 w: "regular".into(),
@@ -2147,9 +2534,14 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
         if !et.is_empty() {
             let exp_font_size = 8.75 * (sp / 1.75);
             let has_dynamic = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
-            let exp_base_y = if has_dynamic { y_bottom - 3.5 * sp } else { y_bottom - 2.0 * sp };
+            let exp_base_y = if has_dynamic {
+                y_bottom - 3.5 * sp
+            } else {
+                y_bottom - 2.0 * sp
+            };
             cmds.push(DrawCmd::Text {
-                x, y: exp_base_y,
+                x,
+                y: exp_base_y,
                 v: et.to_string(),
                 s: exp_font_size,
                 w: "regular".into(),
@@ -2160,16 +2552,37 @@ fn render_inline_text(cmds: &mut Vec<DrawCmd>, x: f64, ev: &Event, above_anchor_
     }
 }
 
-fn render_staff_markers(cmds: &mut Vec<DrawCmd>, x: f64, markers: &[String], y_top: f64, above_anchor: f64, sp: f64) {
-    let centered: Vec<&String> = markers.iter().filter(|m| m.as_str() != "breath-mark" && m.as_str() != "caesura").collect();
-    let right: Vec<&String> = markers.iter().filter(|m| m.as_str() == "breath-mark" || m.as_str() == "caesura").collect();
+fn render_staff_markers(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    markers: &[String],
+    y_top: f64,
+    above_anchor: f64,
+    sp: f64,
+) {
+    let centered: Vec<&String> = markers
+        .iter()
+        .filter(|m| m.as_str() != "breath-mark" && m.as_str() != "caesura")
+        .collect();
+    let right: Vec<&String> = markers
+        .iter()
+        .filter(|m| m.as_str() == "breath-mark" || m.as_str() == "caesura")
+        .collect();
 
     // Right-aligned markers (breath mark, caesura)
     for mk in &right {
-        let marker_x = x + if mk.as_str() == "caesura" { 1.75 * sp } else { 1.55 * sp };
+        let marker_x = x + if mk.as_str() == "caesura" {
+            1.75 * sp
+        } else {
+            1.55 * sp
+        };
         // Caesura bbox sw_y ≈ 0, ne_y ≈ 2.13 sp — lower placement by 1 sp so it is
         // visually centred around the top staff line rather than sitting entirely above it.
-        let marker_y = if mk.as_str() == "caesura" { y_top - 1.0 * sp } else { y_top + 0.12 * sp };
+        let marker_y = if mk.as_str() == "caesura" {
+            y_top - 1.0 * sp
+        } else {
+            y_top + 0.12 * sp
+        };
         if let Some(cp) = staff_marker_codepoint(mk) {
             emit_glyph(cmds, marker_x, marker_y, mk, cp, sp);
         }
@@ -2220,43 +2633,67 @@ fn render_tuplets(
     let tuplet_font_size = 7.75 * (sp / 1.75);
 
     for (indices, tn) in &tuplet_groups {
-        if indices.is_empty() { continue; }
+        if indices.is_empty() {
+            continue;
+        }
 
         // Determine stem direction
-        let stem_ref: Vec<usize> = indices.iter().copied()
+        let stem_ref: Vec<usize> = indices
+            .iter()
+            .copied()
             .filter(|&idx| items[idx].event.is_note() || items[idx].event.is_chord())
             .collect();
-        let refs = if stem_ref.is_empty() { indices.clone() } else { stem_ref };
-        let stem_dir = refs.iter().find_map(|&idx| {
-            adj_stem_dirs.get(&idx).cloned().or(items[idx].stem_dir.clone())
-        }).unwrap_or_else(|| "up".to_string());
+        let refs = if stem_ref.is_empty() {
+            indices.clone()
+        } else {
+            stem_ref
+        };
+        let stem_dir = refs
+            .iter()
+            .find_map(|&idx| {
+                adj_stem_dirs
+                    .get(&idx)
+                    .cloned()
+                    .or(items[idx].stem_dir.clone())
+            })
+            .unwrap_or_else(|| "up".to_string());
 
-        let tup_xs: Vec<f64> = indices.iter().map(|&idx| {
-            if items[idx].event.is_note() || items[idx].event.is_chord() {
-                note_stem_x(item_xs[idx], items[idx].event.duration(), &stem_dir, sp)
-            } else {
-                item_xs[idx]
-            }
-        }).collect();
+        let tup_xs: Vec<f64> = indices
+            .iter()
+            .map(|&idx| {
+                if items[idx].event.is_note() || items[idx].event.is_chord() {
+                    note_stem_x(item_xs[idx], items[idx].event.duration(), &stem_dir, sp)
+                } else {
+                    item_xs[idx]
+                }
+            })
+            .collect();
 
-        let tup_stem_ends: Vec<f64> = refs.iter().map(|&idx| {
-            if let Some(&se) = adj_stem_ends.get(&idx) {
-                y_top + se * sp
-            } else if let Some(se) = items[idx].stem_y_end {
-                y_top + se * sp
-            } else if stem_dir == "up" {
-                y_top + 1.6 * sp
-            } else {
-                y_bottom - 1.6 * sp
-            }
-        }).collect();
+        let tup_stem_ends: Vec<f64> = refs
+            .iter()
+            .map(|&idx| {
+                if let Some(&se) = adj_stem_ends.get(&idx) {
+                    y_top + se * sp
+                } else if let Some(se) = items[idx].stem_y_end {
+                    y_top + se * sp
+                } else if stem_dir == "up" {
+                    y_top + 1.6 * sp
+                } else {
+                    y_bottom - 1.6 * sp
+                }
+            })
+            .collect();
 
         let pad = 0.26 * sp;
         let x_first = tup_xs.first().unwrap() - pad;
         let x_last = tup_xs.last().unwrap() + pad;
 
         let bracket_y = if stem_dir == "up" {
-            tup_stem_ends.iter().copied().fold(f64::NEG_INFINITY, f64::max) + 0.6 * sp
+            tup_stem_ends
+                .iter()
+                .copied()
+                .fold(f64::NEG_INFINITY, f64::max)
+                + 0.6 * sp
         } else {
             tup_stem_ends.iter().copied().fold(f64::INFINITY, f64::min) - 0.6 * sp
         };
@@ -2267,8 +2704,22 @@ fn render_tuplets(
 
         // Bracket lines
         emit_line(cmds, x_first, bracket_y, x_last, bracket_y, line_w);
-        emit_line(cmds, x_first, bracket_y, x_first, bracket_y + tick_dir * tick_len, line_w);
-        emit_line(cmds, x_last, bracket_y, x_last, bracket_y + tick_dir * tick_len, line_w);
+        emit_line(
+            cmds,
+            x_first,
+            bracket_y,
+            x_first,
+            bracket_y + tick_dir * tick_len,
+            line_w,
+        );
+        emit_line(
+            cmds,
+            x_last,
+            bracket_y,
+            x_last,
+            bracket_y + tick_dir * tick_len,
+            line_w,
+        );
 
         // Number
         let mid_x = (x_first + x_last) / 2.0;
@@ -2279,7 +2730,8 @@ fn render_tuplets(
             (bracket_y - num_offset, "north")
         };
         cmds.push(DrawCmd::Text {
-            x: mid_x, y: num_y,
+            x: mid_x,
+            y: num_y,
             v: tn.to_string(),
             s: tuplet_font_size,
             w: "regular".into(),
@@ -2313,7 +2765,9 @@ fn render_hairpins(
 
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
-        if !ev.is_anchor() { continue; }
+        if !ev.is_anchor() {
+            continue;
+        }
         let hairpin = ev.hairpin().map(|s| s.to_string());
 
         if let Some(ref hp) = hairpin {
@@ -2371,7 +2825,9 @@ fn render_hairpins(
     }
 
     for hg in &groups {
-        if hg.indices.is_empty() { continue; }
+        if hg.indices.is_empty() {
+            continue;
+        }
         let continuation = !hg.starts_here;
         if continuation {
             // Only draw continued hairpins from the first anchor
@@ -2380,8 +2836,16 @@ fn render_hairpins(
 
         let x_first = item_xs[*hg.indices.first().unwrap()];
         let x_last = item_xs[*hg.indices.last().unwrap()];
-        let x0 = if continuation { music_start_x } else { x_first + 0.25 * sp };
-        let raw_x1 = if hg.ends_here { x_last + 0.95 * sp } else { total_width * sp - 1.0 * sp };
+        let x0 = if continuation {
+            music_start_x
+        } else {
+            x_first + 0.25 * sp
+        };
+        let raw_x1 = if hg.ends_here {
+            x_last + 0.95 * sp
+        } else {
+            total_width * sp - 1.0 * sp
+        };
         let x1 = raw_x1.max(x0 + 1.5 * sp);
 
         // Compute the lowest note y in this group so the hairpin clears any ledger-line notes.
@@ -2391,12 +2855,16 @@ fn render_hairpins(
             match &item.event {
                 Event::Note(_) => {
                     let ny = y_top + item.y * sp;
-                    if ny < min_note_y { min_note_y = ny; }
+                    if ny < min_note_y {
+                        min_note_y = ny;
+                    }
                 }
                 Event::Chord(_) => {
                     for &cy in &item.chord_ys {
                         let ny = y_top + cy * sp;
-                        if ny < min_note_y { min_note_y = ny; }
+                        if ny < min_note_y {
+                            min_note_y = ny;
+                        }
                     }
                 }
                 _ => {}
@@ -2421,8 +2889,22 @@ fn render_hairpins(
         };
 
         let thickness = 0.14 * sp;
-        emit_line(cmds, x0, y_center + start_h, x1, y_center + end_h, thickness);
-        emit_line(cmds, x0, y_center - start_h, x1, y_center - end_h, thickness);
+        emit_line(
+            cmds,
+            x0,
+            y_center + start_h,
+            x1,
+            y_center + end_h,
+            thickness,
+        );
+        emit_line(
+            cmds,
+            x0,
+            y_center - start_h,
+            x1,
+            y_center - end_h,
+            thickness,
+        );
     }
 }
 
@@ -2435,7 +2917,9 @@ fn render_ties_and_slurs(
     sp: f64,
 ) {
     let get_stem_dir = |i: usize| -> String {
-        adj_stem_dirs.get(&i).cloned()
+        adj_stem_dirs
+            .get(&i)
+            .cloned()
             .or(items[i].stem_dir.clone())
             .unwrap_or_else(|| "up".to_string())
     };
@@ -2443,14 +2927,20 @@ fn render_ties_and_slurs(
     // Ties
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
-        if !ev.tie() { continue; }
+        if !ev.tie() {
+            continue;
+        }
 
         let mut j = i + 1;
         while j < items.len() {
-            if items[j].event.is_note() || items[j].event.is_chord() { break; }
+            if items[j].event.is_note() || items[j].event.is_chord() {
+                break;
+            }
             j += 1;
         }
-        if j >= items.len() { continue; }
+        if j >= items.len() {
+            continue;
+        }
 
         let stem_dir = get_stem_dir(i);
         let direction = if stem_dir == "up" { -1.0 } else { 1.0 };
@@ -2465,14 +2955,26 @@ fn render_ties_and_slurs(
         let next_note_y = y_top + items[j].y * sp;
         let y_offset = direction * 0.35 * sp;
 
-        render_arc(cmds, start_x, note_y + y_offset, end_x, next_note_y + y_offset, direction, sp, 0.2, 0.25);
+        render_arc(
+            cmds,
+            start_x,
+            note_y + y_offset,
+            end_x,
+            next_note_y + y_offset,
+            direction,
+            sp,
+            0.2,
+            0.25,
+        );
     }
 
     // Slurs
     let mut slur_starts: Vec<usize> = Vec::with_capacity(4);
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
-        if !ev.is_note() && !ev.is_chord() { continue; }
+        if !ev.is_note() && !ev.is_chord() {
+            continue;
+        }
         if ev.slur_start() {
             slur_starts.push(i);
         }
@@ -2489,12 +2991,24 @@ fn render_ties_and_slurs(
             let start_y = y_top + items[start_idx].y * sp + direction * 0.5 * sp;
             let end_y = y_top + item.y * sp + direction * 0.5 * sp;
 
-            render_arc(cmds, start_x, start_y, end_x, end_y, direction, sp, 0.22, 0.3);
+            render_arc(
+                cmds, start_x, start_y, end_x, end_y, direction, sp, 0.22, 0.3,
+            );
         }
     }
 }
 
-fn render_arc(cmds: &mut Vec<DrawCmd>, x1: f64, y1: f64, x2: f64, y2: f64, direction: f64, sp: f64, max_thickness: f64, height_factor: f64) {
+fn render_arc(
+    cmds: &mut Vec<DrawCmd>,
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+    direction: f64,
+    sp: f64,
+    max_thickness: f64,
+    height_factor: f64,
+) {
     let dx = x2 - x1;
     let arc_height = (dx.abs() * height_factor).clamp(0.8 * sp, 3.0 * sp);
     let half_thick = max_thickness * sp / 2.0;
@@ -2511,8 +3025,18 @@ fn render_arc(cmds: &mut Vec<DrawCmd>, x1: f64, y1: f64, x2: f64, y2: f64, direc
 
     cmds.push(DrawCmd::BezierFill {
         pts: vec![
-            x1, y1, outer_cp1_x, outer_cp1_y, outer_cp2_x, outer_cp2_y, x2, y2,
-            inner_cp2_x, inner_cp2_y, inner_cp1_x, inner_cp1_y,
+            x1,
+            y1,
+            outer_cp1_x,
+            outer_cp1_y,
+            outer_cp2_x,
+            outer_cp2_y,
+            x2,
+            y2,
+            inner_cp2_x,
+            inner_cp2_y,
+            inner_cp1_x,
+            inner_cp1_y,
         ],
     });
 }
@@ -2536,10 +3060,19 @@ fn render_trills(
     // Standalone trills
     for (idx, item) in items.iter().enumerate() {
         let ev = &item.event;
-        if !ev.trill() || ev.trill_line() { continue; }
+        if !ev.trill() || ev.trill_line() {
+            continue;
+        }
         let visual_top = note_visual_top(item, y_top, sp);
         let trill_y = (visual_top + 0.75 * sp).max(tr_min_y);
-        emit_glyph(cmds, item_xs[idx] - 0.55 * tr_width, trill_y, "ornamentTrill", trill_cp, sp);
+        emit_glyph(
+            cmds,
+            item_xs[idx] - 0.55 * tr_width,
+            trill_y,
+            "ornamentTrill",
+            trill_cp,
+            sp,
+        );
     }
 
     // Trill line groups
@@ -2575,12 +3108,17 @@ fn render_trills(
         });
     }
 
-    let tr_gap = 0.45 * sp;  // enough space so "tr" glyph and wiggle line don't collide
+    let tr_gap = 0.45 * sp; // enough space so "tr" glyph and wiggle line don't collide
     let wiggle_w = glyph::advance_width("wiggleTrill") * sp;
 
     for tg in &trill_groups {
-        if tg.indices.is_empty() { continue; }
-        let line_top = tg.indices.iter().map(|&idx| note_visual_top(&items[idx], y_top, sp))
+        if tg.indices.is_empty() {
+            continue;
+        }
+        let line_top = tg
+            .indices
+            .iter()
+            .map(|&idx| note_visual_top(&items[idx], y_top, sp))
             .fold(f64::NEG_INFINITY, f64::max);
         let trill_y = (line_top + 0.75 * sp).max(tr_min_y);
 
@@ -2598,7 +3136,8 @@ fn render_trills(
             total_width * sp - 1.0 * sp
         } else {
             item_xs[*tg.indices.last().unwrap()] + 0.85 * sp
-        }.max(wiggle_start + 0.4 * sp);
+        }
+        .max(wiggle_start + 0.4 * sp);
 
         if wiggle_w > 0.0 {
             let step = wiggle_w * 0.92;
@@ -2641,7 +3180,11 @@ fn render_octave_lines(
             groups.push(OctGroup {
                 indices: cur_indices.clone(),
                 number: items[first].event.octave_line_number(),
-                direction: items[first].event.octave_line_direction().unwrap_or("above").to_string(),
+                direction: items[first]
+                    .event
+                    .octave_line_direction()
+                    .unwrap_or("above")
+                    .to_string(),
                 starts_here: items[first].event.octave_line_start(),
                 ends_here: items[last].event.octave_line_end(),
             });
@@ -2654,7 +3197,11 @@ fn render_octave_lines(
         groups.push(OctGroup {
             indices: cur_indices,
             number: items[first].event.octave_line_number(),
-            direction: items[first].event.octave_line_direction().unwrap_or("above").to_string(),
+            direction: items[first]
+                .event
+                .octave_line_direction()
+                .unwrap_or("above")
+                .to_string(),
             starts_here: items[first].event.octave_line_start(),
             ends_here: items[last].event.octave_line_end(),
         });
@@ -2664,18 +3211,34 @@ fn render_octave_lines(
     let line_w = 0.12 * sp;
 
     for og in &groups {
-        if og.indices.is_empty() { continue; }
+        if og.indices.is_empty() {
+            continue;
+        }
         let x_first = item_xs[*og.indices.first().unwrap()];
         let x_last = item_xs[*og.indices.last().unwrap()];
-        let x0 = if og.starts_here { x_first } else { music_start_x };
-        let x1 = if og.ends_here { x_last } else { total_width * sp - 1.0 * sp };
+        let x0 = if og.starts_here {
+            x_first
+        } else {
+            music_start_x
+        };
+        let x1 = if og.ends_here {
+            x_last
+        } else {
+            total_width * sp - 1.0 * sp
+        };
 
         if og.direction == "above" {
-            let elem_ys: Vec<f64> = og.indices.iter().map(|&idx| {
-                adj_stem_ends.get(&idx).map(|&se| y_top + se * sp)
-                    .or(items[idx].stem_y_end.map(|se| y_top + se * sp))
-                    .unwrap_or(y_top)
-            }).collect();
+            let elem_ys: Vec<f64> = og
+                .indices
+                .iter()
+                .map(|&idx| {
+                    adj_stem_ends
+                        .get(&idx)
+                        .map(|&se| y_top + se * sp)
+                        .or(items[idx].stem_y_end.map(|se| y_top + se * sp))
+                        .unwrap_or(y_top)
+                })
+                .collect();
             let top_y = elem_ys.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             let bracket_y = top_y + 1.6 * sp;
             let tick_len = 0.45 * sp;
@@ -2693,16 +3256,22 @@ fn render_octave_lines(
             if og.starts_here {
                 let suffix = if og.number == 15 { "ma" } else { "va" };
                 cmds.push(DrawCmd::Text {
-                    x: x0 + 0.3 * sp, y: bracket_y + 0.45 * sp,
+                    x: x0 + 0.3 * sp,
+                    y: bracket_y + 0.45 * sp,
                     v: og.number.to_string(),
                     s: tuplet_font_size,
                     w: "bold".into(),
                     i: false,
                     a: "south".into(),
                 });
-                let offset_x = if og.number.to_string().len() > 1 { 1.3 * sp } else { 0.8 * sp };
+                let offset_x = if og.number.to_string().len() > 1 {
+                    1.3 * sp
+                } else {
+                    0.8 * sp
+                };
                 cmds.push(DrawCmd::Text {
-                    x: x0 + 0.3 * sp + offset_x, y: bracket_y + 0.45 * sp + 0.40 * sp,
+                    x: x0 + 0.3 * sp + offset_x,
+                    y: bracket_y + 0.45 * sp + 0.40 * sp,
                     v: suffix.to_string(),
                     s: 0.55 * tuplet_font_size,
                     w: "bold".into(),
@@ -2711,11 +3280,17 @@ fn render_octave_lines(
                 });
             }
         } else {
-            let elem_ys: Vec<f64> = og.indices.iter().map(|&idx| {
-                adj_stem_ends.get(&idx).map(|&se| y_top + se * sp)
-                    .or(items[idx].stem_y_end.map(|se| y_top + se * sp))
-                    .unwrap_or(y_bottom)
-            }).collect();
+            let elem_ys: Vec<f64> = og
+                .indices
+                .iter()
+                .map(|&idx| {
+                    adj_stem_ends
+                        .get(&idx)
+                        .map(|&se| y_top + se * sp)
+                        .or(items[idx].stem_y_end.map(|se| y_top + se * sp))
+                        .unwrap_or(y_bottom)
+                })
+                .collect();
             let bot_y = elem_ys.iter().copied().fold(f64::INFINITY, f64::min);
             let bracket_y = bot_y - 1.6 * sp;
             let tick_len = 0.45 * sp;
@@ -2731,16 +3306,22 @@ fn render_octave_lines(
             if og.starts_here {
                 let suffix = if og.number == 15 { "mb" } else { "vb" };
                 cmds.push(DrawCmd::Text {
-                    x: x0 + 0.3 * sp, y: bracket_y - 0.45 * sp,
+                    x: x0 + 0.3 * sp,
+                    y: bracket_y - 0.45 * sp,
                     v: og.number.to_string(),
                     s: tuplet_font_size,
                     w: "bold".into(),
                     i: false,
                     a: "north".into(),
                 });
-                let offset_x = if og.number.to_string().len() > 1 { 1.3 * sp } else { 0.8 * sp };
+                let offset_x = if og.number.to_string().len() > 1 {
+                    1.3 * sp
+                } else {
+                    0.8 * sp
+                };
                 cmds.push(DrawCmd::Text {
-                    x: x0 + 0.3 * sp + offset_x, y: bracket_y - 0.45 * sp,
+                    x: x0 + 0.3 * sp + offset_x,
+                    y: bracket_y - 0.45 * sp,
                     v: suffix.to_string(),
                     s: 0.55 * tuplet_font_size,
                     w: "bold".into(),
@@ -2845,7 +3426,9 @@ fn render_endings(
     let tuplet_font_size = 7.75 * (sp / 1.75);
 
     for eg in &groups {
-        if eg.indices.is_empty() { continue; }
+        if eg.indices.is_empty() {
+            continue;
+        }
         let first = *eg.indices.first().unwrap();
         let last = *eg.indices.last().unwrap();
 
@@ -2862,7 +3445,11 @@ fn render_endings(
                 scan -= 1;
             }
             if let Some(pb) = prev_bar {
-                if pb == items.len() - 1 { final_barline_x } else { item_xs[pb] + 0.5 * sp }
+                if pb == items.len() - 1 {
+                    final_barline_x
+                } else {
+                    item_xs[pb] + 0.5 * sp
+                }
             } else {
                 opening_barline_x
             }
@@ -2881,7 +3468,11 @@ fn render_endings(
                 scan += 1;
             }
             if let Some(nb) = next_bar {
-                if nb == items.len() - 1 { final_barline_x } else { item_xs[nb] + 0.5 * sp }
+                if nb == items.len() - 1 {
+                    final_barline_x
+                } else {
+                    item_xs[nb] + 0.5 * sp
+                }
             } else {
                 final_barline_x
             }
@@ -2902,7 +3493,8 @@ fn render_endings(
 
         if eg.starts_here && !eg.label.is_empty() {
             cmds.push(DrawCmd::Text {
-                x: x0 + 0.45 * sp, y: bracket_y - 0.05 * sp,
+                x: x0 + 0.45 * sp,
+                y: bracket_y - 0.05 * sp,
                 v: eg.label.clone(),
                 s: tuplet_font_size * 1.15,
                 w: "regular".into(),
@@ -2921,7 +3513,10 @@ fn note_visual_top(item: &LaidOutItem, y_top: f64, sp: f64) -> f64 {
             (note_y + 0.9 * sp).max(note_y + 1.0 * sp)
         }
         Event::Chord(_) => {
-            let top_y = item.chord_ys.iter().map(|&vy| y_top + vy * sp)
+            let top_y = item
+                .chord_ys
+                .iter()
+                .map(|&vy| y_top + vy * sp)
                 .fold(f64::NEG_INFINITY, f64::max);
             (top_y + 0.9 * sp).max(top_y + 1.0 * sp)
         }
@@ -2951,26 +3546,33 @@ fn render_lyrics(
     let lyric_line_count = items.iter().fold(lyric_prefix_states.len(), |count, item| {
         count.max(item.event.lyrics().len())
     });
-    if lyric_line_count == 0 { return; }
+    if lyric_line_count == 0 {
+        return;
+    }
 
     let lyric_top_y = (y_bottom - 3.1 * sp).min(y_bottom - 0.85 * sp);
 
     // Simple lyric rendering
     for (idx, item) in items.iter().enumerate() {
         let ev = &item.event;
-        if !ev.is_note() && !ev.is_chord() { continue; }
+        if !ev.is_note() && !ev.is_chord() {
+            continue;
+        }
 
         let lyrics = ev.lyrics();
         let x = item_xs[idx];
 
         for (li, entry) in lyrics.iter().enumerate() {
-            if entry.carry { continue; }
+            if entry.carry {
+                continue;
+            }
             let top_y = lyric_top_y - li as f64 * lyric_line_step;
 
             if let Some(ref text) = entry.text {
                 if !text.is_empty() {
                     cmds.push(DrawCmd::Text {
-                        x, y: top_y,
+                        x,
+                        y: top_y,
                         v: text.clone(),
                         s: lyric_font_size,
                         w: "regular".into(),
@@ -2991,14 +3593,18 @@ fn render_lyrics(
 
         for (idx, item) in items.iter().enumerate() {
             let ev = &item.event;
-            if !ev.is_note() && !ev.is_chord() { continue; }
+            if !ev.is_note() && !ev.is_chord() {
+                continue;
+            }
 
             let lyrics = ev.lyrics();
             let x = item_xs[idx];
             let entry = lyrics.get(li);
 
             if let Some(entry) = entry {
-                if entry.carry { continue; }
+                if entry.carry {
+                    continue;
+                }
                 if let Some(ref text) = entry.text {
                     if !text.is_empty() {
                         // Draw continuation from previous
@@ -3007,7 +3613,8 @@ fn render_lyrics(
                                 if cont == "hyphen" {
                                     let mid_x = (px + x) / 2.0;
                                     cmds.push(DrawCmd::Text {
-                                        x: mid_x, y: top_y,
+                                        x: mid_x,
+                                        y: top_y,
                                         v: "-".into(),
                                         s: lyric_font_size,
                                         w: "regular".into(),

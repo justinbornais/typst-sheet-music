@@ -1,12 +1,11 @@
-C:\Users\justi\Documents\Code\typst-sheet-music\wasm\target\wasm32-unknown-unknown\release\deps\scorify_wasm.d: src\lib.rs src\types.rs src\glyph.rs src\pitch.rs src\parser.rs src\layout.rs src\renderer.rs src\../../fonts/Bravura.otf
+D:\Code\other\typst-sheet-music\wasm\target\wasm32-unknown-unknown\release\deps\scorify_wasm.d: src\lib.rs src\glyph.rs src\layout.rs src\parser.rs src\pitch.rs src\renderer.rs src\types.rs
 
-C:\Users\justi\Documents\Code\typst-sheet-music\wasm\target\wasm32-unknown-unknown\release\deps\scorify_wasm.wasm: src\lib.rs src\types.rs src\glyph.rs src\pitch.rs src\parser.rs src\layout.rs src\renderer.rs src\../../fonts/Bravura.otf
+D:\Code\other\typst-sheet-music\wasm\target\wasm32-unknown-unknown\release\deps\scorify_wasm.wasm: src\lib.rs src\glyph.rs src\layout.rs src\parser.rs src\pitch.rs src\renderer.rs src\types.rs
 
 src\lib.rs:
-src\types.rs:
 src\glyph.rs:
-src\pitch.rs:
-src\parser.rs:
 src\layout.rs:
+src\parser.rs:
+src\pitch.rs:
 src\renderer.rs:
-src\../../fonts/Bravura.otf:
+src\types.rs:

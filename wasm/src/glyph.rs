@@ -66,7 +66,14 @@ pub fn advance_width(glyph_name: &str) -> f64 {
 
 #[inline]
 pub fn bbox(glyph_name: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match glyph_name {
         "noteheadWhole" => b(0.0, -0.5, 1.688, 0.5),
         "noteheadHalf" | "noteheadBlack" => b(0.0, -0.5, 1.18, 0.5),

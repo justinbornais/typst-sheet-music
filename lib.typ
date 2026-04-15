@@ -98,6 +98,10 @@
 ) = {
   if staves.len() == 0 { return }
 
+  // Resolve the selected music font through Typst so missing fonts produce a
+  // CLI warning. The SVG systems below then use the same family via font-path.
+  box(width: 0pt, height: 0pt, hide(text(font: music-font, size: 0.1pt, "\u{E050}")))
+
   render-header(
     title: title,
     subtitle: subtitle,
