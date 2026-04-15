@@ -1,0 +1,5 @@
+# Local Python environments
+/.venv/
+
+# Rust/Cargo build outputs for the WebAssembly renderer
+/wasm/target/
