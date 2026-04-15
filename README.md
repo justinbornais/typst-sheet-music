@@ -229,7 +229,7 @@ Examples of accepted inputs:
 | `"6/8"` | Compound duple |
 | `"2/2"` | Alla breve |
 | `"common"` or `"C"` | Common time symbol |
-| `"cut"` or `"C|"` | Cut time symbol |
+| `"cut"` or `"C\|"` | Cut time symbol |
 
 ```typ
 #melody(music: "c4 d e f", time: "common")
