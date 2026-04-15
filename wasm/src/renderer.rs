@@ -3622,6 +3622,7 @@ fn render_lyrics(
     let lyric_font_size = 9.25 * (sp / 1.75);
     let lyric_line_step = 1.75 * sp;
     let lyric_text_gap = 0.28 * sp;
+    let lyric_extender_trim = 0.18 * sp;
 
     // Count lyric lines
     let lyric_line_count = items.iter().fold(lyric_prefix_states.len(), |count, item| {
@@ -3708,10 +3709,18 @@ fn render_lyrics(
                                     // Estimate the half-width of the NEXT syllable (text is
                                     // centred at x) and leave 0.4 sp of clear space before it.
                                     let next_half_w = text.len() as f64 * 0.25 * sp;
-                                    let ext_end = x - next_half_w - 0.4 * sp;
-                                    if ext_end > px {
-                                        let ext_y = top_y - 0.92 * sp - 0.2 * sp;
-                                        emit_line(cmds, px, ext_y, ext_end, ext_y, 0.09 * sp);
+                                    let ext_start = px + lyric_extender_trim;
+                                    let ext_end = x - next_half_w - 0.4 * sp - lyric_extender_trim;
+                                    if ext_end > ext_start {
+                                        let ext_y = top_y - 1.45 * sp;
+                                        emit_line(
+                                            cmds,
+                                            ext_start,
+                                            ext_y,
+                                            ext_end,
+                                            ext_y,
+                                            0.09 * sp,
+                                        );
                                     }
                                 }
                             }
