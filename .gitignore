@@ -3,3 +3,6 @@
 
 # Rust/Cargo build outputs for the WebAssembly renderer
 /wasm/target/
+
+*.svg
+*.png
