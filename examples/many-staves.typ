@@ -32,6 +32,7 @@ This includes tuplets.
       c4 d e f | g a b c' | c' b a g | f e d c
       d e f# g | a b c#' d' | d' c' b a | g f# e d
       e f# g# a | b c#' d#' e' | e' d#' c#' b | a g# f# e
+      r1 | b&1 | {5,3:c'4 b&4 f4} g&2~ | g&2 r8 f8 b&16 b=16 c'8 | grace{a'8~/} g&'8 f'4. r2 | r1 | r1 | r1
       "
     ),
   )

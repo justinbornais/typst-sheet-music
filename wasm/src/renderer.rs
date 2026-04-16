@@ -17,6 +17,7 @@ const ACCIDENTAL_PADDING: f64 = 0.35;
 const INLINE_CLEF_SCALE: f64 = 0.8;
 const CLEF_PADDING: f64 = 0.5;
 const GRACE_NOTE_SCALE: f64 = 0.68;
+const MUSIC_START_PADDING: f64 = 1.55;
 
 // ─── SMuFL codepoint helpers ───────────────────────────────────────────
 
@@ -1213,7 +1214,7 @@ fn compute_shared_prefix(
         if show {
             max_time_x = max_time_x.max(local_time_x);
         }
-        let local_music_start = prefix_x + clef_w + key_w + time_w + 1.0 * sp;
+        let local_music_start = prefix_x + clef_w + key_w + time_w + MUSIC_START_PADDING * sp;
         max_music_start = max_music_start.max(local_music_start);
     }
 
@@ -1237,6 +1238,51 @@ fn compute_total_width(
 }
 
 // ─── Single staff rendering ───────────────────────────────────────────
+
+fn center_whole_measure_rests(
+    items: &[LaidOutItem],
+    item_xs: &mut [f64],
+    music_start_x: f64,
+    system_right_x: f64,
+    sp: f64,
+) {
+    for i in 0..items.len() {
+        let is_whole_rest = matches!(&items[i].event, Event::Rest(r) if r.duration == 1);
+        if !is_whole_rest {
+            continue;
+        }
+
+        let prev_barline = (0..i).rev().find(|&idx| items[idx].event.is_barline());
+        let next_barline = (i + 1..items.len()).find(|&idx| items[idx].event.is_barline());
+        let measure_start = prev_barline.map_or(music_start_x, |idx| item_xs[idx] + 0.5 * sp);
+        let measure_end =
+            next_barline.map_or(system_right_x - 0.5 * sp, |idx| item_xs[idx] + 0.5 * sp);
+
+        if measure_end <= measure_start {
+            continue;
+        }
+
+        let content_start = prev_barline.map_or(0, |idx| idx + 1);
+        let content_end = next_barline.unwrap_or(items.len());
+        let content_count = items[content_start..content_end]
+            .iter()
+            .filter(|item| {
+                item.event.is_note()
+                    || item.event.is_chord()
+                    || item.event.is_rest()
+                    || matches!(item.event, Event::Spacer(_))
+            })
+            .count();
+        if content_count != 1 {
+            continue;
+        }
+
+        let rest_center_offset = glyph::bbox("restWhole")
+            .map(|b| (b.sw_x + b.ne_x) * 0.5 * sp)
+            .unwrap_or(0.5 * sp);
+        item_xs[i] = (measure_start + measure_end) * 0.5 - rest_center_offset;
+    }
+}
 
 fn render_system(
     cmds: &mut Vec<DrawCmd>,
@@ -1279,7 +1325,7 @@ fn render_system(
     };
 
     let music_start_x = forced_music_start_x.unwrap_or_else(|| {
-        let mut msx = cx + clef_w + key_w + time_w + 1.0 * sp;
+        let mut msx = cx + clef_w + key_w + time_w + MUSIC_START_PADDING * sp;
         // Extra space for first accidental
         let first_has_acc = items
             .iter()
@@ -1361,10 +1407,11 @@ fn render_system(
     }
 
     // Pre-compute item x positions
-    let item_xs: Vec<f64> = items
+    let mut item_xs: Vec<f64> = items
         .iter()
         .map(|item| music_start_x + item.x * scale_x * sp)
         .collect();
+    center_whole_measure_rests(items, &mut item_xs, music_start_x, total_width * sp, sp);
 
     // Compute notehead bbox
     let black_bb = glyph::bbox("noteheadBlack");

@@ -10,6 +10,8 @@ use wasm_minimal_protocol::*;
 
 initiate_protocol!();
 
+const MUSIC_START_PADDING_SP: f64 = 2.55;
+
 #[wasm_func]
 pub fn render_score(input: &[u8]) -> Result<Vec<u8>, String> {
     let params: ScoreInput =
@@ -227,7 +229,7 @@ fn prefix_width_sp(clef: Option<&str>, key: &str, show_time: bool, ts: &Option<T
             pf += layout::time_sig_advance_sp(t.upper, t.lower, t.symbol.as_deref(), 1.0);
         }
     }
-    pf += 1.0; // music-start padding
+    pf += MUSIC_START_PADDING_SP; // music-start padding
     pf
 }
 
