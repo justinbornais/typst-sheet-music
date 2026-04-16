@@ -17,6 +17,7 @@ const ACCIDENTAL_PADDING: f64 = 0.35;
 const INLINE_CLEF_SCALE: f64 = 0.8;
 const CLEF_PADDING: f64 = 0.5;
 const GRACE_NOTE_SCALE: f64 = 0.68;
+const GRACE_STEM_MIN_LENGTH: f64 = 3.0;
 const MUSIC_START_PADDING: f64 = 1.55;
 
 // ─── SMuFL codepoint helpers ───────────────────────────────────────────
@@ -790,6 +791,10 @@ fn beam_count(duration: i32) -> i32 {
     }
 }
 
+fn grace_slash_beam_extension(duration: i32) -> f64 {
+    (beam_count(duration).saturating_sub(1) as f64) * 0.95
+}
+
 fn min_dur_for_level(level: i32) -> i32 {
     match level {
         1 => 8,
@@ -1465,11 +1470,22 @@ fn render_system(
         } else {
             1.0
         };
+        let stem_min_length = if group_is_grace {
+            GRACE_STEM_MIN_LENGTH
+        } else {
+            3.5
+        };
 
         // Unified stem direction
         let avg_y = group.iter().map(|&idx| items[idx].y).sum::<f64>() / group.len() as f64;
         let avg_staff_pos = -2.0 * avg_y;
-        let stem_dir = if avg_staff_pos > 4.0 { "up" } else { "down" };
+        let stem_dir = if group_is_grace {
+            "up"
+        } else if avg_staff_pos > 4.0 {
+            "up"
+        } else {
+            "down"
+        };
 
         let first = &items[*group.first().unwrap()];
         let last = &items[*group.last().unwrap()];
@@ -1478,14 +1494,14 @@ fn render_system(
             (-2.0 * first.y).round() as i32,
             stem_dir,
             beam_scale,
-            3.5,
+            stem_min_length,
         );
         let mut syn = pitch::compute_stem_end_y(
             last.y,
             (-2.0 * last.y).round() as i32,
             stem_dir,
             beam_scale,
-            3.5,
+            stem_min_length,
         );
 
         let x0 = item_xs[*group.first().unwrap()];
@@ -1746,12 +1762,21 @@ fn render_system(
                         // Grace slash
                         if is_grace && n.grace_slash && (i == 0 || !items[i - 1].event.grace()) {
                             let thickness = 0.11 * lsp;
-                            let x0 = stem_x - 0.65 * lsp;
-                            let x1 = stem_x + 0.28 * lsp;
-                            let (sl_y0, sl_y1) = if stem_dir == "up" {
-                                (note_center_y + 1.95 * lsp, note_center_y + 1.15 * lsp)
+                            let beam_ext = grace_slash_beam_extension(n.duration);
+                            let (x0, sl_y0, x1, sl_y1) = if stem_dir == "up" {
+                                (
+                                    stem_x - 0.45 * lsp,
+                                    note_center_y + 1.02 * lsp,
+                                    stem_x + (1.18 + beam_ext) * lsp,
+                                    note_center_y + (2.64 + beam_ext) * lsp,
+                                )
                             } else {
-                                (note_center_y - 1.15 * lsp, note_center_y - 2.05 * lsp)
+                                (
+                                    stem_x - 0.45 * lsp,
+                                    note_center_y - 2.18 * lsp,
+                                    stem_x + (1.18 + beam_ext) * lsp,
+                                    note_center_y + (-0.56 + beam_ext) * lsp,
+                                )
                             };
                             emit_line(cmds, x0, sl_y0, x1, sl_y1, thickness);
                         }
@@ -1887,12 +1912,21 @@ fn render_system(
                         // Grace slash
                         if is_grace && c.grace_slash && (i == 0 || !items[i - 1].event.grace()) {
                             let thickness = 0.11 * lsp;
-                            let x0 = stem_x - 0.65 * lsp;
-                            let x1 = stem_x + 0.28 * lsp;
-                            let (sl_y0, sl_y1) = if stem_dir == "up" {
-                                (primary_y_abs + 1.95 * lsp, primary_y_abs + 1.15 * lsp)
+                            let beam_ext = grace_slash_beam_extension(c.duration);
+                            let (x0, sl_y0, x1, sl_y1) = if stem_dir == "up" {
+                                (
+                                    stem_x - 0.45 * lsp,
+                                    primary_y_abs + 1.02 * lsp,
+                                    stem_x + (1.18 + beam_ext) * lsp,
+                                    primary_y_abs + (2.64 + beam_ext) * lsp,
+                                )
                             } else {
-                                (primary_y_abs - 1.15 * lsp, primary_y_abs - 2.05 * lsp)
+                                (
+                                    stem_x - 0.45 * lsp,
+                                    primary_y_abs - 2.18 * lsp,
+                                    stem_x + (1.18 + beam_ext) * lsp,
+                                    primary_y_abs + (-0.56 + beam_ext) * lsp,
+                                )
                             };
                             emit_line(cmds, x0, sl_y0, x1, sl_y1, thickness);
                         }

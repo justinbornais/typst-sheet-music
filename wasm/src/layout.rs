@@ -18,6 +18,8 @@ const TIED_GRACE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const SHORT_NOTE_ACCIDENTAL_CLEARANCE: f64 = 0.55;
 const EMPTY_MEASURE_REST_WIDTH: f64 = 1.8;
 const SYSTEM_START_CONTENT_PADDING: f64 = 0.55;
+const GRACE_NOTE_SCALE: f64 = 0.68;
+const GRACE_STEM_MIN_LENGTH: f64 = 3.0;
 const DEFAULT_INLINE_CLEF_SCALE: f64 = 0.8;
 
 // ─── Utility functions (mirrors utils.typ) ─────────────────────────────
@@ -372,7 +374,6 @@ fn leading_accidental_extra(event: &Event, available_space: f64, next: Option<&E
 }
 
 fn grace_body_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -> f64 {
-    let grace_scale = 0.68;
     let duration = event.duration();
     let head_w = notehead_width(duration);
     let rest_w = if event.is_rest() {
@@ -397,7 +398,7 @@ fn grace_body_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -
     } else {
         0.12
     };
-    head_w.max(rest_w) * grace_scale + inter_note_gap
+    head_w.max(rest_w) * GRACE_NOTE_SCALE + inter_note_gap
 }
 
 pub fn event_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -> f64 {
@@ -656,14 +657,15 @@ pub fn layout_staff(
                     .entry(cache_key)
                     .or_insert_with(|| pitch::staff_position(&n.name, n.octave, &current_clef));
                 y = -sp as f64 / 2.0;
-                stem_dir = Some(pitch::auto_stem_direction(sp).to_string());
-                stem_y_end = Some(pitch::compute_stem_end_y(
-                    y,
-                    sp,
-                    stem_dir.as_deref().unwrap(),
-                    1.0,
-                    3.5,
-                ));
+                let sd = if n.grace {
+                    "up"
+                } else {
+                    pitch::auto_stem_direction(sp)
+                };
+                stem_dir = Some(sd.to_string());
+                let stem_scale = if n.grace { GRACE_NOTE_SCALE } else { 1.0 };
+                let stem_min = if n.grace { GRACE_STEM_MIN_LENGTH } else { 3.5 };
+                stem_y_end = Some(pitch::compute_stem_end_y(y, sp, sd, stem_scale, stem_min));
             }
             Event::Chord(c) => {
                 let mut sp_list = Vec::with_capacity(c.notes.len());
@@ -676,7 +678,11 @@ pub fn layout_staff(
                 }
                 let y_list: Vec<f64> = sp_list.iter().map(|&spos| -spos as f64 / 2.0).collect();
                 let avg_sp = sp_list.iter().sum::<i32>() as f64 / sp_list.len() as f64;
-                let sd = pitch::auto_stem_direction(avg_sp as i32);
+                let sd = if c.grace {
+                    "up"
+                } else {
+                    pitch::auto_stem_direction(avg_sp as i32)
+                };
                 let primary_sp = if sd == "up" {
                     *sp_list.iter().max().unwrap()
                 } else {
@@ -689,7 +695,11 @@ pub fn layout_staff(
                     *sp_list.iter().max().unwrap()
                 };
                 let tip_y = -tip_sp as f64 / 2.0;
-                stem_y_end = Some(pitch::compute_stem_end_y(tip_y, tip_sp, &sd, 1.0, 3.5));
+                let stem_scale = if c.grace { GRACE_NOTE_SCALE } else { 1.0 };
+                let stem_min = if c.grace { GRACE_STEM_MIN_LENGTH } else { 3.5 };
+                stem_y_end = Some(pitch::compute_stem_end_y(
+                    tip_y, tip_sp, &sd, stem_scale, stem_min,
+                ));
                 stem_dir = Some(sd.to_string());
                 chord_ys = y_list;
                 chord_staff_positions = sp_list;
@@ -1057,6 +1067,38 @@ mod tests {
         let positions = compute_event_positions(&events);
 
         assert_eq!(positions[0].x, SYSTEM_START_CONTENT_PADDING);
+    }
+
+    #[test]
+    fn grace_notes_default_to_stems_up() {
+        let mut high_note = note("f", None, 8);
+        if let Event::Note(n) = &mut high_note {
+            n.octave = 5;
+            n.grace = true;
+        }
+
+        let staff = layout_staff(&[high_note], Some("treble"), None, false, &[]);
+
+        assert_eq!(staff.items[0].stem_dir.as_deref(), Some("up"));
+    }
+
+    #[test]
+    fn grace_note_stems_are_scaled_shorter() {
+        let mut grace = note("a", None, 8);
+        if let Event::Note(n) = &mut grace {
+            n.grace = true;
+        }
+        let normal = note("a", None, 8);
+
+        let grace_staff = layout_staff(&[grace], Some("treble"), None, false, &[]);
+        let normal_staff = layout_staff(&[normal], Some("treble"), None, false, &[]);
+        let grace_item = &grace_staff.items[0];
+        let normal_item = &normal_staff.items[0];
+        let grace_len = grace_item.stem_y_end.unwrap() - grace_item.y;
+        let normal_len = normal_item.stem_y_end.unwrap() - normal_item.y;
+
+        assert!(grace_len < normal_len);
+        assert_eq!(grace_len, GRACE_STEM_MIN_LENGTH * GRACE_NOTE_SCALE);
     }
 
     #[test]
