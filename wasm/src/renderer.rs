@@ -2,8 +2,9 @@ use crate::glyph;
 use crate::layout;
 use crate::pitch;
 use crate::types::*;
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 // ─── Constants ─────────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ const CLEF_PADDING: f64 = 0.5;
 const GRACE_NOTE_SCALE: f64 = 0.68;
 const GRACE_STEM_MIN_LENGTH: f64 = 3.0;
 const MUSIC_START_PADDING: f64 = 1.55;
-const BRAVURA_FONT_ZLIB: &[u8] = include_bytes!("../assets/bravura.otf.zlib");
+const BRAVURA_FONT: &[u8] = include_bytes!("../../fonts/Bravura.otf");
 
 // ─── SMuFL codepoint helpers ───────────────────────────────────────────
 
@@ -321,13 +322,6 @@ fn update_bounds(bounds: &mut (f64, f64, f64, f64), x: f64, y: f64) {
     bounds.3 = bounds.3.max(y);
 }
 
-fn bravura_font_bytes() -> Option<&'static [u8]> {
-    static BRAVURA_FONT: OnceLock<Option<Vec<u8>>> = OnceLock::new();
-    BRAVURA_FONT
-        .get_or_init(|| miniz_oxide::inflate::decompress_to_vec_zlib(BRAVURA_FONT_ZLIB).ok())
-        .as_deref()
-}
-
 struct SvgPathBuilder<'a> {
     data: &'a mut String,
     sw_x: f64,
@@ -409,6 +403,185 @@ fn glyph_id(face: &Face<'_>, ch: char) -> Option<GlyphId> {
     face.glyph_index(ch)
 }
 
+fn glyph_def_id(gid: GlyphId) -> String {
+    format!("b{:x}", gid.0)
+}
+
+fn build_music_glyph_def(face: &Face<'_>, gid: GlyphId) -> Option<String> {
+    let bbox = face.glyph_bounding_box(gid)?;
+    let mut path = String::new();
+    {
+        let mut builder = SvgPathBuilder {
+            data: &mut path,
+            sw_x: 0.0,
+            sw_y: 0.0,
+            scale: 1.0,
+            x_offset: -(bbox.x_min as f64),
+            y_offset: -(bbox.y_min as f64),
+        };
+        face.outline_glyph(gid, &mut builder)?;
+    }
+
+    if path.is_empty() {
+        None
+    } else {
+        Some(path)
+    }
+}
+
+fn ensure_music_glyph_def(defs: &mut BTreeMap<u16, String>, face: &Face<'_>, gid: GlyphId) {
+    if defs.contains_key(&gid.0) {
+        return;
+    }
+
+    static GLYPH_DEFS: OnceLock<Mutex<BTreeMap<u16, String>>> = OnceLock::new();
+    let cache = GLYPH_DEFS.get_or_init(|| Mutex::new(BTreeMap::new()));
+    let path = {
+        let mut cache = cache
+            .lock()
+            .expect("Bravura glyph definition cache poisoned");
+        cache
+            .entry(gid.0)
+            .or_insert_with(|| build_music_glyph_def(face, gid).unwrap_or_default())
+            .clone()
+    };
+
+    if !path.is_empty() {
+        defs.insert(gid.0, path);
+    }
+}
+
+fn collect_music_glyph_defs(face: &Face<'_>, cmds: &[DrawCmd]) -> BTreeMap<u16, String> {
+    let mut defs = BTreeMap::new();
+
+    for cmd in cmds {
+        match cmd {
+            DrawCmd::Glyph { c, .. } => {
+                if let Some(ch) = char::from_u32(*c) {
+                    if let Some(gid) = glyph_id(face, ch) {
+                        ensure_music_glyph_def(&mut defs, face, gid);
+                    }
+                }
+            }
+            DrawCmd::MusicText { v, .. } => {
+                for ch in v.chars() {
+                    if let Some(gid) = glyph_id(face, ch) {
+                        ensure_music_glyph_def(&mut defs, face, gid);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    defs.retain(|_, path| !path.is_empty());
+    defs
+}
+
+fn write_music_glyph_use(
+    svg: &mut String,
+    face: &Face<'_>,
+    defs: &BTreeMap<u16, String>,
+    x: f64,
+    y: f64,
+    c: u32,
+    size_mm: f64,
+    anchor: &str,
+    tx: &impl Fn(f64) -> f64,
+    ty: &impl Fn(f64) -> f64,
+) -> bool {
+    let Some(ch) = char::from_u32(c) else {
+        return false;
+    };
+    let Some(gid) = glyph_id(face, ch) else {
+        return false;
+    };
+    if !defs.contains_key(&gid.0) {
+        return false;
+    }
+    let Some(bbox) = face.glyph_bounding_box(gid) else {
+        return false;
+    };
+
+    let scale = size_mm / face.units_per_em() as f64;
+    let width = (bbox.x_max - bbox.x_min) as f64 * scale;
+    let height = (bbox.y_max - bbox.y_min) as f64 * scale;
+    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
+    let _ = write!(
+        svg,
+        "<use href=\"#{id}\" transform=\"translate({x:.3} {y:.3}) scale({scale:.6})\" fill=\"black\"/>",
+        id = glyph_def_id(gid),
+        x = tx(sw_x),
+        y = ty(sw_y),
+        scale = scale,
+    );
+    true
+}
+
+fn write_music_text_uses(
+    svg: &mut String,
+    face: &Face<'_>,
+    defs: &BTreeMap<u16, String>,
+    x: f64,
+    y: f64,
+    value: &str,
+    size_mm: f64,
+    anchor: &str,
+    tx: &impl Fn(f64) -> f64,
+    ty: &impl Fn(f64) -> f64,
+) -> bool {
+    let scale = size_mm / face.units_per_em() as f64;
+    let mut glyphs = Vec::new();
+    let mut pen = 0.0_f64;
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+
+    for ch in value.chars() {
+        let Some(gid) = glyph_id(face, ch) else {
+            return false;
+        };
+        if !defs.contains_key(&gid.0) {
+            return false;
+        }
+        let Some(bbox) = face.glyph_bounding_box(gid) else {
+            return false;
+        };
+        min_x = min_x.min(pen + bbox.x_min as f64);
+        min_y = min_y.min(bbox.y_min as f64);
+        max_x = max_x.max(pen + bbox.x_max as f64);
+        max_y = max_y.max(bbox.y_max as f64);
+        glyphs.push((gid, pen, bbox));
+        pen += face.glyph_hor_advance(gid).unwrap_or(0) as f64;
+    }
+
+    if glyphs.is_empty() || !min_x.is_finite() {
+        return false;
+    }
+
+    let width = (max_x - min_x) * scale;
+    let height = (max_y - min_y) * scale;
+    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
+    let svg_sw_x = tx(sw_x);
+    let svg_sw_y = ty(sw_y);
+
+    for (gid, glyph_pen, bbox) in glyphs {
+        let use_x = svg_sw_x + (glyph_pen + bbox.x_min as f64 - min_x) * scale;
+        let use_y = svg_sw_y - (bbox.y_min as f64 - min_y) * scale;
+        let _ = write!(
+            svg,
+            "<use href=\"#{id}\" transform=\"translate({x:.3} {y:.3}) scale({scale:.6})\" fill=\"black\"/>",
+            id = glyph_def_id(gid),
+            x = use_x,
+            y = use_y,
+            scale = scale,
+        );
+    }
+
+    true
+}
+
 fn music_glyph_bounds(
     face: &Face<'_>,
     x: f64,
@@ -461,122 +634,6 @@ fn music_text_bounds(
     let height = (max_y - min_y) * scale;
     let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
     Some((sw_x, sw_y, sw_x + width, sw_y + height))
-}
-
-fn write_music_glyph_path(
-    svg: &mut String,
-    face: &Face<'_>,
-    x: f64,
-    y: f64,
-    c: u32,
-    size_mm: f64,
-    anchor: &str,
-    tx: &impl Fn(f64) -> f64,
-    ty: &impl Fn(f64) -> f64,
-) -> bool {
-    let Some(ch) = char::from_u32(c) else {
-        return false;
-    };
-    let Some(gid) = glyph_id(face, ch) else {
-        return false;
-    };
-    let Some(bbox) = face.glyph_bounding_box(gid) else {
-        return false;
-    };
-    let scale = size_mm / face.units_per_em() as f64;
-    let width = (bbox.x_max - bbox.x_min) as f64 * scale;
-    let height = (bbox.y_max - bbox.y_min) as f64 * scale;
-    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
-
-    let mut path = String::new();
-    {
-        let mut builder = SvgPathBuilder {
-            data: &mut path,
-            sw_x: tx(sw_x),
-            sw_y: ty(sw_y),
-            scale,
-            x_offset: -(bbox.x_min as f64),
-            y_offset: -(bbox.y_min as f64),
-        };
-        if face.outline_glyph(gid, &mut builder).is_none() {
-            return false;
-        }
-    }
-
-    svg.push_str("<path d=\"");
-    svg.push_str(&path);
-    svg.push_str("\" fill=\"black\"/>");
-    true
-}
-
-fn write_music_text_paths(
-    svg: &mut String,
-    face: &Face<'_>,
-    x: f64,
-    y: f64,
-    value: &str,
-    size_mm: f64,
-    anchor: &str,
-    tx: &impl Fn(f64) -> f64,
-    ty: &impl Fn(f64) -> f64,
-) -> bool {
-    let scale = size_mm / face.units_per_em() as f64;
-    let mut glyphs = Vec::new();
-    let mut pen = 0.0_f64;
-    let mut min_x = f64::INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut max_x = f64::NEG_INFINITY;
-    let mut max_y = f64::NEG_INFINITY;
-
-    for ch in value.chars() {
-        let Some(gid) = glyph_id(face, ch) else {
-            return false;
-        };
-        let bbox = face.glyph_bounding_box(gid);
-        if let Some(b) = bbox {
-            min_x = min_x.min(pen + b.x_min as f64);
-            min_y = min_y.min(b.y_min as f64);
-            max_x = max_x.max(pen + b.x_max as f64);
-            max_y = max_y.max(b.y_max as f64);
-        }
-        glyphs.push((gid, pen, bbox));
-        pen += face.glyph_hor_advance(gid).unwrap_or(0) as f64;
-    }
-
-    if glyphs.is_empty() || !min_x.is_finite() {
-        return false;
-    }
-
-    let width = (max_x - min_x) * scale;
-    let height = (max_y - min_y) * scale;
-    let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
-    let svg_sw_x = tx(sw_x);
-    let svg_sw_y = ty(sw_y);
-
-    for (gid, glyph_pen, bbox) in glyphs {
-        if bbox.is_none() {
-            continue;
-        }
-        let mut path = String::new();
-        {
-            let mut builder = SvgPathBuilder {
-                data: &mut path,
-                sw_x: svg_sw_x,
-                sw_y: svg_sw_y,
-                scale,
-                x_offset: glyph_pen - min_x,
-                y_offset: -min_y,
-            };
-            if face.outline_glyph(gid, &mut builder).is_none() {
-                return false;
-            }
-        }
-        svg.push_str("<path d=\"");
-        svg.push_str(&path);
-        svg.push_str("\" fill=\"black\"/>");
-    }
-
-    true
 }
 
 fn bbox(sw_x: f64, sw_y: f64, ne_x: f64, ne_y: f64) -> glyph::BBox {
@@ -751,7 +808,7 @@ fn svg_from_cmds(
     let mut ox = 0.0;
     let mut oy = 0.0;
     let music_face = if music_font == "Bravura" {
-        bravura_font_bytes().and_then(|bytes| Face::parse(bytes, 0).ok())
+        Face::parse(BRAVURA_FONT, 0).ok()
     } else {
         None
     };
@@ -852,6 +909,17 @@ fn svg_from_cmds(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{:.3}mm\" height=\"{:.3}mm\" viewBox=\"0 0 {:.3} {:.3}\" overflow=\"visible\">",
         vb_w, vb_h, vb_w, vb_h
     );
+    let music_defs = music_face
+        .as_ref()
+        .map(|face| collect_music_glyph_defs(face, cmds))
+        .unwrap_or_default();
+    if !music_defs.is_empty() {
+        svg.push_str("<defs>");
+        for (gid, path) in &music_defs {
+            let _ = write!(svg, "<path id=\"b{:x}\" d=\"{}\"/>", gid, path);
+        }
+        svg.push_str("</defs>");
+    }
 
     ox = 0.0;
     oy = 0.0;
@@ -866,7 +934,18 @@ fn svg_from_cmds(
             }
             DrawCmd::Glyph { x, y, c, s, a } => {
                 let rendered_as_path = music_face.as_ref().is_some_and(|face| {
-                    write_music_glyph_path(&mut svg, face, ox + x, oy + y, *c, *s, a, &tx, &ty)
+                    write_music_glyph_use(
+                        &mut svg,
+                        face,
+                        &music_defs,
+                        ox + x,
+                        oy + y,
+                        *c,
+                        *s,
+                        a,
+                        &tx,
+                        &ty,
+                    )
                 });
                 if !rendered_as_path {
                     if let Some(ch) = char::from_u32(*c) {
@@ -901,7 +980,18 @@ fn svg_from_cmds(
             }
             DrawCmd::MusicText { x, y, v, s, a } => {
                 let rendered_as_path = music_face.as_ref().is_some_and(|face| {
-                    write_music_text_paths(&mut svg, face, ox + x, oy + y, v, *s, a, &tx, &ty)
+                    write_music_text_uses(
+                        &mut svg,
+                        face,
+                        &music_defs,
+                        ox + x,
+                        oy + y,
+                        v,
+                        *s,
+                        a,
+                        &tx,
+                        &ty,
+                    )
                 });
                 if !rendered_as_path {
                     if let Some(bbox) = music_text_bbox(v) {
