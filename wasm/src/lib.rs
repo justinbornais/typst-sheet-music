@@ -293,8 +293,18 @@ fn prepare_staff_systems(
 
         current_clef = system_clef;
         current_time = system_time;
-        // Advance lyric states
         for ev in &cleaned {
+            match ev {
+                Event::Clef(c) => current_clef = Some(c.clef.clone()),
+                Event::TimeSig(t) => {
+                    current_time = Some(TimeInfo {
+                        upper: t.upper,
+                        lower: t.lower,
+                        symbol: t.symbol.clone(),
+                    });
+                }
+                _ => {}
+            }
             lyric_states = advance_lyric_states(&lyric_states, ev);
         }
     }
@@ -371,4 +381,67 @@ fn advance_lyric_states(states: &[Option<String>], event: &Event) -> Vec<Option<
         next_states.pop();
     }
     next_states
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn clef(name: &str) -> Event {
+        Event::Clef(ClefChange {
+            clef: name.to_string(),
+            ending: None,
+            ending_start: false,
+            ending_end: false,
+        })
+    }
+
+    fn time_sig(upper: i32, lower: i32) -> Event {
+        Event::TimeSig(TimeSig {
+            upper,
+            lower,
+            symbol: None,
+            ending: None,
+            ending_start: false,
+            ending_end: false,
+        })
+    }
+
+    #[test]
+    fn inline_clef_changes_carry_to_following_system() {
+        let systems = vec![
+            vec![Event::Barline(Barline::new("single")), clef("treble")],
+            vec![Event::Barline(Barline::new("single"))],
+        ];
+
+        let prepared = prepare_staff_systems(&systems, Some("bass"), None, false);
+
+        assert_eq!(prepared[0].clef.as_deref(), Some("bass"));
+        assert_eq!(prepared[1].clef.as_deref(), Some("treble"));
+    }
+
+    #[test]
+    fn inline_time_signature_changes_carry_to_following_system() {
+        let systems = vec![
+            vec![Event::Barline(Barline::new("single")), time_sig(3, 4)],
+            vec![Event::Barline(Barline::new("single"))],
+        ];
+        let initial_time = TimeInfo {
+            upper: 4,
+            lower: 4,
+            symbol: None,
+        };
+
+        let prepared = prepare_staff_systems(&systems, Some("treble"), Some(&initial_time), true);
+
+        assert_eq!(
+            prepared[0].time.as_ref().map(|t| (t.upper, t.lower)),
+            Some((4, 4))
+        );
+        assert_eq!(
+            prepared[1].time.as_ref().map(|t| (t.upper, t.lower)),
+            Some((3, 4))
+        );
+        assert!(!prepared[1].show_time_prefix);
+    }
 }
