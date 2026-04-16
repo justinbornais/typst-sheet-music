@@ -738,6 +738,18 @@ fn note_stem_x(x: f64, duration: i32, stem_dir: &str, sp: f64) -> f64 {
     }
 }
 
+fn augmentation_dot_radius(sp: f64) -> f64 {
+    0.22 * sp
+}
+
+fn augmentation_dot_y(note_center_y: f64, staff_pos: i32, dot_radius: f64, sp: f64) -> f64 {
+    if staff_pos % 2 != 0 {
+        note_center_y
+    } else {
+        note_center_y + dot_radius + STAFF_LINE_THICKNESS * sp / 2.0 + 0.04 * sp
+    }
+}
+
 // ─── Chord notehead x offsets ──────────────────────────────────────────
 
 fn chord_notehead_x_offsets(positions: &[i32], stem_dir: &str, nh_w: f64, lsp: f64) -> Vec<f64> {
@@ -1786,12 +1798,15 @@ fn render_system(
                 // Dots
                 if n.dots > 0 {
                     let nh_w = glyph::advance_width(notehead_smufl(n.duration));
-                    let dot_x_base = x + nh_w / 2.0 * lsp + 0.6 * lsp;
+                    let dot_x_base = x + nh_w / 2.0 * lsp + 0.76 * lsp;
+                    let staff_pos = (-2.0 * item.y).round() as i32;
+                    let dot_radius = augmentation_dot_radius(lsp);
+                    let dot_y = augmentation_dot_y(note_center_y, staff_pos, dot_radius, sp);
                     for d in 0..n.dots {
                         cmds.push(DrawCmd::Circle {
                             x: dot_x_base + d as f64 * 0.5 * lsp,
-                            y: note_center_y,
-                            r: 0.2 * lsp,
+                            y: dot_y,
+                            r: dot_radius,
                         });
                     }
                 }
@@ -1846,12 +1861,15 @@ fn render_system(
                 if c.dots > 0 {
                     for (ni, &ny) in chord_ys_abs.iter().enumerate() {
                         let nx = x + offsets[ni];
-                        let dot_x_base = nx + nh_w / 2.0 * lsp + 0.6 * lsp;
+                        let dot_x_base = nx + nh_w / 2.0 * lsp + 0.76 * lsp;
+                        let staff_pos = item.chord_staff_positions[ni];
+                        let dot_radius = augmentation_dot_radius(lsp);
+                        let dot_y = augmentation_dot_y(ny, staff_pos, dot_radius, sp);
                         for d in 0..c.dots {
                             cmds.push(DrawCmd::Circle {
                                 x: dot_x_base + d as f64 * 0.5 * lsp,
-                                y: ny,
-                                r: 0.2 * lsp,
+                                y: dot_y,
+                                r: dot_radius,
                             });
                         }
                     }
