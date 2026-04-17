@@ -25,7 +25,12 @@ const DEFAULT_INLINE_CLEF_SCALE: f64 = 0.8;
 // ─── Utility functions (mirrors utils.typ) ─────────────────────────────
 
 pub fn duration_to_beats(duration: i32, dots: i32) -> f64 {
-    let base = 1.0 / duration as f64;
+    let base = match duration {
+        DURATION_LONGA => 4.0,
+        DURATION_BREVE => 2.0,
+        d if d > 0 => 1.0 / d as f64,
+        _ => 1.0 / 4.0,
+    };
     let mut total = base;
     let mut dot_value = base;
     for _ in 0..dots {
@@ -36,6 +41,15 @@ pub fn duration_to_beats(duration: i32, dots: i32) -> f64 {
 }
 
 pub fn duration_spacing_factor(duration: f64, dots: i32) -> f64 {
+    let duration = if duration == DURATION_LONGA as f64 {
+        0.25
+    } else if duration == DURATION_BREVE as f64 {
+        0.5
+    } else if duration > 0.0 {
+        duration
+    } else {
+        4.0
+    };
     let base_factor = (4.0_f64 / duration).log2() + 1.0;
     let mut factor = base_factor.max(0.75);
     if dots >= 1 {
@@ -141,11 +155,28 @@ fn inline_time_sig_width(event: &Event, prev: Option<&Event>, next: Option<&Even
 
 fn notehead_width(duration: i32) -> f64 {
     let smufl = match duration {
+        DURATION_LONGA => "mensuralWhiteLonga",
+        DURATION_BREVE => "noteheadDoubleWhole",
         1 => "noteheadWhole",
         2 => "noteheadHalf",
         _ => "noteheadBlack",
     };
     glyph::advance_width(smufl)
+}
+
+fn rest_smufl_name(duration: i32) -> &'static str {
+    match duration {
+        DURATION_LONGA => "restLonga",
+        DURATION_BREVE => "restDoubleWhole",
+        1 => "restWhole",
+        2 => "restHalf",
+        4 => "restQuarter",
+        8 => "rest8th",
+        16 => "rest16th",
+        32 => "rest32nd",
+        64 => "rest64th",
+        _ => "restQuarter",
+    }
 }
 
 fn accidental_smufl(acc: Option<&str>) -> Option<&'static str> {
@@ -264,16 +295,7 @@ fn event_right_collision_extent(event: &Event) -> f64 {
     match event {
         Event::Note(_) | Event::Chord(_) => notehead_half_width(event),
         Event::Rest(r) => {
-            let smufl = match r.duration {
-                1 => "restWhole",
-                2 => "restHalf",
-                4 => "restQuarter",
-                8 => "rest8th",
-                16 => "rest16th",
-                32 => "rest32nd",
-                64 => "rest64th",
-                _ => "restQuarter",
-            };
+            let smufl = rest_smufl_name(r.duration);
             glyph::bbox(smufl).map_or(0.45, |b| b.ne_x.max(0.45))
         }
         Event::Barline(_) => 0.5 + BARLINE_TO_ACCIDENTAL_CLEARANCE,
@@ -377,16 +399,7 @@ fn grace_body_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -
     let duration = event.duration();
     let head_w = notehead_width(duration);
     let rest_w = if event.is_rest() {
-        let smufl = match duration {
-            1 => "restWhole",
-            2 => "restHalf",
-            4 => "restQuarter",
-            8 => "rest8th",
-            16 => "rest16th",
-            32 => "rest32nd",
-            64 => "rest64th",
-            _ => "restQuarter",
-        };
+        let smufl = rest_smufl_name(duration);
         glyph::advance_width(smufl)
     } else {
         0.0
@@ -707,6 +720,7 @@ pub fn layout_staff(
             Event::Rest(r) => {
                 y = match r.duration {
                     1 => -1.0,
+                    DURATION_LONGA | DURATION_BREVE => -2.0,
                     _ => -2.0,
                 };
             }
@@ -1187,6 +1201,19 @@ mod tests {
 
         assert_eq!(compact_width, EMPTY_MEASURE_REST_WIDTH);
         assert!(compact_width < regular_width);
+    }
+
+    #[test]
+    fn longer_than_whole_durations_get_longer_beats_and_spacing() {
+        assert_eq!(duration_to_beats(DURATION_BREVE, 0), 2.0);
+        assert_eq!(duration_to_beats(DURATION_LONGA, 0), 4.0);
+
+        let whole_width = event_width(&note("c", None, 1), None, None);
+        let breve_width = event_width(&note("c", None, DURATION_BREVE), None, None);
+        let longa_width = event_width(&note("c", None, DURATION_LONGA), None, None);
+
+        assert!(breve_width > whole_width);
+        assert!(longa_width > breve_width);
     }
 
     #[test]

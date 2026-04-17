@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
+pub const DURATION_LONGA: i32 = -4;
+pub const DURATION_BREVE: i32 = -2;
+
 // ─── Event types (mirrors model.typ) ───────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

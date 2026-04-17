@@ -151,9 +151,21 @@ impl<'a> Parser<'a> {
             }
         }
         let duration = if dur_str.is_empty() {
-            sticky
+            if self.input[p..].starts_with(b"breve") {
+                p += 5;
+                DURATION_BREVE
+            } else if self.input[p..].starts_with(b"longa") {
+                p += 5;
+                DURATION_LONGA
+            } else {
+                sticky
+            }
         } else {
-            dur_str.parse::<i32>().unwrap_or(sticky)
+            dur_str
+                .parse::<i32>()
+                .ok()
+                .filter(|duration| *duration > 0)
+                .unwrap_or(sticky)
         };
         let mut dots = 0;
         while self.peek(p) == Some(b'.') {
@@ -1318,4 +1330,42 @@ pub fn parse_music(input: &str, base_octave: i32) -> Vec<Event> {
     let mut parser = Parser::new(input, base_octave);
     parser.parse();
     parser.events
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_named_longer_than_whole_durations() {
+        let events = parse_music("cbreve. d | rlonga <e g>breve slonga", 4);
+
+        match &events[0] {
+            Event::Note(n) => {
+                assert_eq!(n.duration, DURATION_BREVE);
+                assert_eq!(n.dots, 1);
+            }
+            other => panic!("expected breve note, got {other:?}"),
+        }
+
+        match &events[1] {
+            Event::Note(n) => assert_eq!(n.duration, DURATION_BREVE),
+            other => panic!("expected sticky breve note, got {other:?}"),
+        }
+
+        match &events[3] {
+            Event::Rest(r) => assert_eq!(r.duration, DURATION_LONGA),
+            other => panic!("expected longa rest, got {other:?}"),
+        }
+
+        match &events[4] {
+            Event::Chord(c) => assert_eq!(c.duration, DURATION_BREVE),
+            other => panic!("expected breve chord, got {other:?}"),
+        }
+
+        match &events[5] {
+            Event::Spacer(s) => assert_eq!(s.duration, DURATION_LONGA),
+            other => panic!("expected longa spacer, got {other:?}"),
+        }
+    }
 }

@@ -47,6 +47,16 @@
 
 #v(1cm)
 
+== Test 4b: Durations longer than whole notes
+
+#melody(
+  key: "C",
+  time: "4/1",
+  music: "cbreve | clonga | rbreve rlonga | <c e g>breve",
+)
+
+#v(1cm)
+
 == Test 5: Dotted notes
 
 #melody(

@@ -28,14 +28,18 @@ const BRAVURA_FONT: &[u8] = include_bytes!("../../fonts/Bravura.otf");
 
 fn notehead_codepoint(duration: i32) -> u32 {
     match duration {
-        1 => 0xE0A2, // noteheadWhole
-        2 => 0xE0A3, // noteheadHalf
-        _ => 0xE0A4, // noteheadBlack
+        DURATION_LONGA => 0xE95D, // mensuralWhiteLonga
+        DURATION_BREVE => 0xE0A0, // noteheadDoubleWhole
+        1 => 0xE0A2,              // noteheadWhole
+        2 => 0xE0A3,              // noteheadHalf
+        _ => 0xE0A4,              // noteheadBlack
     }
 }
 
 fn notehead_smufl(duration: i32) -> &'static str {
     match duration {
+        DURATION_LONGA => "mensuralWhiteLonga",
+        DURATION_BREVE => "noteheadDoubleWhole",
         1 => "noteheadWhole",
         2 => "noteheadHalf",
         _ => "noteheadBlack",
@@ -44,6 +48,8 @@ fn notehead_smufl(duration: i32) -> &'static str {
 
 fn rest_codepoint(duration: i32) -> u32 {
     match duration {
+        DURATION_LONGA => 0xE4E1,
+        DURATION_BREVE => 0xE4E2,
         1 => 0xE4E3,
         2 => 0xE4E4,
         4 => 0xE4E5,
@@ -57,6 +63,8 @@ fn rest_codepoint(duration: i32) -> u32 {
 
 fn rest_smufl(duration: i32) -> &'static str {
     match duration {
+        DURATION_LONGA => "restLonga",
+        DURATION_BREVE => "restDoubleWhole",
         1 => "restWhole",
         2 => "restHalf",
         4 => "restQuarter",
@@ -647,9 +655,13 @@ fn bbox(sw_x: f64, sw_y: f64, ne_x: f64, ne_y: f64) -> glyph::BBox {
 
 fn smufl_name_for_codepoint(codepoint: u32) -> Option<&'static str> {
     match codepoint {
+        0xE0A0 => Some("noteheadDoubleWhole"),
         0xE0A2 => Some("noteheadWhole"),
         0xE0A3 => Some("noteheadHalf"),
         0xE0A4 => Some("noteheadBlack"),
+        0xE95D => Some("mensuralWhiteLonga"),
+        0xE4E1 => Some("restLonga"),
+        0xE4E2 => Some("restDoubleWhole"),
         0xE4E3 => Some("restWhole"),
         0xE4E4 => Some("restHalf"),
         0xE4E5 => Some("restQuarter"),
@@ -2894,14 +2906,23 @@ fn note_visual_bottom(item: &LaidOutItem, y_top: f64, sp: f64) -> f64 {
     };
 
     match &item.event {
-        Event::Note(_) => y_top + item.y * sp - 0.55 * sp * bottom_scale,
-        Event::Chord(_) => {
+        Event::Note(n) => {
+            let note_y = y_top + item.y * sp;
+            let glyph_bottom = glyph::bbox(notehead_smufl(n.duration)).map_or(-0.55, |b| b.sw_y)
+                * sp
+                * bottom_scale;
+            note_y + glyph_bottom
+        }
+        Event::Chord(c) => {
             let lowest = item
                 .chord_ys
                 .iter()
                 .map(|&vy| y_top + vy * sp)
                 .fold(f64::INFINITY, f64::min);
-            lowest - 0.55 * sp * bottom_scale
+            let glyph_bottom = glyph::bbox(notehead_smufl(c.duration)).map_or(-0.55, |b| b.sw_y)
+                * sp
+                * bottom_scale;
+            lowest + glyph_bottom
         }
         _ => y_top + item.y * sp,
     }
@@ -4224,17 +4245,19 @@ fn render_endings(
 fn note_visual_top(item: &LaidOutItem, y_top: f64, sp: f64) -> f64 {
     let ev = &item.event;
     match ev {
-        Event::Note(_) => {
+        Event::Note(n) => {
             let note_y = y_top + item.y * sp;
-            (note_y + 0.9 * sp).max(note_y + 1.0 * sp)
+            let glyph_top = glyph::bbox(notehead_smufl(n.duration)).map_or(1.0, |b| b.ne_y) * sp;
+            (note_y + 0.9 * sp).max(note_y + glyph_top)
         }
-        Event::Chord(_) => {
+        Event::Chord(c) => {
             let top_y = item
                 .chord_ys
                 .iter()
                 .map(|&vy| y_top + vy * sp)
                 .fold(f64::NEG_INFINITY, f64::max);
-            (top_y + 0.9 * sp).max(top_y + 1.0 * sp)
+            let glyph_top = glyph::bbox(notehead_smufl(c.duration)).map_or(1.0, |b| b.ne_y) * sp;
+            (top_y + 0.9 * sp).max(top_y + glyph_top)
         }
         _ => y_top + 1.0 * sp,
     }

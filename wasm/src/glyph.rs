@@ -17,8 +17,12 @@ pub struct Anchor {
 #[inline]
 pub fn advance_width(glyph_name: &str) -> f64 {
     match glyph_name {
+        "mensuralWhiteLonga" => 1.3,
+        "noteheadDoubleWhole" => 2.396,
         "noteheadWhole" => 1.688,
         "noteheadHalf" | "noteheadBlack" => 1.18,
+        "restLonga" => 0.5,
+        "restDoubleWhole" => 0.504,
         "restWhole" | "restHalf" => 1.132,
         "restQuarter" => 1.08,
         "rest8th" => 1.0,
@@ -75,8 +79,12 @@ pub fn bbox(glyph_name: &str) -> Option<BBox> {
         })
     };
     match glyph_name {
+        "mensuralWhiteLonga" => b(0.0, -3.548, 1.3, 0.684),
+        "noteheadDoubleWhole" => b(0.0, -0.62, 2.396, 0.62),
         "noteheadWhole" => b(0.0, -0.5, 1.688, 0.5),
         "noteheadHalf" | "noteheadBlack" => b(0.0, -0.5, 1.18, 0.5),
+        "restLonga" => b(0.0, -0.996, 0.5, 1.0),
+        "restDoubleWhole" => b(0.0, 0.0, 0.5, 1.0),
         "restWhole" => b(0.0, -0.54, 1.128, 0.036),
         "restHalf" => b(0.0, -0.008, 1.128, 0.568),
         "restQuarter" => b(0.004, -1.5, 1.08, 1.492),
