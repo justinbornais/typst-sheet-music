@@ -28,16 +28,18 @@ const BRAVURA_FONT: &[u8] = include_bytes!("../../fonts/Bravura.otf");
 
 fn notehead_codepoint(duration: i32) -> u32 {
     match duration {
-        DURATION_LONGA => 0xE95D, // mensuralWhiteLonga
-        DURATION_BREVE => 0xE0A0, // noteheadDoubleWhole
-        1 => 0xE0A2,              // noteheadWhole
-        2 => 0xE0A3,              // noteheadHalf
-        _ => 0xE0A4,              // noteheadBlack
+        DURATION_MAXIMA => 0xE95C, // mensuralWhiteMaxima
+        DURATION_LONGA => 0xE95D,  // mensuralWhiteLonga
+        DURATION_BREVE => 0xE0A0,  // noteheadDoubleWhole
+        1 => 0xE0A2,               // noteheadWhole
+        2 => 0xE0A3,               // noteheadHalf
+        _ => 0xE0A4,               // noteheadBlack
     }
 }
 
 fn notehead_smufl(duration: i32) -> &'static str {
     match duration {
+        DURATION_MAXIMA => "mensuralWhiteMaxima",
         DURATION_LONGA => "mensuralWhiteLonga",
         DURATION_BREVE => "noteheadDoubleWhole",
         1 => "noteheadWhole",
@@ -48,6 +50,7 @@ fn notehead_smufl(duration: i32) -> &'static str {
 
 fn rest_codepoint(duration: i32) -> u32 {
     match duration {
+        DURATION_MAXIMA => 0xE4E0,
         DURATION_LONGA => 0xE4E1,
         DURATION_BREVE => 0xE4E2,
         1 => 0xE4E3,
@@ -63,6 +66,7 @@ fn rest_codepoint(duration: i32) -> u32 {
 
 fn rest_smufl(duration: i32) -> &'static str {
     match duration {
+        DURATION_MAXIMA => "restMaxima",
         DURATION_LONGA => "restLonga",
         DURATION_BREVE => "restDoubleWhole",
         1 => "restWhole",
@@ -659,7 +663,9 @@ fn smufl_name_for_codepoint(codepoint: u32) -> Option<&'static str> {
         0xE0A2 => Some("noteheadWhole"),
         0xE0A3 => Some("noteheadHalf"),
         0xE0A4 => Some("noteheadBlack"),
+        0xE95C => Some("mensuralWhiteMaxima"),
         0xE95D => Some("mensuralWhiteLonga"),
+        0xE4E0 => Some("restMaxima"),
         0xE4E1 => Some("restLonga"),
         0xE4E2 => Some("restDoubleWhole"),
         0xE4E3 => Some("restWhole"),

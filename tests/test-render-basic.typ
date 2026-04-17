@@ -52,7 +52,7 @@
 #melody(
   key: "C",
   time: "4/1",
-  music: "cbreve | clonga | rbreve rlonga | <c e g>breve",
+  music: "cbreve | clonga | cmaxima | rbreve rlonga rmaxima | <c e g>breve <c e g>maxima",
 )
 
 #v(1cm)

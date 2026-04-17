@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
+pub const DURATION_MAXIMA: i32 = -8;
 pub const DURATION_LONGA: i32 = -4;
 pub const DURATION_BREVE: i32 = -2;
 

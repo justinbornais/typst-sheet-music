@@ -6,7 +6,7 @@ Render sheet music directly inside Typst using SMuFL-aware glyph placement and a
 
 - WASM-backed Typst API with no LilyPond or MuseScore CLI dependency.
 - Notes, rests, spacers, chords, accidentals, key signatures, time signatures, and supported clefs.
-- Rhythms from longa and breve through standard shorter note values.
+- Rhythms from maxima, longa, and breve through standard shorter note values.
 - Inline annotations: dynamics, hairpins, articulations, fingerings, chord symbols, expression text, staff text, staff markers, and lyrics.
 - Notation features: beams, ties, slurs, tuplets, octave lines, trills, grace notes / acciaccaturas, repeat barlines, endings, and dotted notes.
 - Inline clef changes, inline time-signature changes, manual spacing via repeated spaces, and explicit system breaks.
@@ -241,13 +241,13 @@ Examples of accepted inputs:
 - **Notes and rhythm**: `c4`, `d8.`, `f#4`, `g'2`, `a,16`
   - Accidentals: `#`, `##`, `&`, `&&`, `=`
   - Octave markers: `'` raises, `,` lowers
-  - Longer notes use names: `cbreve`, `clonga`
+  - Longer notes use names: `cbreve`, `clonga`, `cmaxima`
   - Duration is sticky: `c4 d e f`, `cbreve d`
 
-- **Rests, spacers, and manual spacing**: `r4`, `r8.`, `rbreve`, `rlonga`, `s4`
+- **Rests, spacers, and manual spacing**: `r4`, `r8.`, `rbreve`, `rlonga`, `rmaxima`, `s4`, `smaxima`
   - Repeated spaces add extra horizontal gap: `c e   g c`
 
-- **Chords**: `<c e g>4`, `<c e g>breve`
+- **Chords**: `<c e g>4`, `<c e g>breve`, `<c e g>maxima`
 
 - **Articulations**: `>` accent, `*` staccato, `-` tenuto, `_` fermata
 

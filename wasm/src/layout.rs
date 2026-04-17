@@ -26,6 +26,7 @@ const DEFAULT_INLINE_CLEF_SCALE: f64 = 0.8;
 
 pub fn duration_to_beats(duration: i32, dots: i32) -> f64 {
     let base = match duration {
+        DURATION_MAXIMA => 8.0,
         DURATION_LONGA => 4.0,
         DURATION_BREVE => 2.0,
         d if d > 0 => 1.0 / d as f64,
@@ -41,7 +42,9 @@ pub fn duration_to_beats(duration: i32, dots: i32) -> f64 {
 }
 
 pub fn duration_spacing_factor(duration: f64, dots: i32) -> f64 {
-    let duration = if duration == DURATION_LONGA as f64 {
+    let duration = if duration == DURATION_MAXIMA as f64 {
+        0.125
+    } else if duration == DURATION_LONGA as f64 {
         0.25
     } else if duration == DURATION_BREVE as f64 {
         0.5
@@ -155,6 +158,7 @@ fn inline_time_sig_width(event: &Event, prev: Option<&Event>, next: Option<&Even
 
 fn notehead_width(duration: i32) -> f64 {
     let smufl = match duration {
+        DURATION_MAXIMA => "mensuralWhiteMaxima",
         DURATION_LONGA => "mensuralWhiteLonga",
         DURATION_BREVE => "noteheadDoubleWhole",
         1 => "noteheadWhole",
@@ -166,6 +170,7 @@ fn notehead_width(duration: i32) -> f64 {
 
 fn rest_smufl_name(duration: i32) -> &'static str {
     match duration {
+        DURATION_MAXIMA => "restMaxima",
         DURATION_LONGA => "restLonga",
         DURATION_BREVE => "restDoubleWhole",
         1 => "restWhole",
@@ -720,7 +725,7 @@ pub fn layout_staff(
             Event::Rest(r) => {
                 y = match r.duration {
                     1 => -1.0,
-                    DURATION_LONGA | DURATION_BREVE => -2.0,
+                    DURATION_MAXIMA | DURATION_LONGA | DURATION_BREVE => -2.0,
                     _ => -2.0,
                 };
             }
@@ -1207,13 +1212,16 @@ mod tests {
     fn longer_than_whole_durations_get_longer_beats_and_spacing() {
         assert_eq!(duration_to_beats(DURATION_BREVE, 0), 2.0);
         assert_eq!(duration_to_beats(DURATION_LONGA, 0), 4.0);
+        assert_eq!(duration_to_beats(DURATION_MAXIMA, 0), 8.0);
 
         let whole_width = event_width(&note("c", None, 1), None, None);
         let breve_width = event_width(&note("c", None, DURATION_BREVE), None, None);
         let longa_width = event_width(&note("c", None, DURATION_LONGA), None, None);
+        let maxima_width = event_width(&note("c", None, DURATION_MAXIMA), None, None);
 
         assert!(breve_width > whole_width);
         assert!(longa_width > breve_width);
+        assert!(maxima_width > longa_width);
     }
 
     #[test]

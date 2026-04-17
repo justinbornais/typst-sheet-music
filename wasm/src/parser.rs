@@ -151,7 +151,10 @@ impl<'a> Parser<'a> {
             }
         }
         let duration = if dur_str.is_empty() {
-            if self.input[p..].starts_with(b"breve") {
+            if self.input[p..].starts_with(b"maxima") {
+                p += 6;
+                DURATION_MAXIMA
+            } else if self.input[p..].starts_with(b"breve") {
                 p += 5;
                 DURATION_BREVE
             } else if self.input[p..].starts_with(b"longa") {
@@ -1338,7 +1341,10 @@ mod tests {
 
     #[test]
     fn parses_named_longer_than_whole_durations() {
-        let events = parse_music("cbreve. d | rlonga <e g>breve slonga", 4);
+        let events = parse_music(
+            "cbreve. d | rlonga <e g>breve slonga cmaxima rmaxima smaxima",
+            4,
+        );
 
         match &events[0] {
             Event::Note(n) => {
@@ -1366,6 +1372,21 @@ mod tests {
         match &events[5] {
             Event::Spacer(s) => assert_eq!(s.duration, DURATION_LONGA),
             other => panic!("expected longa spacer, got {other:?}"),
+        }
+
+        match &events[6] {
+            Event::Note(n) => assert_eq!(n.duration, DURATION_MAXIMA),
+            other => panic!("expected maxima note, got {other:?}"),
+        }
+
+        match &events[7] {
+            Event::Rest(r) => assert_eq!(r.duration, DURATION_MAXIMA),
+            other => panic!("expected maxima rest, got {other:?}"),
+        }
+
+        match &events[8] {
+            Event::Spacer(s) => assert_eq!(s.duration, DURATION_MAXIMA),
+            other => panic!("expected maxima spacer, got {other:?}"),
         }
     }
 }
