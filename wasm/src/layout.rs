@@ -87,11 +87,19 @@ fn clef_smufl_name(clef: &str) -> &'static str {
 // ─── Width calculation functions ───────────────────────────────────────
 
 pub fn clef_advance_sp(clef: &str, sp: f64) -> f64 {
+    clef_advance_sp_font(clef, sp, glyph::FontId::Bravura)
+}
+
+pub fn clef_advance_sp_font(clef: &str, sp: f64, font: glyph::FontId) -> f64 {
     let smufl = clef_smufl_name(clef);
-    glyph::advance_width(smufl) * sp + DEFAULT_CLEF_PADDING * sp
+    glyph::advance_width_for(font, smufl) * sp + DEFAULT_CLEF_PADDING * sp
 }
 
 pub fn key_sig_advance_sp(key: &str, sp: f64) -> f64 {
+    key_sig_advance_sp_font(key, sp, glyph::FontId::Bravura)
+}
+
+pub fn key_sig_advance_sp_font(key: &str, sp: f64, font: glyph::FontId) -> f64 {
     let count = pitch::key_sig_accidental_count(key);
     let n = count.unsigned_abs() as usize;
     if n == 0 {
@@ -102,17 +110,21 @@ pub fn key_sig_advance_sp(key: &str, sp: f64) -> f64 {
     } else {
         "accidentalFlat"
     };
-    let acc_w = glyph::advance_width(acc_smufl);
+    let acc_w = glyph::advance_width_for(font, acc_smufl);
     n as f64 * (acc_w + 0.2) * sp + DEFAULT_KEY_SIG_PADDING * sp
 }
 
 pub fn time_sig_advance_sp(upper: i32, lower: i32, symbol: Option<&str>, sp: f64) -> f64 {
+    time_sig_advance_sp_font(upper, lower, symbol, sp, glyph::FontId::Bravura)
+}
+
+pub fn time_sig_advance_sp_font(upper: i32, lower: i32, symbol: Option<&str>, sp: f64, font: glyph::FontId) -> f64 {
     match symbol {
         Some("common") => {
-            glyph::advance_width("timeSigCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp
+            glyph::advance_width_for(font, "timeSigCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp
         }
         Some("cut") => {
-            glyph::advance_width("timeSigCutCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp
+            glyph::advance_width_for(font, "timeSigCutCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp
         }
         _ => {
             let upper_s = upper.to_string();
@@ -122,7 +134,7 @@ pub fn time_sig_advance_sp(upper: i32, lower: i32, symbol: Option<&str>, sp: f64
                 .filter(|c| c.is_ascii_digit())
                 .map(|c| {
                     let name = format!("timeSig{}", c);
-                    glyph::advance_width(&name) * sp
+                    glyph::advance_width_for(font, &name) * sp
                 })
                 .sum();
             let lower_w: f64 = lower_s
@@ -130,7 +142,7 @@ pub fn time_sig_advance_sp(upper: i32, lower: i32, symbol: Option<&str>, sp: f64
                 .filter(|c| c.is_ascii_digit())
                 .map(|c| {
                     let name = format!("timeSig{}", c);
-                    glyph::advance_width(&name) * sp
+                    glyph::advance_width_for(font, &name) * sp
                 })
                 .sum();
             upper_w.max(lower_w) + DEFAULT_TIME_SIG_PADDING * sp
@@ -138,9 +150,9 @@ pub fn time_sig_advance_sp(upper: i32, lower: i32, symbol: Option<&str>, sp: f64
     }
 }
 
-fn inline_time_sig_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -> f64 {
+fn inline_time_sig_width(event: &Event, prev: Option<&Event>, next: Option<&Event>, font: glyph::FontId) -> f64 {
     if let Event::TimeSig(t) = event {
-        let glyph_w = (time_sig_advance_sp(t.upper, t.lower, t.symbol.as_deref(), 1.0)
+        let glyph_w = (time_sig_advance_sp_font(t.upper, t.lower, t.symbol.as_deref(), 1.0, font)
             - DEFAULT_TIME_SIG_PADDING)
             .max(0.0);
         let extra = if prev.map_or(false, |p| p.is_barline()) {
@@ -156,7 +168,7 @@ fn inline_time_sig_width(event: &Event, prev: Option<&Event>, next: Option<&Even
     }
 }
 
-fn notehead_width(duration: i32) -> f64 {
+fn notehead_width(duration: i32, font: glyph::FontId) -> f64 {
     let smufl = match duration {
         DURATION_MAXIMA => "mensuralWhiteMaxima",
         DURATION_LONGA => "mensuralWhiteLonga",
@@ -165,7 +177,7 @@ fn notehead_width(duration: i32) -> f64 {
         2 => "noteheadHalf",
         _ => "noteheadBlack",
     };
-    glyph::advance_width(smufl)
+    glyph::advance_width_for(font, smufl)
 }
 
 fn rest_smufl_name(duration: i32) -> &'static str {
@@ -195,8 +207,8 @@ fn accidental_smufl(acc: Option<&str>) -> Option<&'static str> {
     }
 }
 
-fn accidental_width(acc: Option<&str>) -> f64 {
-    accidental_smufl(acc).map_or(0.0, glyph::advance_width)
+fn accidental_width(acc: Option<&str>, font: glyph::FontId) -> f64 {
+    accidental_smufl(acc).map_or(0.0, |name| glyph::advance_width_for(font, name))
 }
 
 fn event_has_accidental(event: &Event) -> bool {
@@ -288,20 +300,20 @@ fn plain_note_pair(event: &Event, next: Option<&Event>) -> bool {
         && !event_has_accidental(next)
 }
 
-fn notehead_half_width(event: &Event) -> f64 {
+fn notehead_half_width(event: &Event, font: glyph::FontId) -> f64 {
     match event {
-        Event::Note(n) => notehead_width(n.duration) / 2.0,
-        Event::Chord(c) => notehead_width(c.duration) / 2.0,
+        Event::Note(n) => notehead_width(n.duration, font) / 2.0,
+        Event::Chord(c) => notehead_width(c.duration, font) / 2.0,
         _ => 0.0,
     }
 }
 
-fn event_right_collision_extent(event: &Event) -> f64 {
+fn event_right_collision_extent(event: &Event, font: glyph::FontId) -> f64 {
     match event {
-        Event::Note(_) | Event::Chord(_) => notehead_half_width(event),
+        Event::Note(_) | Event::Chord(_) => notehead_half_width(event, font),
         Event::Rest(r) => {
             let smufl = rest_smufl_name(r.duration);
-            glyph::bbox(smufl).map_or(0.45, |b| b.ne_x.max(0.45))
+            glyph::bbox_for(font, smufl).map_or(0.45, |b| b.ne_x.max(0.45))
         }
         Event::Barline(_) => 0.5 + BARLINE_TO_ACCIDENTAL_CLEARANCE,
         _ => 0.0,
@@ -336,7 +348,7 @@ fn is_empty_measure_whole_rest(event: &Event, prev: Option<&Event>, next: Option
         && next.map_or(true, |n| n.is_barline())
 }
 
-fn required_leading_accidental_space(event: &Event, next: Option<&Event>) -> f64 {
+fn required_leading_accidental_space(event: &Event, next: Option<&Event>, font: glyph::FontId) -> f64 {
     let next = match next {
         Some(n) => n,
         None => return 0.0,
@@ -348,7 +360,7 @@ fn required_leading_accidental_space(event: &Event, next: Option<&Event>) -> f64
     let scale = if next_is_grace { 0.68 } else { 1.0 };
     let event_scale = if event.grace() { 0.68 } else { 1.0 };
     let event_right_extent =
-        event_right_collision_extent(event) * event_scale + pre_accidental_clearance(event);
+        event_right_collision_extent(event, font) * event_scale + pre_accidental_clearance(event);
     let cluster_factor = if next_is_grace && (next.is_note() || next.is_chord()) {
         0.55
     } else {
@@ -358,9 +370,9 @@ fn required_leading_accidental_space(event: &Event, next: Option<&Event>) -> f64
         Event::Note(n) => {
             if n.accidental.is_some() {
                 event_right_extent
-                    + (accidental_width(n.accidental.as_deref())
+                    + (accidental_width(n.accidental.as_deref(), font)
                         + DEFAULT_ACCIDENTAL_PADDING
-                        + notehead_half_width(next)
+                        + notehead_half_width(next, font)
                         + DEFAULT_ACCIDENTAL_CLEARANCE
                         + accidental_readability_clearance(event, next))
                         * scale
@@ -373,13 +385,13 @@ fn required_leading_accidental_space(event: &Event, next: Option<&Event>) -> f64
             let max_w = c
                 .notes
                 .iter()
-                .map(|n| accidental_width(n.accidental.as_deref()))
+                .map(|n| accidental_width(n.accidental.as_deref(), font))
                 .fold(0.0_f64, f64::max);
             if max_w > 0.0 {
                 event_right_extent
                     + (max_w
                         + DEFAULT_ACCIDENTAL_PADDING
-                        + notehead_half_width(next)
+                        + notehead_half_width(next, font)
                         + DEFAULT_ACCIDENTAL_CLEARANCE
                         + accidental_readability_clearance(event, next))
                         * scale
@@ -392,20 +404,20 @@ fn required_leading_accidental_space(event: &Event, next: Option<&Event>) -> f64
     }
 }
 
-fn leading_accidental_extra(event: &Event, available_space: f64, next: Option<&Event>) -> f64 {
-    let required = required_leading_accidental_space(event, next);
+fn leading_accidental_extra(event: &Event, available_space: f64, next: Option<&Event>, font: glyph::FontId) -> f64 {
+    let required = required_leading_accidental_space(event, next, font);
     if required <= 0.0 {
         return 0.0;
     }
     (required - available_space).max(0.0)
 }
 
-fn grace_body_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -> f64 {
+fn grace_body_width(event: &Event, prev: Option<&Event>, next: Option<&Event>, font: glyph::FontId) -> f64 {
     let duration = event.duration();
-    let head_w = notehead_width(duration);
+    let head_w = notehead_width(duration, font);
     let rest_w = if event.is_rest() {
         let smufl = rest_smufl_name(duration);
-        glyph::advance_width(smufl)
+        glyph::advance_width_for(font, smufl)
     } else {
         0.0
     };
@@ -420,19 +432,23 @@ fn grace_body_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -
 }
 
 pub fn event_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -> f64 {
+    event_width_font(event, prev, next, glyph::FontId::Bravura)
+}
+
+pub fn event_width_font(event: &Event, prev: Option<&Event>, next: Option<&Event>, font: glyph::FontId) -> f64 {
     match event {
         Event::Barline(_) => {
             let touches_inline_boundary = prev
                 .map_or(false, |p| matches!(p, Event::Clef(_) | Event::TimeSig(_)))
                 || next.map_or(false, |n| matches!(n, Event::Clef(_) | Event::TimeSig(_)));
             let w = if touches_inline_boundary { 0.6 } else { 2.5 };
-            w + leading_accidental_extra(event, w, next)
+            w + leading_accidental_extra(event, w, next, font)
         }
         Event::Clef(c) => {
             let smufl = clef_smufl_name(&c.clef);
-            glyph::advance_width(smufl) * DEFAULT_INLINE_CLEF_SCALE + DEFAULT_CLEF_PADDING
+            glyph::advance_width_for(font, smufl) * DEFAULT_INLINE_CLEF_SCALE + DEFAULT_CLEF_PADDING
         }
-        Event::TimeSig(_) => inline_time_sig_width(event, prev, next),
+        Event::TimeSig(_) => inline_time_sig_width(event, prev, next, font),
         Event::KeySig(_) => 2.0,
         Event::Gap(g) => 0.7 * g.amount as f64,
         Event::LineBreak => 0.0,
@@ -442,8 +458,8 @@ pub fn event_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) ->
         _ => {
             // Notes, rests, spacers, chords
             if event.grace() {
-                let body = grace_body_width(event, prev, next);
-                return body + leading_accidental_extra(event, body, next);
+                let body = grace_body_width(event, prev, next, font);
+                return body + leading_accidental_extra(event, body, next, font);
             }
             let dur = event.duration();
             let dots = event.dots();
@@ -460,7 +476,7 @@ pub fn event_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) ->
             if plain_note_pair(event, next) {
                 w *= PLAIN_NOTE_SPACING_MULTIPLIER;
             }
-            w + leading_accidental_extra(event, w, next)
+            w + leading_accidental_extra(event, w, next, font)
         }
     }
 }
@@ -474,12 +490,16 @@ pub struct PosInfo {
 }
 
 pub fn compute_event_positions(events: &[Event]) -> Vec<PosInfo> {
+    compute_event_positions_font(events, glyph::FontId::Bravura)
+}
+
+pub fn compute_event_positions_font(events: &[Event], font: glyph::FontId) -> Vec<PosInfo> {
     let mut positions = Vec::with_capacity(events.len());
     let mut x = SYSTEM_START_CONTENT_PADDING;
     for (i, event) in events.iter().enumerate() {
         let prev = if i > 0 { Some(&events[i - 1]) } else { None };
         let next = events.get(i + 1);
-        let w = event_width(event, prev, next);
+        let w = event_width_font(event, prev, next, font);
         positions.push(PosInfo { x, width: w });
         x += w;
     }
@@ -642,7 +662,18 @@ pub fn layout_staff(
     show_time_prefix: bool,
     lyric_prefix_states: &[Option<String>],
 ) -> LaidOutStaff {
-    let positions = compute_event_positions(events);
+    layout_staff_font(events, clef, time, show_time_prefix, lyric_prefix_states, glyph::FontId::Bravura)
+}
+
+pub fn layout_staff_font(
+    events: &[Event],
+    clef: Option<&str>,
+    time: Option<&TimeInfo>,
+    show_time_prefix: bool,
+    lyric_prefix_states: &[Option<String>],
+    font: glyph::FontId,
+) -> LaidOutStaff {
+    let positions = compute_event_positions_font(events, font);
     let mut items = Vec::with_capacity(events.len());
     let layout_clef = clef.unwrap_or("treble");
     let mut current_clef = layout_clef.to_string();

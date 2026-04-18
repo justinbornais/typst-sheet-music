@@ -7,6 +7,7 @@ pub mod types;
 
 use types::*;
 use wasm_minimal_protocol::*;
+use glyph::FontId;
 
 initiate_protocol!();
 
@@ -25,6 +26,7 @@ pub fn render_score(input: &[u8]) -> Result<Vec<u8>, String> {
 fn process_score(params: &ScoreInput) -> ScoreOutput {
     let ts = parse_time_sig(params.time.as_deref());
     let sp_unit = params.staff_size_mm;
+    let font = FontId::from_name(&params.music_font);
 
     // Parse music for each staff
     let staves_events: Vec<Vec<Event>> = params
@@ -45,8 +47,8 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
     let first_clef = params.staves.first().and_then(|s| s.clef.as_deref());
 
     let show_time = ts.is_some();
-    let prefix_first = prefix_width_sp(first_clef, &params.key, show_time, &ts);
-    let prefix_cont = prefix_width_sp(first_clef, &params.key, false, &ts);
+    let prefix_first = prefix_width_sp(first_clef, &params.key, show_time, &ts, font);
+    let prefix_cont = prefix_width_sp(first_clef, &params.key, false, &ts, font);
 
     let avail_width_mm = params.width_mm;
     let first_avail = avail_width_mm.map(|w| w / sp_unit - prefix_first - 1.0);
@@ -125,12 +127,13 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
             } else {
                 continue;
             };
-            laid_out_staves.push(layout::layout_staff(
+            laid_out_staves.push(layout::layout_staff_font(
                 &sys_info.events,
                 sys_info.clef.as_deref(),
                 sys_info.time.as_ref(),
                 sys_info.show_time_prefix,
                 &sys_info.lyric_prefix_states,
+                font,
             ));
         }
 
@@ -218,15 +221,15 @@ fn parse_time_sig(ts: Option<&str>) -> Option<TimeInfo> {
     }
 }
 
-fn prefix_width_sp(clef: Option<&str>, key: &str, show_time: bool, ts: &Option<TimeInfo>) -> f64 {
+fn prefix_width_sp(clef: Option<&str>, key: &str, show_time: bool, ts: &Option<TimeInfo>, font: FontId) -> f64 {
     let mut pf = 0.5; // left margin
     if let Some(c) = clef {
-        pf += layout::clef_advance_sp(c, 1.0);
+        pf += layout::clef_advance_sp_font(c, 1.0, font);
     }
-    pf += layout::key_sig_advance_sp(key, 1.0);
+    pf += layout::key_sig_advance_sp_font(key, 1.0, font);
     if show_time {
         if let Some(t) = ts {
-            pf += layout::time_sig_advance_sp(t.upper, t.lower, t.symbol.as_deref(), 1.0);
+            pf += layout::time_sig_advance_sp_font(t.upper, t.lower, t.symbol.as_deref(), 1.0, font);
         }
     }
     pf += MUSIC_START_PADDING_SP; // music-start padding

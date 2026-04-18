@@ -9,13 +9,6 @@ use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 // ─── Constants ─────────────────────────────────────────────────────────
 
-const STAFF_LINE_THICKNESS: f64 = 0.13;
-const STEM_THICKNESS: f64 = 0.12;
-const BEAM_THICKNESS: f64 = 0.5;
-const BEAM_SPACING: f64 = 0.25;
-const BARLINE_THICKNESS: f64 = 0.16;
-const THICK_BARLINE: f64 = 0.35;
-const LEDGER_LINE_EXTENSION: f64 = 0.4;
 const ACCIDENTAL_PADDING: f64 = 0.35;
 const INLINE_CLEF_SCALE: f64 = 0.8;
 const CLEF_PADDING: f64 = 0.5;
@@ -187,11 +180,11 @@ const TIME_SIG_NAMES: &[&str] = &[
     "timeSig8", "timeSig9",
 ];
 
-fn time_sig_digits_width(digits: &str, sp: f64) -> f64 {
+fn time_sig_digits_width(digits: &str, sp: f64, font: glyph::FontId) -> f64 {
     digits
         .chars()
         .filter_map(|ch| ch.to_digit(10))
-        .map(|d| glyph::advance_width(TIME_SIG_NAMES[d as usize]) * sp)
+        .map(|d| glyph::advance_width_for(font, TIME_SIG_NAMES[d as usize]) * sp)
         .sum()
 }
 
@@ -238,9 +231,9 @@ fn staff_marker_codepoint(kind: &str) -> Option<u32> {
 /// Place a glyph using its SMuFL bounding-box SW corner as the south-west anchor.
 /// The rendered origin (reference point) ends up at (x, y).
 #[inline]
-fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoint: u32, sp: f64) {
+fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoint: u32, sp: f64, font: glyph::FontId) {
     let fsize = 4.0 * sp;
-    let bb = glyph::bbox(smufl_name);
+    let bb = glyph::bbox_for(font, smufl_name);
     let (px, py) = if let Some(b) = bb {
         (x + b.sw_x * sp, y + b.sw_y * sp)
     } else {
@@ -283,8 +276,9 @@ fn emit_glyph_scaled(
     smufl_name: &str,
     codepoint: u32,
     sp: f64,
+    font: glyph::FontId,
 ) {
-    emit_glyph(cmds, x, y, smufl_name, codepoint, sp);
+    emit_glyph(cmds, x, y, smufl_name, codepoint, sp, font);
 }
 
 #[inline]
@@ -714,9 +708,9 @@ fn smufl_name_for_codepoint(codepoint: u32) -> Option<&'static str> {
     }
 }
 
-fn smufl_bbox_for_codepoint(codepoint: u32) -> Option<glyph::BBox> {
+fn smufl_bbox_for_codepoint(codepoint: u32, font: glyph::FontId) -> Option<glyph::BBox> {
     if let Some(name) = smufl_name_for_codepoint(codepoint) {
-        if let Some(bbox) = glyph::bbox(name) {
+        if let Some(bbox) = glyph::bbox_for(font, name) {
             return Some(bbox);
         }
     }
@@ -742,9 +736,9 @@ fn smufl_bbox_for_codepoint(codepoint: u32) -> Option<glyph::BBox> {
     }
 }
 
-fn smufl_advance_for_codepoint(codepoint: u32) -> Option<f64> {
+fn smufl_advance_for_codepoint(codepoint: u32, font: glyph::FontId) -> Option<f64> {
     if let Some(name) = smufl_name_for_codepoint(codepoint) {
-        let advance = glyph::advance_width(name);
+        let advance = glyph::advance_width_for(font, name);
         if advance > 0.0 {
             return Some(advance);
         }
@@ -766,7 +760,7 @@ fn smufl_advance_for_codepoint(codepoint: u32) -> Option<f64> {
     }
 }
 
-fn music_text_bbox(value: &str) -> Option<glyph::BBox> {
+fn music_text_bbox(value: &str, font: glyph::FontId) -> Option<glyph::BBox> {
     let mut pen = 0.0;
     let mut min_x = f64::INFINITY;
     let mut min_y = f64::INFINITY;
@@ -775,12 +769,12 @@ fn music_text_bbox(value: &str) -> Option<glyph::BBox> {
 
     for ch in value.chars() {
         let codepoint = ch as u32;
-        let bbox = smufl_bbox_for_codepoint(codepoint)?;
+        let bbox = smufl_bbox_for_codepoint(codepoint, font)?;
         min_x = min_x.min(pen + bbox.sw_x);
         min_y = min_y.min(bbox.sw_y);
         max_x = max_x.max(pen + bbox.ne_x);
         max_y = max_y.max(bbox.ne_y);
-        pen += smufl_advance_for_codepoint(codepoint)?;
+        pen += smufl_advance_for_codepoint(codepoint, font)?;
     }
 
     if min_x.is_finite() {
@@ -825,6 +819,7 @@ fn svg_from_cmds(
     let mut bounds = (0.0, -fallback_height_mm, width_mm, 0.0);
     let mut ox = 0.0;
     let mut oy = 0.0;
+    let font_id = glyph::FontId::from_name(music_font);
     let music_face = if music_font == "Bravura" {
         Face::parse(BRAVURA_FONT, 0).ok()
     } else {
@@ -845,7 +840,7 @@ fn svg_from_cmds(
                 {
                     update_bounds(&mut bounds, x0, y0);
                     update_bounds(&mut bounds, x1, y1);
-                } else if let Some(bbox) = smufl_bbox_for_codepoint(*c) {
+                } else if let Some(bbox) = smufl_bbox_for_codepoint(*c, font_id) {
                     let scale = *s / 4.0;
                     let (text_x, text_y) = anchored_text_origin(ox + x, oy + y, bbox, *s, a);
                     update_bounds(
@@ -967,7 +962,7 @@ fn svg_from_cmds(
                 });
                 if !rendered_as_path {
                     if let Some(ch) = char::from_u32(*c) {
-                        if let Some(bbox) = smufl_bbox_for_codepoint(*c) {
+                        if let Some(bbox) = smufl_bbox_for_codepoint(*c, font_id) {
                             let (text_x, text_y) =
                                 anchored_text_origin(ox + x, oy + y, bbox, *s, a);
                             let _ = write!(
@@ -1012,7 +1007,7 @@ fn svg_from_cmds(
                     )
                 });
                 if !rendered_as_path {
-                    if let Some(bbox) = music_text_bbox(v) {
+                    if let Some(bbox) = music_text_bbox(v, font_id) {
                         let (text_x, text_y) = anchored_text_origin(ox + x, oy + y, bbox, *s, a);
                         let _ = write!(
                         svg,
@@ -1112,15 +1107,16 @@ fn svg_from_cmds(
 
 // ─── Note stem x computation ──────────────────────────────────────────
 
-fn note_stem_x(x: f64, duration: i32, stem_dir: &str, sp: f64) -> f64 {
+fn note_stem_x(x: f64, duration: i32, stem_dir: &str, sp: f64, font: glyph::FontId) -> f64 {
     let smufl = notehead_smufl(duration);
-    let nh_w = glyph::advance_width(smufl);
+    let nh_w = glyph::advance_width_for(font, smufl);
+    let ed = glyph::engraving_defaults(font);
     let anchor_key = if stem_dir == "up" {
         "stemUpSE"
     } else {
         "stemDownNW"
     };
-    let anch = glyph::anchor(smufl, anchor_key);
+    let anch = glyph::anchor_for(font, smufl, anchor_key);
     let (att_x, _att_y) = if let Some(a) = anch {
         (a.x, a.y)
     } else if stem_dir == "up" {
@@ -1129,7 +1125,7 @@ fn note_stem_x(x: f64, duration: i32, stem_dir: &str, sp: f64) -> f64 {
         (0.0, -0.168)
     };
     let sx = x - nh_w / 2.0 * sp + att_x * sp;
-    let half_thin = STEM_THICKNESS / 2.0 * sp;
+    let half_thin = ed.stem_thickness / 2.0 * sp;
     sx + if stem_dir == "up" {
         -half_thin
     } else {
@@ -1141,11 +1137,12 @@ fn augmentation_dot_radius(sp: f64) -> f64 {
     0.22 * sp
 }
 
-fn augmentation_dot_y(note_center_y: f64, staff_pos: i32, dot_radius: f64, sp: f64) -> f64 {
+fn augmentation_dot_y(note_center_y: f64, staff_pos: i32, dot_radius: f64, sp: f64, font: glyph::FontId) -> f64 {
     if staff_pos % 2 != 0 {
         note_center_y
     } else {
-        note_center_y + dot_radius + STAFF_LINE_THICKNESS * sp / 2.0 + 0.04 * sp
+        let ed = glyph::engraving_defaults(font);
+        note_center_y + dot_radius + ed.staff_line_thickness * sp / 2.0 + 0.04 * sp
     }
 }
 
@@ -1303,6 +1300,8 @@ pub fn render_system_group(
     fingering_positions: &[&str],
     music_font: &str,
 ) -> SystemOutput {
+    let font = glyph::FontId::from_name(music_font);
+    let ed = glyph::engraving_defaults(font);
     // Estimate ~20 draw commands per event (lines, glyphs, text, etc.)
     let estimated_cmds = laid_out_staves.iter().map(|s| s.items.len()).sum::<usize>() * 20 + 100;
     let mut cmds = Vec::with_capacity(estimated_cmds);
@@ -1431,6 +1430,7 @@ pub fn render_system_group(
             use_spanning_barlines, // all staves skip barlines when spanning
             fng_pos,
             y_top,
+            font,
         );
 
         y_offset -= staff_height_mm;
@@ -1450,7 +1450,7 @@ pub fn render_system_group(
                 let nominal_h = 4.0 * sp_unit;
                 let scale = span / nominal_h;
                 let fsize = 4.0 * sp_unit * scale;
-                let brace_w = glyph::advance_width("brace") * sp_unit * scale;
+                let brace_w = glyph::advance_width_for(font, "brace") * sp_unit * scale;
                 cmds.push(DrawCmd::Glyph {
                     x: -brace_w - 0.3 * sp_unit,
                     y: last_y_bottom,
@@ -1500,11 +1500,11 @@ pub fn render_system_group(
             // Opening barline (left edge)
             emit_line(
                 &mut cmds,
-                BARLINE_THICKNESS / 2.0 * sp_unit,
+                ed.thin_barline_thickness / 2.0 * sp_unit,
                 first_y_top,
-                BARLINE_THICKNESS / 2.0 * sp_unit,
+                ed.thin_barline_thickness / 2.0 * sp_unit,
                 last_y_bottom,
-                BARLINE_THICKNESS * sp_unit,
+                ed.thin_barline_thickness * sp_unit,
             );
 
             // Internal measure barlines and final barline.
@@ -1533,6 +1533,7 @@ pub fn render_system_group(
                         &staff_y_tops,
                         &b.style,
                         sp_unit,
+                        font,
                     );
                 }
             }
@@ -1558,9 +1559,9 @@ pub fn render_system_group(
                 raw_final_style
             };
             let final_x = if matches!(final_style, "final" | "repeat-end") {
-                total_w * sp_unit - THICK_BARLINE / 2.0 * sp_unit
+                total_w * sp_unit - ed.thick_barline_thickness / 2.0 * sp_unit
             } else {
-                total_w * sp_unit - BARLINE_THICKNESS / 2.0 * sp_unit
+                total_w * sp_unit - ed.thin_barline_thickness / 2.0 * sp_unit
             };
             render_spanning_barline(
                 &mut cmds,
@@ -1570,6 +1571,7 @@ pub fn render_system_group(
                 &staff_y_tops,
                 final_style,
                 sp_unit,
+                font,
             );
         }
     }
@@ -1661,6 +1663,7 @@ fn center_whole_measure_rests(
     music_start_x: f64,
     system_right_x: f64,
     sp: f64,
+    font: glyph::FontId,
 ) {
     for i in 0..items.len() {
         let is_whole_rest = matches!(&items[i].event, Event::Rest(r) if r.duration == 1);
@@ -1693,7 +1696,7 @@ fn center_whole_measure_rests(
             continue;
         }
 
-        let rest_center_offset = glyph::bbox("restWhole")
+        let rest_center_offset = glyph::bbox_for(font, "restWhole")
             .map(|b| (b.sw_x + b.ne_x) * 0.5 * sp)
             .unwrap_or(0.5 * sp);
         item_xs[i] = (measure_start + measure_end) * 0.5 - rest_center_offset;
@@ -1713,6 +1716,7 @@ fn render_system(
     skip_barlines: bool,
     fng_pos: &str,
     y_top_offset: f64,
+    font: glyph::FontId,
 ) {
     let clef_name = laid_out.clef.as_deref();
     let opening_time = laid_out.time.as_ref().or(time.as_ref());
@@ -1725,14 +1729,15 @@ fn render_system(
 
     // Compute prefix
     let mut cx = 0.5 * sp;
+    let ed = glyph::engraving_defaults(font);
     let mut clef_w = 0.0;
     if let Some(c) = clef_name {
-        clef_w = layout::clef_advance_sp(c, sp);
+        clef_w = layout::clef_advance_sp_font(c, sp, font);
     }
-    let key_w = layout::key_sig_advance_sp(key, sp);
+    let key_w = layout::key_sig_advance_sp_font(key, sp, font);
     let time_w = if show_opening_time {
         if let Some(t) = opening_time {
-            layout::time_sig_advance_sp(t.upper, t.lower, t.symbol.as_deref(), sp)
+            layout::time_sig_advance_sp_font(t.upper, t.lower, t.symbol.as_deref(), sp, font)
         } else {
             0.0
         }
@@ -1778,18 +1783,18 @@ fn render_system(
     // Draw staff lines
     for i in 0..5 {
         let y = y_top - i as f64 * sp;
-        emit_line(cmds, 0.0, y, total_width * sp, y, STAFF_LINE_THICKNESS * sp);
+        emit_line(cmds, 0.0, y, total_width * sp, y, ed.staff_line_thickness * sp);
     }
 
     // Opening barline — skipped when the group renderer draws a spanning barline
     if !skip_barlines {
         emit_line(
             cmds,
-            BARLINE_THICKNESS / 2.0 * sp,
+            ed.thin_barline_thickness / 2.0 * sp,
             y_top,
-            BARLINE_THICKNESS / 2.0 * sp,
+            ed.thin_barline_thickness / 2.0 * sp,
             y_bottom,
-            BARLINE_THICKNESS * sp,
+            ed.thin_barline_thickness * sp,
         );
     }
 
@@ -1798,12 +1803,12 @@ fn render_system(
     if let Some(c) = clef_name {
         let origin_offset = clef_origin_offset(c);
         let origin_y = y_top - origin_offset * sp;
-        emit_glyph(cmds, cx, origin_y, clef_smufl(c), clef_codepoint(c), sp);
+        emit_glyph(cmds, cx, origin_y, clef_smufl(c), clef_codepoint(c), sp, font);
         cx += clef_w;
     }
 
     // Draw key signature
-    render_key_signature(cmds, cx, y_top, key, clef_name, sp);
+    render_key_signature(cmds, cx, y_top, key, clef_name, sp, font);
     cx += key_w;
 
     // Draw time signature
@@ -1818,6 +1823,7 @@ fn render_system(
                 t.lower,
                 t.symbol.as_deref(),
                 sp,
+                font,
             );
         }
     }
@@ -1827,10 +1833,10 @@ fn render_system(
         .iter()
         .map(|item| music_start_x + item.x * scale_x * sp)
         .collect();
-    center_whole_measure_rests(items, &mut item_xs, music_start_x, total_width * sp, sp);
+    center_whole_measure_rests(items, &mut item_xs, music_start_x, total_width * sp, sp, font);
 
     // Compute notehead bbox
-    let black_bb = glyph::bbox("noteheadBlack");
+    let black_bb = glyph::bbox_for(font, "noteheadBlack");
     let black_top = black_bb.map_or(0.82, |b| b.ne_y);
     let black_bottom = black_bb.map_or(-0.82, |b| b.sw_y);
 
@@ -1917,7 +1923,8 @@ fn render_system(
 
         let x0 = item_xs[*group.first().unwrap()];
         let xn = item_xs[*group.last().unwrap()];
-        let beam_step_staff = (BEAM_THICKNESS + BEAM_SPACING) * beam_scale;
+        let ed = glyph::engraving_defaults(font);
+        let beam_step_staff = (ed.beam_thickness + ed.beam_spacing) * beam_scale;
         let min_clearance = 0.25 * beam_scale;
         let mut required_shift: f64 = 0.0;
 
@@ -1928,9 +1935,9 @@ fn render_system(
             let by_staff = sy0 + t * (syn - sy0);
             let beam_levels = beam_count(item.event.duration());
             let nearest_edge = if stem_dir == "up" {
-                by_staff - (beam_levels - 1) as f64 * beam_step_staff - BEAM_THICKNESS * beam_scale
+                by_staff - (beam_levels - 1) as f64 * beam_step_staff - ed.beam_thickness * beam_scale
             } else {
-                by_staff + (beam_levels - 1) as f64 * beam_step_staff + BEAM_THICKNESS * beam_scale
+                by_staff + (beam_levels - 1) as f64 * beam_step_staff + ed.beam_thickness * beam_scale
             };
             let note_edge = if stem_dir == "up" {
                 item.y + black_top * beam_scale
@@ -1966,7 +1973,7 @@ fn render_system(
             let xi = item_xs[idx];
             let t = if xn != x0 { (xi - x0) / (xn - x0) } else { 0.0 };
             let by_staff = sy0 + t * (syn - sy0);
-            let sx = note_stem_x(xi, item.event.duration(), stem_dir, sp * beam_scale);
+            let sx = note_stem_x(xi, item.event.duration(), stem_dir, sp * beam_scale, font);
             beam_note_data.push(BeamNote {
                 stem_x: sx,
                 beam_y: y_top + by_staff * sp,
@@ -2006,10 +2013,11 @@ fn render_system(
                     clef_smufl(&c.clef),
                     clef_codepoint(&c.clef),
                     sp * INLINE_CLEF_SCALE,
+                    font,
                 );
             }
             Event::TimeSig(t) => {
-                render_time_signature(cmds, x, y_top, t.upper, t.lower, t.symbol.as_deref(), sp);
+                render_time_signature(cmds, x, y_top, t.upper, t.lower, t.symbol.as_deref(), sp, font);
             }
             Event::Note(n) => {
                 let note_scale = if n.grace { GRACE_NOTE_SCALE } else { 1.0 };
@@ -2018,31 +2026,31 @@ fn render_system(
                 let lsp = sp * note_scale;
                 let smufl = notehead_smufl(n.duration);
                 let cp = notehead_codepoint(n.duration);
-                let nh_w = glyph::advance_width(smufl);
+                let nh_w = glyph::advance_width_for(font, smufl);
 
                 // Ledger lines
-                render_ledger_lines(cmds, x, y_top, staff_pos, sp, note_scale);
+                render_ledger_lines(cmds, x, y_top, staff_pos, sp, note_scale, font);
 
                 // Accidental
                 if let Some(ref acc) = n.accidental {
                     if let (Some(acc_cp), Some(acc_sm)) =
                         (accidental_codepoint(acc), accidental_smufl(acc))
                     {
-                        let acc_w = glyph::advance_width(acc_sm);
+                        let acc_w = glyph::advance_width_for(font, acc_sm);
                         let acc_x = x - nh_w / 2.0 * lsp - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
-                        emit_glyph(cmds, acc_x, note_center_y, acc_sm, acc_cp, lsp);
+                        emit_glyph(cmds, acc_x, note_center_y, acc_sm, acc_cp, lsp, font);
                     }
                 }
 
                 // Notehead
-                emit_glyph(cmds, x - nh_w / 2.0 * lsp, note_center_y, smufl, cp, lsp);
+                emit_glyph(cmds, x - nh_w / 2.0 * lsp, note_center_y, smufl, cp, lsp, font);
             }
             Event::Chord(c) => {
                 let note_scale = if c.grace { GRACE_NOTE_SCALE } else { 1.0 };
                 let lsp = sp * note_scale;
                 let smufl = notehead_smufl(c.duration);
                 let cp = notehead_codepoint(c.duration);
-                let nh_w = glyph::advance_width(smufl);
+                let nh_w = glyph::advance_width_for(font, smufl);
                 let stem_dir = adj_stem_dirs
                     .get(&i)
                     .cloned()
@@ -2055,18 +2063,18 @@ fn render_system(
                     let ny = y_top + item.chord_ys[ni] * sp;
                     let nsp = item.chord_staff_positions[ni];
                     let nx = x + offsets[ni];
-                    render_ledger_lines(cmds, nx, y_top, nsp, sp, note_scale);
+                    render_ledger_lines(cmds, nx, y_top, nsp, sp, note_scale, font);
                     if let Some(ref acc) = cn.accidental {
                         if let (Some(acc_cp), Some(acc_sm)) =
                             (accidental_codepoint(acc), accidental_smufl(acc))
                         {
-                            let acc_w = glyph::advance_width(acc_sm);
+                            let acc_w = glyph::advance_width_for(font, acc_sm);
                             let acc_x =
                                 nx - nh_w / 2.0 * lsp - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
-                            emit_glyph(cmds, acc_x, ny, acc_sm, acc_cp, lsp);
+                            emit_glyph(cmds, acc_x, ny, acc_sm, acc_cp, lsp, font);
                         }
                     }
-                    emit_glyph(cmds, nx - nh_w / 2.0 * lsp, ny, smufl, cp, lsp);
+                    emit_glyph(cmds, nx - nh_w / 2.0 * lsp, ny, smufl, cp, lsp, font);
                 }
             }
             Event::Rest(r) => {
@@ -2074,10 +2082,10 @@ fn render_system(
                 let lsp = sp * note_scale;
                 let rst_smufl = rest_smufl(r.duration);
                 let rst_cp = rest_codepoint(r.duration);
-                emit_glyph(cmds, x, y_top + y, rst_smufl, rst_cp, lsp);
+                emit_glyph(cmds, x, y_top + y, rst_smufl, rst_cp, lsp, font);
                 // Rest dots
                 if r.dots > 0 {
-                    let bb = glyph::bbox(rst_smufl);
+                    let bb = glyph::bbox_for(font, rst_smufl);
                     let rest_right = bb.map_or(0.8 * lsp, |b| b.ne_x * lsp);
                     let dot_x_base = x + rest_right + 0.3 * lsp;
                     for d in 0..r.dots {
@@ -2091,7 +2099,7 @@ fn render_system(
             }
             Event::Barline(b) => {
                 if !skip_barlines && i < items.len() - 1 {
-                    render_barline(cmds, x + 0.5 * sp, y_top, y_bottom, &b.style, sp);
+                    render_barline(cmds, x + 0.5 * sp, y_top, y_bottom, &b.style, sp, font);
                 }
             }
             _ => {}
@@ -2128,13 +2136,13 @@ fn render_system(
                 if n.duration >= 2 {
                     if let Some(stem_end_y) = stem_end {
                         let smufl_n = notehead_smufl(n.duration);
-                        let nh_w = glyph::advance_width(smufl_n);
+                        let nh_w = glyph::advance_width_for(font, smufl_n);
                         let anchor_key = if stem_dir == "up" {
                             "stemUpSE"
                         } else {
                             "stemDownNW"
                         };
-                        let anch = glyph::anchor(smufl_n, anchor_key);
+                        let anch = glyph::anchor_for(font, smufl_n, anchor_key);
                         let (att_x, att_y) = if let Some(a) = anch {
                             (a.x, a.y)
                         } else if stem_dir == "up" {
@@ -2143,7 +2151,8 @@ fn render_system(
                             (0.0, -0.168)
                         };
                         let stem_x = x - nh_w / 2.0 * lsp + att_x * lsp;
-                        let half_thin = STEM_THICKNESS / 2.0 * lsp;
+                        let ed = glyph::engraving_defaults(font);
+                        let half_thin = ed.stem_thickness / 2.0 * lsp;
                         let stem_x = stem_x
                             + if stem_dir == "up" {
                                 -half_thin
@@ -2157,7 +2166,7 @@ fn render_system(
                             stem_start_y,
                             stem_x,
                             stem_end_y,
-                            STEM_THICKNESS * lsp,
+                            ed.stem_thickness * lsp,
                         );
 
                         // Flag
@@ -2166,7 +2175,7 @@ fn render_system(
                                 flag_codepoint(n.duration, &stem_dir),
                                 flag_smufl(n.duration, &stem_dir),
                             ) {
-                                emit_glyph(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp);
+                                emit_glyph(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp, font);
                             }
                         }
 
@@ -2196,11 +2205,11 @@ fn render_system(
 
                 // Dots
                 if n.dots > 0 {
-                    let nh_w = glyph::advance_width(notehead_smufl(n.duration));
+                    let nh_w = glyph::advance_width_for(font, notehead_smufl(n.duration));
                     let dot_x_base = x + nh_w / 2.0 * lsp + 0.76 * lsp;
                     let staff_pos = (-2.0 * item.y).round() as i32;
                     let dot_radius = augmentation_dot_radius(lsp);
-                    let dot_y = augmentation_dot_y(note_center_y, staff_pos, dot_radius, sp);
+                    let dot_y = augmentation_dot_y(note_center_y, staff_pos, dot_radius, sp, font);
                     for d in 0..n.dots {
                         cmds.push(DrawCmd::Circle {
                             x: dot_x_base + d as f64 * 0.5 * lsp,
@@ -2254,7 +2263,7 @@ fn render_system(
 
                 // Dots for each chord note
                 let smufl_c = notehead_smufl(c.duration);
-                let nh_w = glyph::advance_width(smufl_c);
+                let nh_w = glyph::advance_width_for(font, smufl_c);
                 let offsets =
                     chord_notehead_x_offsets(&item.chord_staff_positions, &stem_dir, nh_w, lsp);
                 if c.dots > 0 {
@@ -2263,7 +2272,7 @@ fn render_system(
                         let dot_x_base = nx + nh_w / 2.0 * lsp + 0.76 * lsp;
                         let staff_pos = item.chord_staff_positions[ni];
                         let dot_radius = augmentation_dot_radius(lsp);
-                        let dot_y = augmentation_dot_y(ny, staff_pos, dot_radius, sp);
+                        let dot_y = augmentation_dot_y(ny, staff_pos, dot_radius, sp, font);
                         for d in 0..c.dots {
                             cmds.push(DrawCmd::Circle {
                                 x: dot_x_base + d as f64 * 0.5 * lsp,
@@ -2282,7 +2291,7 @@ fn render_system(
                         } else {
                             "stemDownNW"
                         };
-                        let anch = glyph::anchor(smufl_c, anchor_key);
+                        let anch = glyph::anchor_for(font, smufl_c, anchor_key);
                         let (att_x, att_y) = if let Some(a) = anch {
                             (a.x, a.y)
                         } else if stem_dir == "up" {
@@ -2291,7 +2300,8 @@ fn render_system(
                             (0.0, -0.168)
                         };
                         let stem_x = x - nh_w / 2.0 * lsp + att_x * lsp;
-                        let half_thin = STEM_THICKNESS / 2.0 * lsp;
+                        let ed = glyph::engraving_defaults(font);
+                        let half_thin = ed.stem_thickness / 2.0 * lsp;
                         let stem_x = stem_x
                             + if stem_dir == "up" {
                                 -half_thin
@@ -2313,7 +2323,7 @@ fn render_system(
                             stem_start_y,
                             stem_x,
                             stem_end_y,
-                            STEM_THICKNESS * lsp,
+                            ed.stem_thickness * lsp,
                         );
 
                         // Flag
@@ -2322,7 +2332,7 @@ fn render_system(
                                 flag_codepoint(c.duration, &stem_dir),
                                 flag_smufl(c.duration, &stem_dir),
                             ) {
-                                emit_glyph(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp);
+                                emit_glyph(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp, font);
                             }
                         }
 
@@ -2392,7 +2402,7 @@ fn render_system(
                 );
 
                 // Staff markers
-                render_staff_markers(cmds, x, &n.staff_markers, y_top, above_anchor, sp);
+                render_staff_markers(cmds, x, &n.staff_markers, y_top, above_anchor, sp, font);
             }
             Event::Chord(c) => {
                 let chord_ys_abs: Vec<f64> =
@@ -2423,7 +2433,7 @@ fn render_system(
                     sp,
                     fng_pos,
                 );
-                render_staff_markers(cmds, x, &c.staff_markers, y_top, above_anchor, sp);
+                render_staff_markers(cmds, x, &c.staff_markers, y_top, above_anchor, sp, font);
             }
             _ => {}
         }
@@ -2448,17 +2458,18 @@ fn render_system(
         } else {
             raw_final_style
         };
+        let ed_final = glyph::engraving_defaults(font);
         let final_x = if matches!(final_style, "final" | "repeat-end" | "repeat-both") {
-            total_width * sp - THICK_BARLINE / 2.0 * sp
+            total_width * sp - ed_final.thick_barline_thickness / 2.0 * sp
         } else {
-            total_width * sp - BARLINE_THICKNESS / 2.0 * sp
+            total_width * sp - ed_final.thin_barline_thickness / 2.0 * sp
         };
-        render_barline(cmds, final_x, y_top, y_bottom, final_style, sp);
+        render_barline(cmds, final_x, y_top, y_bottom, final_style, sp, font);
     }
 
     // ── Draw beams ──
     for beam_data in &beam_groups_data {
-        render_beam_group(cmds, &beam_data.notes, sp * beam_data.scale);
+        render_beam_group(cmds, &beam_data.notes, sp * beam_data.scale, font);
     }
 
     // ── Tuplet brackets ──
@@ -2471,6 +2482,7 @@ fn render_system(
         y_top,
         y_bottom,
         sp,
+        font,
     );
 
     // ── Hairpins ──
@@ -2488,7 +2500,7 @@ fn render_system(
     );
 
     // ── Ties and slurs ──
-    render_ties_and_slurs(cmds, items, &item_xs, &adj_stem_dirs, y_top, sp);
+    render_ties_and_slurs(cmds, items, &item_xs, &adj_stem_dirs, y_top, sp, font);
 
     // ── Trill lines ──
     render_trills(
@@ -2501,6 +2513,7 @@ fn render_system(
         sp,
         music_start_x,
         total_width,
+        font,
     );
 
     // ── Octave lines ──
@@ -2527,6 +2540,7 @@ fn render_system(
         y_bottom,
         sp,
         total_width,
+        font,
     );
 
     // ── Lyrics ──
@@ -2555,6 +2569,7 @@ fn render_key_signature(
     key: &str,
     clef: Option<&str>,
     sp: f64,
+    font: glyph::FontId,
 ) {
     let count = pitch::key_sig_accidental_count(key);
     if count == 0 {
@@ -2575,13 +2590,13 @@ fn render_key_signature(
             pitch::key_sig_flat_positions(use_clef),
         )
     };
-    let acc_w = glyph::advance_width(acc_sm);
+    let acc_w = glyph::advance_width_for(font, acc_sm);
     let acc_spacing = (acc_w + 0.2) * sp;
     for i in 0..n.min(positions.len()) {
         let staff_pos = positions[i];
         let acc_y = y_top - staff_pos as f64 * sp / 2.0;
         let acc_x = x + i as f64 * acc_spacing;
-        emit_glyph(cmds, acc_x, acc_y, acc_sm, acc_cp, sp);
+        emit_glyph(cmds, acc_x, acc_y, acc_sm, acc_cp, sp, font);
     }
 }
 
@@ -2593,28 +2608,29 @@ fn render_time_signature(
     lower: i32,
     symbol: Option<&str>,
     sp: f64,
+    font: glyph::FontId,
 ) {
     match symbol {
         Some("common") => {
-            emit_glyph(cmds, x, y_top - 2.0 * sp, "timeSigCommon", 0xE08A, sp);
+            emit_glyph(cmds, x, y_top - 2.0 * sp, "timeSigCommon", 0xE08A, sp, font);
         }
         Some("cut") => {
-            emit_glyph(cmds, x, y_top - 2.0 * sp, "timeSigCutCommon", 0xE08B, sp);
+            emit_glyph(cmds, x, y_top - 2.0 * sp, "timeSigCutCommon", 0xE08B, sp, font);
         }
         _ => {
             // Upper digits
             let upper_s = upper.to_string();
             let lower_s = lower.to_string();
-            let upper_w = time_sig_digits_width(&upper_s, sp);
-            let lower_w = time_sig_digits_width(&lower_s, sp);
+            let upper_w = time_sig_digits_width(&upper_s, sp, font);
+            let lower_w = time_sig_digits_width(&lower_s, sp, font);
             let column_w = upper_w.max(lower_w);
             let mut dx = (column_w - upper_w) / 2.0;
             for ch in upper_s.chars() {
                 if let Some(d) = ch.to_digit(10) {
                     let name = TIME_SIG_NAMES[d as usize];
                     let cp = time_digit_codepoint(d);
-                    emit_glyph(cmds, x + dx, y_top - 1.0 * sp, name, cp, sp);
-                    dx += glyph::advance_width(name) * sp;
+                    emit_glyph(cmds, x + dx, y_top - 1.0 * sp, name, cp, sp, font);
+                    dx += glyph::advance_width_for(font, name) * sp;
                 }
             }
             // Lower digits
@@ -2623,8 +2639,8 @@ fn render_time_signature(
                 if let Some(d) = ch.to_digit(10) {
                     let name = TIME_SIG_NAMES[d as usize];
                     let cp = time_digit_codepoint(d);
-                    emit_glyph(cmds, x + dx, y_top - 3.0 * sp, name, cp, sp);
-                    dx += glyph::advance_width(name) * sp;
+                    emit_glyph(cmds, x + dx, y_top - 3.0 * sp, name, cp, sp, font);
+                    dx += glyph::advance_width_for(font, name) * sp;
                 }
             }
         }
@@ -2638,9 +2654,11 @@ fn render_barline(
     y_bottom: f64,
     style: &str,
     sp: f64,
+    font: glyph::FontId,
 ) {
-    let thin = BARLINE_THICKNESS * sp;
-    let thick = THICK_BARLINE * sp;
+    let ed = glyph::engraving_defaults(font);
+    let thin = ed.thin_barline_thickness * sp;
+    let thick = ed.thick_barline_thickness * sp;
 
     let draw_bar = |cmds: &mut Vec<DrawCmd>, bx: f64, t: f64| {
         emit_line(cmds, bx, y_top, bx, y_bottom, t);
@@ -2699,9 +2717,11 @@ fn render_spanning_barline(
     staff_y_tops: &[f64],
     style: &str,
     sp: f64,
+    font: glyph::FontId,
 ) {
-    let thin = BARLINE_THICKNESS * sp;
-    let thick = THICK_BARLINE * sp;
+    let ed = glyph::engraving_defaults(font);
+    let thin = ed.thin_barline_thickness * sp;
+    let thick = ed.thick_barline_thickness * sp;
 
     let draw_bar = |cmds: &mut Vec<DrawCmd>, bx: f64, t: f64| {
         emit_line(cmds, bx, y_top, bx, y_bottom, t);
@@ -2730,7 +2750,7 @@ fn render_spanning_barline(
             draw_bar(cmds, x + 0.5 * sp, thin);
             draw_dots_on_staves(cmds, x + 1.0 * sp);
         }
-        _ => render_barline(cmds, x, y_top, y_bottom, style, sp),
+        _ => render_barline(cmds, x, y_top, y_bottom, style, sp, font),
     }
 }
 
@@ -2741,15 +2761,17 @@ fn render_ledger_lines(
     staff_pos: i32,
     sp: f64,
     note_scale: f64,
+    font: glyph::FontId,
 ) {
     let info = pitch::ledger_lines_needed(staff_pos);
     if info.0 == 0 {
         return;
     }
+    let ed = glyph::engraving_defaults(font);
     let lsp = sp * note_scale;
-    let ext = LEDGER_LINE_EXTENSION * lsp;
-    let thickness = STAFF_LINE_THICKNESS * lsp;
-    let nh_w = glyph::advance_width("noteheadBlack");
+    let ext = ed.ledger_line_extension * lsp;
+    let thickness = ed.staff_line_thickness * lsp;
+    let nh_w = glyph::advance_width_for(font, "noteheadBlack");
 
     if info.1 == Some("above") {
         for i in 0..info.0 {
@@ -3041,7 +3063,7 @@ fn below_slur_lowest_y_at(
     None
 }
 
-fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64) {
+fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64, font: glyph::FontId) {
     let n = beam_notes.len();
     if n < 2 {
         return;
@@ -3053,7 +3075,8 @@ fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64) 
         .map(|bn| beam_count(bn.duration))
         .max()
         .unwrap_or(0);
-    let beam_step = (BEAM_THICKNESS + BEAM_SPACING) * sp;
+    let ed = glyph::engraving_defaults(font);
+    let beam_step = (ed.beam_thickness + ed.beam_spacing) * sp;
 
     for level in 1..=max_beams {
         let y_offset = sign * (level - 1) as f64 * beam_step;
@@ -3063,7 +3086,7 @@ fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64) 
         let flush_seg =
             |cmds: &mut Vec<DrawCmd>, seg: &[&BeamNote], stem_dir: &str, sp: f64, y_offset: f64| {
                 if seg.len() >= 2 {
-                    let t = BEAM_THICKNESS * sp;
+                    let t = ed.beam_thickness * sp;
                     let (x0, y0) = (
                         seg.first().unwrap().stem_x,
                         seg.first().unwrap().beam_y + y_offset,
@@ -3082,7 +3105,7 @@ fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64) 
                         });
                     }
                 } else if seg.len() == 1 {
-                    let t = BEAM_THICKNESS * sp;
+                    let t = ed.beam_thickness * sp;
                     let sx = seg[0].stem_x;
                     let sy = seg[0].beam_y + y_offset;
                     let stub_w = 0.75 * sp;
@@ -3302,6 +3325,7 @@ fn render_staff_markers(
     y_top: f64,
     above_anchor: f64,
     sp: f64,
+    font: glyph::FontId,
 ) {
     let centered: Vec<&String> = markers
         .iter()
@@ -3327,7 +3351,7 @@ fn render_staff_markers(
             y_top + 0.12 * sp
         };
         if let Some(cp) = staff_marker_codepoint(mk) {
-            emit_glyph(cmds, marker_x, marker_y, mk, cp, sp);
+            emit_glyph(cmds, marker_x, marker_y, mk, cp, sp, font);
         }
     }
 
@@ -3335,7 +3359,7 @@ fn render_staff_markers(
     let mut cur_y = (y_top + 1.9 * sp).max(above_anchor + 0.3 * sp);
     for mk in &centered {
         if let Some(cp) = staff_marker_codepoint(mk) {
-            emit_glyph(cmds, x, cur_y, mk, cp, sp);
+            emit_glyph(cmds, x, cur_y, mk, cp, sp, font);
             cur_y += 1.7 * sp + 0.2 * sp;
         }
     }
@@ -3350,6 +3374,7 @@ fn render_tuplets(
     y_top: f64,
     y_bottom: f64,
     sp: f64,
+    font: glyph::FontId,
 ) {
     // Find tuplet groups
     let mut tuplet_groups: Vec<(Vec<usize>, i32)> = Vec::with_capacity(items.len() / 3);
@@ -3405,7 +3430,7 @@ fn render_tuplets(
             .iter()
             .map(|&idx| {
                 if items[idx].event.is_note() || items[idx].event.is_chord() {
-                    note_stem_x(item_xs[idx], items[idx].event.duration(), &stem_dir, sp)
+                    note_stem_x(item_xs[idx], items[idx].event.duration(), &stem_dir, sp, font)
                 } else {
                     item_xs[idx]
                 }
@@ -3658,6 +3683,7 @@ fn render_ties_and_slurs(
     adj_stem_dirs: &std::collections::HashMap<usize, String>,
     y_top: f64,
     sp: f64,
+    font: glyph::FontId,
 ) {
     let get_stem_dir = |i: usize| -> String {
         adj_stem_dirs
@@ -3689,8 +3715,8 @@ fn render_ties_and_slurs(
         let direction = if stem_dir == "up" { -1.0 } else { 1.0 };
 
         let nh_smufl = notehead_smufl(ev.duration());
-        let nh_w = glyph::advance_width(nh_smufl) * sp;
-        let next_nh_w = glyph::advance_width(notehead_smufl(items[j].event.duration())) * sp;
+        let nh_w = glyph::advance_width_for(font, nh_smufl) * sp;
+        let next_nh_w = glyph::advance_width_for(font, notehead_smufl(items[j].event.duration())) * sp;
 
         let start_x = item_xs[i] + nh_w / 2.0 * 0.8;
         let end_x = item_xs[j] - next_nh_w / 2.0 * 0.8;
@@ -3726,8 +3752,8 @@ fn render_ties_and_slurs(
             let stem_dir = get_stem_dir(start_idx);
             let direction = if stem_dir == "up" { -1.0 } else { 1.0 };
 
-            let nh_w = glyph::advance_width(notehead_smufl(items[start_idx].event.duration())) * sp;
-            let next_nh_w = glyph::advance_width(notehead_smufl(ev.duration())) * sp;
+            let nh_w = glyph::advance_width_for(font, notehead_smufl(items[start_idx].event.duration())) * sp;
+            let next_nh_w = glyph::advance_width_for(font, notehead_smufl(ev.duration())) * sp;
 
             let start_x = item_xs[start_idx] + nh_w / 2.0 * 0.8;
             let end_x = item_xs[i] - next_nh_w / 2.0 * 0.8;
@@ -3794,10 +3820,11 @@ fn render_trills(
     sp: f64,
     music_start_x: f64,
     total_width: f64,
+    font: glyph::FontId,
 ) {
     let trill_cp = 0xE566u32;
     let wiggle_cp = 0xEAA4u32;
-    let tr_width = glyph::advance_width("ornamentTrill") * sp;
+    let tr_width = glyph::advance_width_for(font, "ornamentTrill") * sp;
     let tr_min_y = y_top + 1.15 * sp;
 
     // Standalone trills
@@ -3815,6 +3842,7 @@ fn render_trills(
             "ornamentTrill",
             trill_cp,
             sp,
+            font,
         );
     }
 
@@ -3852,7 +3880,7 @@ fn render_trills(
     }
 
     let tr_gap = 0.45 * sp; // enough space so "tr" glyph and wiggle line don't collide
-    let wiggle_w = glyph::advance_width("wiggleTrill") * sp;
+    let wiggle_w = glyph::advance_width_for(font, "wiggleTrill") * sp;
 
     for tg in &trill_groups {
         if tg.indices.is_empty() {
@@ -3867,7 +3895,7 @@ fn render_trills(
 
         if tg.starts_here {
             let symbol_x = item_xs[*tg.indices.first().unwrap()] - 0.55 * tr_width;
-            emit_glyph(cmds, symbol_x, trill_y, "ornamentTrill", trill_cp, sp);
+            emit_glyph(cmds, symbol_x, trill_y, "ornamentTrill", trill_cp, sp, font);
         }
 
         let wiggle_start = if tg.starts_here {
@@ -3886,7 +3914,7 @@ fn render_trills(
             let step = wiggle_w * 0.92;
             let mut cx = wiggle_start;
             while cx < wiggle_end {
-                emit_glyph(cmds, cx, trill_y + 0.02 * sp, "wiggleTrill", wiggle_cp, sp);
+                emit_glyph(cmds, cx, trill_y + 0.02 * sp, "wiggleTrill", wiggle_cp, sp, font);
                 cx += step;
             }
         }
@@ -4098,6 +4126,7 @@ fn render_endings(
     _y_bottom: f64,
     sp: f64,
     total_width: f64,
+    font: glyph::FontId,
 ) {
     struct EndingGroup {
         indices: Vec<usize>,
@@ -4163,8 +4192,9 @@ fn render_endings(
         });
     }
 
-    let opening_barline_x = BARLINE_THICKNESS / 2.0 * sp;
-    let final_barline_x = total_width * sp - THICK_BARLINE / 2.0 * sp;
+    let ed = glyph::engraving_defaults(font);
+    let opening_barline_x = ed.thin_barline_thickness / 2.0 * sp;
+    let final_barline_x = total_width * sp - ed.thick_barline_thickness / 2.0 * sp;
     let line_w = 0.12 * sp;
     let tuplet_font_size = 7.75 * (sp / 1.75);
 
