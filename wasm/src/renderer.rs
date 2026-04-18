@@ -4003,15 +4003,29 @@ fn render_octave_lines(
                 .indices
                 .iter()
                 .map(|&idx| {
-                    adj_stem_ends
+                    // Top edge of the highest notehead (centre + half notehead height).
+                    let note_top = if items[idx].chord_ys.is_empty() {
+                        y_top + items[idx].y * sp + 0.5 * sp
+                    } else {
+                        let max_y = items[idx]
+                            .chord_ys
+                            .iter()
+                            .copied()
+                            .fold(f64::NEG_INFINITY, f64::max);
+                        y_top + max_y * sp + 0.5 * sp
+                    };
+                    // If the stem tip extends even higher, use that instead.
+                    let stem_tip = adj_stem_ends
                         .get(&idx)
-                        .map(|&se| y_top + se * sp)
-                        .or(items[idx].stem_y_end.map(|se| y_top + se * sp))
-                        .unwrap_or(y_top)
+                        .copied()
+                        .map(|se| y_top + se * sp)
+                        .or_else(|| items[idx].stem_y_end.map(|se| y_top + se * sp));
+                    stem_tip.map(|st| note_top.max(st)).unwrap_or(note_top)
                 })
                 .collect();
             let top_y = elem_ys.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-            let bracket_y = top_y + 1.6 * sp;
+            // Bracket sits above the highest element AND at least above the staff top.
+            let bracket_y = top_y.max(y_top) + 0.75 * sp;
             let tick_len = 0.45 * sp;
 
             // Dashed line
@@ -4042,7 +4056,7 @@ fn render_octave_lines(
                 };
                 cmds.push(DrawCmd::Text {
                     x: x0 + 0.3 * sp + offset_x,
-                    y: bracket_y + 0.45 * sp + 0.40 * sp,
+                    y: bracket_y + 0.45 * sp,
                     v: suffix.to_string(),
                     s: 0.55 * tuplet_font_size,
                     w: "bold".into(),
@@ -4055,15 +4069,29 @@ fn render_octave_lines(
                 .indices
                 .iter()
                 .map(|&idx| {
-                    adj_stem_ends
+                    // Bottom edge of the lowest notehead (centre - half notehead height).
+                    let note_bottom = if items[idx].chord_ys.is_empty() {
+                        y_top + items[idx].y * sp - 0.5 * sp
+                    } else {
+                        let min_y = items[idx]
+                            .chord_ys
+                            .iter()
+                            .copied()
+                            .fold(f64::INFINITY, f64::min);
+                        y_top + min_y * sp - 0.5 * sp
+                    };
+                    // If the stem tip extends even lower, use that instead.
+                    let stem_tip = adj_stem_ends
                         .get(&idx)
-                        .map(|&se| y_top + se * sp)
-                        .or(items[idx].stem_y_end.map(|se| y_top + se * sp))
-                        .unwrap_or(y_bottom)
+                        .copied()
+                        .map(|se| y_top + se * sp)
+                        .or_else(|| items[idx].stem_y_end.map(|se| y_top + se * sp));
+                    stem_tip.map(|st| note_bottom.min(st)).unwrap_or(note_bottom)
                 })
                 .collect();
             let bot_y = elem_ys.iter().copied().fold(f64::INFINITY, f64::min);
-            let bracket_y = bot_y - 1.6 * sp;
+            // Bracket sits below the lowest element AND at least below the staff bottom.
+            let bracket_y = bot_y.min(y_bottom) - 0.75 * sp;
             let tick_len = 0.45 * sp;
 
             render_dashed_line(cmds, x0, x1, bracket_y, sp);
