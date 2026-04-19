@@ -204,6 +204,26 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
 
 #v(1cm)
 
+== Test 17b: Chords - adjacent note displacement (seconds)
+
+// Notes a step apart: the upper note of each pair is displaced to the right of the stem.
+// Down-stem (upper staff): <e f> <d e f> <b c'>
+// Up-stem (lower staff): <c, d,> <b, c d>
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "<e f>2 <d e f>2 | <b c'>2 <a b c'>2 |",
+)
+
+#melody(
+  key: "C",
+  time: "4/4",
+  clef: "bass",
+  music: "<c, d,>2 <b,, c, d,>2 | <a,, b,, c,>2 r2 |",
+)
+
+#v(1cm)
+
 == Test 18: Fingerings - inline notation (above)
 
 // Fingerings: note 1 = finger 1, note 2 = skipped, note 3 = fingers (1,3) stacked, note 4 = finger 5

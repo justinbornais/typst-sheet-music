@@ -15,7 +15,7 @@ const CLEF_PADDING: f64 = 0.5;
 const GRACE_NOTE_SCALE: f64 = 0.68;
 const GRACE_STEM_MIN_LENGTH: f64 = 3.0;
 const MUSIC_START_PADDING: f64 = 1.55;
-const BRAVURA_FONT: &[u8] = include_bytes!("../../fonts/Bravura.otf");
+const LELAND_FONT: &[u8] = include_bytes!("../../fonts/Leland.otf");
 
 // ─── SMuFL codepoint helpers ───────────────────────────────────────────
 
@@ -820,8 +820,8 @@ fn svg_from_cmds(
     let mut ox = 0.0;
     let mut oy = 0.0;
     let font_id = glyph::FontId::from_name(music_font);
-    let music_face = if music_font == "Bravura" {
-        Face::parse(BRAVURA_FONT, 0).ok()
+    let music_face = if music_font == "Leland" {
+        Face::parse(LELAND_FONT, 0).ok()
     } else {
         None
     };
@@ -1163,10 +1163,12 @@ fn chord_notehead_x_offsets(positions: &[i32], stem_dir: &str, nh_w: f64, lsp: f
         order.sort_by(|&a, &b| positions[b].cmp(&positions[a]));
     }
 
+    // Reduce by ~0.1 sp so the displaced note sits flush against the stem
+    // rather than leaving a small visual gap.
     let alt_offset = if stem_dir == "down" {
-        -nh_w * lsp
+        -(nh_w - 0.075) * lsp
     } else {
-        nh_w * lsp
+        (nh_w - 0.075) * lsp
     };
     let mut side = 0;
     let mut prev_sp: Option<i32> = None;
