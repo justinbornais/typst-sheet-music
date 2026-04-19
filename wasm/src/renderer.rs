@@ -2743,6 +2743,10 @@ fn render_system(
                     y_bottom,
                     sp,
                     fng_pos,
+                    &stem_dir,
+                    stem_end,
+                    adj_stem_ends.contains_key(&i),
+                    font,
                 );
 
                 // Staff markers
@@ -2776,6 +2780,10 @@ fn render_system(
                     y_bottom,
                     sp,
                     fng_pos,
+                    &stem_dir,
+                    stem_end,
+                    adj_stem_ends.contains_key(&i),
+                    font,
                 );
                 render_staff_markers(cmds, x, &c.staff_markers, y_top, above_anchor, sp, font);
             }
@@ -3549,10 +3557,16 @@ fn render_inline_text(
     y_bottom: f64,
     sp: f64,
     fng_pos_default: &str,
+    stem_dir: &str,
+    stem_end: Option<f64>,
+    is_beamed: bool,
+    font: glyph::FontId,
 ) {
-    let fng_stack_step = 1.3 * sp;
+    let fng_stack_step = 1.35 * sp;
     let default_sp_numeric = 1.75; // default-staff-space in mm
-    let fng_font_size = 7.25 * (sp / default_sp_numeric);
+    let fng_font_size = 7.65 * (sp / default_sp_numeric);
+    let ed = glyph::engraving_defaults(font);
+    let beam_gap = (0.2 + 0.4 * ed.beam_thickness).max(0.35) * sp;
 
     // Track the topmost y of items placed above the staff so chord/staff-text
     // can stack above them with a clear gap.
@@ -3568,8 +3582,16 @@ fn render_inline_text(
         };
         let values = fng.values();
         if fng_pos == "below" {
-            let fng_base_y = (y_bottom - 0.5 * sp).min(note_y - 1.0 * sp);
-            let mut cur_y = fng_base_y - fng_stack_step;
+            let beam_clear_y = if is_beamed && stem_dir == "down" {
+                stem_end.map(|se| se - beam_gap)
+            } else {
+                None
+            };
+            let mut fng_base_y = (y_bottom - 0.55 * sp).min(note_y - 0.85 * sp);
+            if let Some(clear_y) = beam_clear_y {
+                fng_base_y = fng_base_y.min(clear_y);
+            }
+            let mut cur_y = fng_base_y;
             for &v in &values {
                 if v != 0 {
                     cmds.push(DrawCmd::Text {
@@ -3585,7 +3607,14 @@ fn render_inline_text(
                 }
             }
         } else {
-            let fng_base_y = (y_top + 1.5 * sp).max(above_anchor_y);
+            let mut fng_base_y = (y_top + 0.8 * sp).max(note_y + 0.85 * sp);
+            if is_beamed && stem_dir == "up" {
+                if let Some(se) = stem_end {
+                    fng_base_y = fng_base_y.max(se + beam_gap);
+                }
+            } else if stem_dir == "up" && ev.duration() >= 8 {
+                fng_base_y = fng_base_y.max(above_anchor_y);
+            }
             let mut cur_y = fng_base_y;
             for &v in &values {
                 if v != 0 {
