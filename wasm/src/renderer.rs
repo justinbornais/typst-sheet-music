@@ -1203,6 +1203,71 @@ fn chord_notehead_x_offsets(positions: &[i32], stem_dir: &str, nh_w: f64, lsp: f
     offsets
 }
 
+fn ranges_overlap(a0: f64, a1: f64, b0: f64, b1: f64, gap: f64) -> bool {
+    a0 < b1 + gap && b0 < a1 + gap
+}
+
+fn chord_accidental_collision_left_edge(
+    note_idx: usize,
+    acc_x: f64,
+    acc_y: f64,
+    acc_smufl: &str,
+    chord_x: f64,
+    offsets: &[f64],
+    chord_ys: &[f64],
+    y_top: f64,
+    notehead_smufl: &str,
+    nh_w: f64,
+    sp: f64,
+    lsp: f64,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let Some(acc_bb) = glyph::bbox_for(font, acc_smufl) else {
+        return None;
+    };
+    let note_bb = glyph::bbox_for(font, notehead_smufl);
+    let acc_left = acc_x + acc_bb.sw_x * lsp;
+    let acc_right = acc_x + acc_bb.ne_x * lsp;
+    let acc_bottom = acc_y + acc_bb.sw_y * lsp;
+    let acc_top = acc_y + acc_bb.ne_y * lsp;
+    let gap = 0.06 * lsp;
+
+    let mut target_left_edge: Option<f64> = None;
+    for (other_idx, &offset) in offsets.iter().enumerate() {
+        if other_idx == note_idx {
+            continue;
+        }
+
+        let other_x = chord_x + offset;
+        let other_y = y_top + chord_ys[other_idx] * sp;
+        let origin_x = other_x - nh_w / 2.0 * lsp;
+        let (head_left, head_right, head_bottom, head_top) = if let Some(bb) = note_bb {
+            (
+                origin_x + bb.sw_x * lsp,
+                origin_x + bb.ne_x * lsp,
+                other_y + bb.sw_y * lsp,
+                other_y + bb.ne_y * lsp,
+            )
+        } else {
+            (
+                origin_x,
+                origin_x + nh_w * lsp,
+                other_y - 0.5 * lsp,
+                other_y + 0.5 * lsp,
+            )
+        };
+
+        if ranges_overlap(acc_left, acc_right, head_left, head_right, gap)
+            && ranges_overlap(acc_bottom, acc_top, head_bottom, head_top, gap)
+        {
+            target_left_edge =
+                Some(target_left_edge.map_or(head_left, |current| current.min(head_left)));
+        }
+    }
+
+    target_left_edge
+}
+
 fn voice_stem_side_offset(stem_dir: &str, nh_w: f64, lsp: f64) -> f64 {
     if stem_dir == "down" {
         -(nh_w - 0.075) * lsp
@@ -2363,8 +2428,26 @@ fn render_system(
                             (accidental_codepoint(acc), accidental_smufl(acc))
                         {
                             let acc_w = glyph::advance_width_for(font, acc_sm);
-                            let acc_x =
-                                nx - nh_w / 2.0 * lsp - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
+                            let note_left_edge = nx - nh_w / 2.0 * lsp;
+                            let normal_acc_x =
+                                note_left_edge - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
+                            let target_left_edge = chord_accidental_collision_left_edge(
+                                ni,
+                                normal_acc_x,
+                                ny,
+                                acc_sm,
+                                x,
+                                &offsets,
+                                &item.chord_ys,
+                                y_top,
+                                smufl,
+                                nh_w,
+                                sp,
+                                lsp,
+                                font,
+                            )
+                            .unwrap_or(note_left_edge);
+                            let acc_x = target_left_edge - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
                             emit_glyph(cmds, acc_x, ny, acc_sm, acc_cp, lsp, font);
                         }
                     }

@@ -274,6 +274,9 @@ fn note_cluster_stem_needs_accidental_space(event: &Event, next: &Event) -> bool
     if event.duration() < 2 {
         return false;
     }
+    if next.duration() <= event.duration() {
+        return false;
+    }
     let event_diatonics = event_note_diatonics(event);
     let next_accidental_diatonics = event_accidental_diatonics(next);
     event_diatonics.iter().any(|event_d| {
@@ -307,8 +310,7 @@ fn plain_note_pair(event: &Event, next: Option<&Event>) -> bool {
         && !next.grace()
         && event.dots() == 0
         && next.dots() == 0
-        && !event_has_accidental(event)
-        && !event_has_accidental(next)
+        && !needs_leading_accidental_space(event, next)
 }
 
 fn notehead_half_width(event: &Event, font: glyph::FontId) -> f64 {
@@ -1473,9 +1475,11 @@ mod tests {
         let e = note("e", None, 8);
         let f_sharp = note("f", Some("sharp"), 8);
         let scalar_width = event_width(&e, None, Some(&f_sharp));
-        let base_width = DEFAULT_NOTE_SPACING_BASE * duration_spacing_factor(8.0, 0);
+        let compact_width = DEFAULT_NOTE_SPACING_BASE
+            * duration_spacing_factor(8.0, 0)
+            * PLAIN_NOTE_SPACING_MULTIPLIER;
 
-        assert_eq!(scalar_width, base_width);
+        assert_eq!(scalar_width, compact_width);
     }
 
     #[test]
@@ -1486,6 +1490,18 @@ mod tests {
         let scalar_eighth_width = DEFAULT_NOTE_SPACING_BASE * duration_spacing_factor(8.0, 0);
 
         assert!(stem_lane_width > scalar_eighth_width);
+    }
+
+    #[test]
+    fn same_duration_arpeggio_accidentals_do_not_add_stem_lane_space() {
+        let g_eighth = note("g", None, 8);
+        let b_flat_eighth = note("b", Some("flat"), 8);
+        let arpeggio_width = event_width(&g_eighth, None, Some(&b_flat_eighth));
+        let scalar_eighth_width = DEFAULT_NOTE_SPACING_BASE
+            * duration_spacing_factor(8.0, 0)
+            * PLAIN_NOTE_SPACING_MULTIPLIER;
+
+        assert_eq!(arpeggio_width, scalar_eighth_width);
     }
 
     #[test]
