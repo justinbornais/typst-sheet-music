@@ -250,9 +250,11 @@ Examples of accepted inputs:
 - **Chords**: `<c e g>4`, `<c e g>breve`, `<c e g>maxima`
 
 - **Multiple voices on one staff**: `v{c2 g,;c4 e g c}`
-  - First voice before `;` is stem-up
-  - Second voice after `;` is stem-down
-  - Beats align inside the voice group, so shorter notes line up under longer notes
+  - Start a voice group with `v{...;...}`.
+  - The first voice, before `;`, is drawn stem-up.
+  - The second voice, after `;`, is drawn stem-down.
+  - Beats align inside the voice group, so shorter notes line up with longer notes. In `v{c2;c4 e}`, the two quarter notes occupy the same time span as the half note.
+  - Use normal note syntax inside each voice, including chords, rests, dotted rhythms, and octave markers: `v{<c e>2.;g4 r g}`.
 
 - **Articulations**: `>` accent, `*` staccato, `-` tenuto, `_` fermata
 
@@ -288,6 +290,28 @@ Examples of accepted inputs:
   - Melisma/extender: `l[text_]`
   - Carry the previous lyric state with plain `l`
   - Stack multiple lyric lines by attaching multiple lyric entries to one event
+
+### Multiple Voices Example
+
+Use `v{upper;lower}` when two independent rhythms share one staff. The upper voice always uses upward stems and the lower voice always uses downward stems. Each side of the semicolon is parsed as a normal music string, and events are aligned by beat inside the group.
+
+```typ
+#melody(
+  clef: "treble",
+  time: "4/4",
+  music: "v{c'2 g';c4 e g c'} | v{<e' g'>2 <d' f'>;c4 d e f}",
+)
+```
+
+Use rests when one voice should be silent while the other continues:
+
+```typ
+#melody(
+  clef: "treble",
+  time: "4/4",
+  music: "v{a'4 b' c'' d'';a4 r b c'}",
+)
+```
 
 Short example:
 
