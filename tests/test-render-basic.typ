@@ -930,3 +930,57 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
     ),
   ),
 )
+
+#v(1cm)
+
+== Test 69: Multiple voices on one staff
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "v{c'2 g';c4 e g c'} | v{<e' g'>2 <d' f'>;c4 d e f} | v{a'4 b' c'' d'';a4 r b c'}",
+    ),
+  ),
+)
+
+#v(1cm)
+
+== Test 70: Multiple voices aligned with bass staff
+
+#score(
+  key: "C",
+  time: "4/4",
+  staff-group: "grand",
+  staves: (
+    (
+      clef: "treble",
+      music: "v{c'2 g';c4 e g c'} | v{<e' g'>2 <d' f'>;c4 d e f}",
+    ),
+    (
+      clef: "bass",
+      music: "c,1 | g,2 c",
+    ),
+  ),
+)
+
+
+== Test 70b: Multiple voices in the style of Schmitt exercises
+
+#score(
+  key: "C",
+  time: "12/8",
+  staff-group: "grand",
+  staves:(
+    (
+      clef: "treble",
+      music: "v{f8 g f g f g f g f g f g;<c d e>1. } | g4 g c1"
+    ),
+    (
+      clef: "bass",
+      music: "v{<c d e>1.;f8 g f g f g f g f g f g } | g4 g c1"
+    )
+  )
+)

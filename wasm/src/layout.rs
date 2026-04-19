@@ -118,7 +118,13 @@ pub fn time_sig_advance_sp(upper: i32, lower: i32, symbol: Option<&str>, sp: f64
     time_sig_advance_sp_font(upper, lower, symbol, sp, glyph::FontId::Bravura)
 }
 
-pub fn time_sig_advance_sp_font(upper: i32, lower: i32, symbol: Option<&str>, sp: f64, font: glyph::FontId) -> f64 {
+pub fn time_sig_advance_sp_font(
+    upper: i32,
+    lower: i32,
+    symbol: Option<&str>,
+    sp: f64,
+    font: glyph::FontId,
+) -> f64 {
     match symbol {
         Some("common") => {
             glyph::advance_width_for(font, "timeSigCommon") * sp + DEFAULT_TIME_SIG_PADDING * sp
@@ -150,7 +156,12 @@ pub fn time_sig_advance_sp_font(upper: i32, lower: i32, symbol: Option<&str>, sp
     }
 }
 
-fn inline_time_sig_width(event: &Event, prev: Option<&Event>, next: Option<&Event>, font: glyph::FontId) -> f64 {
+fn inline_time_sig_width(
+    event: &Event,
+    prev: Option<&Event>,
+    next: Option<&Event>,
+    font: glyph::FontId,
+) -> f64 {
     if let Event::TimeSig(t) = event {
         let glyph_w = (time_sig_advance_sp_font(t.upper, t.lower, t.symbol.as_deref(), 1.0, font)
             - DEFAULT_TIME_SIG_PADDING)
@@ -348,7 +359,11 @@ fn is_empty_measure_whole_rest(event: &Event, prev: Option<&Event>, next: Option
         && next.map_or(true, |n| n.is_barline())
 }
 
-fn required_leading_accidental_space(event: &Event, next: Option<&Event>, font: glyph::FontId) -> f64 {
+fn required_leading_accidental_space(
+    event: &Event,
+    next: Option<&Event>,
+    font: glyph::FontId,
+) -> f64 {
     let next = match next {
         Some(n) => n,
         None => return 0.0,
@@ -404,7 +419,12 @@ fn required_leading_accidental_space(event: &Event, next: Option<&Event>, font: 
     }
 }
 
-fn leading_accidental_extra(event: &Event, available_space: f64, next: Option<&Event>, font: glyph::FontId) -> f64 {
+fn leading_accidental_extra(
+    event: &Event,
+    available_space: f64,
+    next: Option<&Event>,
+    font: glyph::FontId,
+) -> f64 {
     let required = required_leading_accidental_space(event, next, font);
     if required <= 0.0 {
         return 0.0;
@@ -412,7 +432,12 @@ fn leading_accidental_extra(event: &Event, available_space: f64, next: Option<&E
     (required - available_space).max(0.0)
 }
 
-fn grace_body_width(event: &Event, prev: Option<&Event>, next: Option<&Event>, font: glyph::FontId) -> f64 {
+fn grace_body_width(
+    event: &Event,
+    prev: Option<&Event>,
+    next: Option<&Event>,
+    font: glyph::FontId,
+) -> f64 {
     let duration = event.duration();
     let head_w = notehead_width(duration, font);
     let rest_w = if event.is_rest() {
@@ -435,7 +460,12 @@ pub fn event_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) ->
     event_width_font(event, prev, next, glyph::FontId::Bravura)
 }
 
-pub fn event_width_font(event: &Event, prev: Option<&Event>, next: Option<&Event>, font: glyph::FontId) -> f64 {
+pub fn event_width_font(
+    event: &Event,
+    prev: Option<&Event>,
+    next: Option<&Event>,
+    font: glyph::FontId,
+) -> f64 {
     match event {
         Event::Barline(_) => {
             let touches_inline_boundary = prev
@@ -452,6 +482,7 @@ pub fn event_width_font(event: &Event, prev: Option<&Event>, next: Option<&Event
         Event::KeySig(_) => 2.0,
         Event::Gap(g) => 0.7 * g.amount as f64,
         Event::LineBreak => 0.0,
+        Event::VoiceGroup(vg) => voice_group_width_font(vg, font),
         Event::Rest(_) if is_empty_measure_whole_rest(event, prev, next) => {
             EMPTY_MEASURE_REST_WIDTH
         }
@@ -479,6 +510,73 @@ pub fn event_width_font(event: &Event, prev: Option<&Event>, next: Option<&Event
             w + leading_accidental_extra(event, w, next, font)
         }
     }
+}
+
+fn event_advance_beats(event: &Event) -> f64 {
+    match event {
+        Event::VoiceGroup(vg) => voice_group_duration_beats(vg),
+        _ if is_rhythmic_event(event) => {
+            let mut dur_beats = duration_to_beats(event.duration(), event.dots());
+            let tb = event.tuplet_beats();
+            let tc = event.tuplet_count();
+            if tb > 0.0 && tc > 0 {
+                dur_beats = tb / tc as f64;
+            }
+            dur_beats
+        }
+        _ => 0.0,
+    }
+}
+
+fn voice_sequence_duration_beats(events: &[Event]) -> f64 {
+    events.iter().map(event_advance_beats).sum()
+}
+
+fn voice_group_duration_beats(vg: &VoiceGroup) -> f64 {
+    voice_sequence_duration_beats(&vg.upper).max(voice_sequence_duration_beats(&vg.lower))
+}
+
+fn placeholder_staff_for_voice(events: &[Event], font: glyph::FontId) -> LaidOutStaff {
+    let positions = compute_event_positions_font(events, font);
+    let items = events
+        .iter()
+        .zip(positions.iter())
+        .map(|(event, pos)| LaidOutItem {
+            event: event.clone(),
+            x: pos.x,
+            y: 0.0,
+            stem_dir: None,
+            stem_y_end: None,
+            stem_forced: false,
+            voice: None,
+            width: pos.width,
+            chord_ys: Vec::new(),
+            chord_staff_positions: Vec::new(),
+            voice_items: Vec::new(),
+        })
+        .collect::<Vec<_>>();
+    let total_width = positions
+        .last()
+        .map(|pos| pos.x + pos.width)
+        .unwrap_or(SYSTEM_START_CONTENT_PADDING);
+    LaidOutStaff {
+        items,
+        total_width,
+        clef: None,
+        time: None,
+        show_time_prefix: false,
+        lyric_prefix_states: Vec::new(),
+    }
+}
+
+fn voice_group_width_font(vg: &VoiceGroup, font: glyph::FontId) -> f64 {
+    let upper = placeholder_staff_for_voice(&vg.upper, font);
+    let lower = placeholder_staff_for_voice(&vg.lower, font);
+    let aligned = align_staves_by_beat(&[upper, lower]);
+    aligned
+        .first()
+        .map(|staff| staff.total_width)
+        .unwrap_or(SYSTEM_START_CONTENT_PADDING)
 }
 
 // ─── Event positions ───────────────────────────────────────────────────
@@ -554,6 +652,7 @@ fn measure_width(events: &[Event]) -> f64 {
             || ev.is_rest()
             || matches!(ev, Event::Spacer(_))
             || ev.is_chord()
+            || ev.is_voice_group()
             || ev.is_barline();
         if is_rhythmic {
             let prev = if i > 0 { Some(&events[i - 1]) } else { None };
@@ -655,6 +754,206 @@ pub fn mirror_breaks(events: &[Event], measure_counts: &[usize]) -> Vec<Vec<Even
 
 // ─── Staff layout ──────────────────────────────────────────────────────
 
+fn clef_id(clef: &str) -> u32 {
+    let b = clef.as_bytes();
+    let mut v = 0u32;
+    for (i, &byte) in b.iter().take(4).enumerate() {
+        v |= (byte as u32) << (i * 8);
+    }
+    v
+}
+
+fn layout_note_geometry(
+    n: &Note,
+    current_clef: &str,
+    cur_clef_id: u32,
+    sp_cache: &mut HashMap<(u8, i32, u32), i32>,
+    forced_stem_dir: Option<&str>,
+) -> (f64, Option<String>, Option<f64>) {
+    let cache_key = (n.name.as_bytes()[0], n.octave, cur_clef_id);
+    let sp = *sp_cache
+        .entry(cache_key)
+        .or_insert_with(|| pitch::staff_position(&n.name, n.octave, current_clef));
+    let y = -sp as f64 / 2.0;
+    let sd = forced_stem_dir.unwrap_or_else(|| {
+        if n.grace {
+            "up"
+        } else {
+            pitch::auto_stem_direction(sp)
+        }
+    });
+    let stem_scale = if n.grace { GRACE_NOTE_SCALE } else { 1.0 };
+    let stem_min = if n.grace { GRACE_STEM_MIN_LENGTH } else { 3.5 };
+    let stem_y_end = pitch::compute_stem_end_y(y, sp, sd, stem_scale, stem_min);
+    (y, Some(sd.to_string()), Some(stem_y_end))
+}
+
+fn layout_chord_geometry(
+    c: &Chord,
+    current_clef: &str,
+    cur_clef_id: u32,
+    sp_cache: &mut HashMap<(u8, i32, u32), i32>,
+    forced_stem_dir: Option<&str>,
+) -> (f64, Option<String>, Option<f64>, Vec<f64>, Vec<i32>) {
+    let mut sp_list = Vec::with_capacity(c.notes.len());
+    for cn in &c.notes {
+        let cache_key = (cn.name.as_bytes()[0], cn.octave, cur_clef_id);
+        let spos = *sp_cache
+            .entry(cache_key)
+            .or_insert_with(|| pitch::staff_position(&cn.name, cn.octave, current_clef));
+        sp_list.push(spos);
+    }
+    let y_list: Vec<f64> = sp_list.iter().map(|&spos| -spos as f64 / 2.0).collect();
+    let avg_sp = sp_list.iter().sum::<i32>() as f64 / sp_list.len() as f64;
+    let sd = forced_stem_dir.unwrap_or_else(|| {
+        if c.grace {
+            "up"
+        } else {
+            pitch::auto_stem_direction(avg_sp as i32)
+        }
+    });
+    let primary_sp = if sd == "up" {
+        *sp_list.iter().max().unwrap()
+    } else {
+        *sp_list.iter().min().unwrap()
+    };
+    let y = -primary_sp as f64 / 2.0;
+    let tip_sp = if sd == "up" {
+        *sp_list.iter().min().unwrap()
+    } else {
+        *sp_list.iter().max().unwrap()
+    };
+    let tip_y = -tip_sp as f64 / 2.0;
+    let stem_scale = if c.grace { GRACE_NOTE_SCALE } else { 1.0 };
+    let stem_min = if c.grace { GRACE_STEM_MIN_LENGTH } else { 3.5 };
+    let stem_y_end = pitch::compute_stem_end_y(tip_y, tip_sp, sd, stem_scale, stem_min);
+    (y, Some(sd.to_string()), Some(stem_y_end), y_list, sp_list)
+}
+
+fn layout_voice_group_items(
+    vg: &VoiceGroup,
+    current_clef: &str,
+    font: glyph::FontId,
+) -> Vec<LaidOutItem> {
+    let (upper_items, upper_width) =
+        layout_event_sequence_font(&vg.upper, current_clef, font, Some("up"), Some(1));
+    let (lower_items, lower_width) =
+        layout_event_sequence_font(&vg.lower, current_clef, font, Some("down"), Some(2));
+
+    let upper = LaidOutStaff {
+        items: upper_items,
+        total_width: upper_width,
+        clef: Some(current_clef.to_string()),
+        time: None,
+        show_time_prefix: false,
+        lyric_prefix_states: Vec::new(),
+    };
+    let lower = LaidOutStaff {
+        items: lower_items,
+        total_width: lower_width,
+        clef: Some(current_clef.to_string()),
+        time: None,
+        show_time_prefix: false,
+        lyric_prefix_states: Vec::new(),
+    };
+
+    let aligned = align_staves_by_beat(&[upper, lower]);
+    let mut voice_items = Vec::new();
+    for staff in aligned {
+        for mut item in staff.items {
+            item.x -= SYSTEM_START_CONTENT_PADDING;
+            voice_items.push(item);
+        }
+    }
+    voice_items
+}
+
+fn layout_event_sequence_font(
+    events: &[Event],
+    clef: &str,
+    font: glyph::FontId,
+    forced_stem_dir: Option<&str>,
+    voice: Option<i32>,
+) -> (Vec<LaidOutItem>, f64) {
+    let positions = compute_event_positions_font(events, font);
+    let mut items = Vec::with_capacity(events.len());
+    let mut current_clef = clef.to_string();
+    let mut sp_cache: HashMap<(u8, i32, u32), i32> = HashMap::new();
+    let mut cur_clef_id = clef_id(&current_clef);
+
+    for (i, event) in events.iter().enumerate() {
+        let pos_info = &positions[i];
+        let x = pos_info.x;
+        let mut y = 0.0;
+        let mut stem_dir = None;
+        let mut stem_y_end = None;
+        let mut chord_ys = Vec::new();
+        let mut chord_staff_positions = Vec::new();
+        let mut voice_items = Vec::new();
+
+        match event {
+            Event::Note(n) => {
+                let geo = layout_note_geometry(
+                    n,
+                    &current_clef,
+                    cur_clef_id,
+                    &mut sp_cache,
+                    forced_stem_dir,
+                );
+                y = geo.0;
+                stem_dir = geo.1;
+                stem_y_end = geo.2;
+            }
+            Event::Chord(c) => {
+                let geo = layout_chord_geometry(
+                    c,
+                    &current_clef,
+                    cur_clef_id,
+                    &mut sp_cache,
+                    forced_stem_dir,
+                );
+                y = geo.0;
+                stem_dir = geo.1;
+                stem_y_end = geo.2;
+                chord_ys = geo.3;
+                chord_staff_positions = geo.4;
+            }
+            Event::VoiceGroup(vg) => {
+                voice_items = layout_voice_group_items(vg, &current_clef, font);
+            }
+            Event::Rest(r) => {
+                y = match r.duration {
+                    1 => -1.0,
+                    DURATION_MAXIMA | DURATION_LONGA | DURATION_BREVE => -2.0,
+                    _ => -2.0,
+                };
+            }
+            Event::Clef(c) => {
+                current_clef = c.clef.clone();
+                cur_clef_id = clef_id(&current_clef);
+            }
+            _ => {}
+        }
+
+        items.push(LaidOutItem {
+            event: event.clone(),
+            x,
+            y,
+            stem_dir,
+            stem_y_end,
+            stem_forced: forced_stem_dir.is_some() && event.is_anchor(),
+            voice,
+            width: pos_info.width,
+            chord_ys,
+            chord_staff_positions,
+            voice_items,
+        });
+    }
+
+    let total_width = positions.last().map(|pos| pos.x + pos.width).unwrap_or(0.0);
+    (items, total_width)
+}
+
 pub fn layout_staff(
     events: &[Event],
     clef: Option<&str>,
@@ -662,7 +961,14 @@ pub fn layout_staff(
     show_time_prefix: bool,
     lyric_prefix_states: &[Option<String>],
 ) -> LaidOutStaff {
-    layout_staff_font(events, clef, time, show_time_prefix, lyric_prefix_states, glyph::FontId::Bravura)
+    layout_staff_font(
+        events,
+        clef,
+        time,
+        show_time_prefix,
+        lyric_prefix_states,
+        glyph::FontId::Bravura,
+    )
 }
 
 pub fn layout_staff_font(
@@ -698,6 +1004,7 @@ pub fn layout_staff_font(
         let mut stem_y_end = None;
         let mut chord_ys = Vec::new();
         let mut chord_staff_positions = Vec::new();
+        let mut voice_items = Vec::new();
 
         match event {
             Event::Note(n) => {
@@ -760,6 +1067,9 @@ pub fn layout_staff_font(
                     _ => -2.0,
                 };
             }
+            Event::VoiceGroup(vg) => {
+                voice_items = layout_voice_group_items(vg, &current_clef, font);
+            }
             Event::Clef(c) => {
                 current_clef = c.clef.clone();
                 cur_clef_id = clef_id(&current_clef);
@@ -773,9 +1083,12 @@ pub fn layout_staff_font(
             y,
             stem_dir,
             stem_y_end,
+            stem_forced: false,
+            voice: None,
             width: pos_info.width,
             chord_ys,
             chord_staff_positions,
+            voice_items,
         });
     }
 
@@ -802,7 +1115,11 @@ fn is_grace_event(ev: &Event) -> bool {
 }
 
 fn is_rhythmic_event(ev: &Event) -> bool {
-    (ev.is_note() || ev.is_rest() || matches!(ev, Event::Spacer(_)) || ev.is_chord())
+    (ev.is_note()
+        || ev.is_rest()
+        || matches!(ev, Event::Spacer(_))
+        || ev.is_chord()
+        || ev.is_voice_group())
         && !is_grace_event(ev)
 }
 
@@ -859,15 +1176,7 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
                 }
                 boundary_count = 0;
 
-                let dur = ev.duration();
-                let dots = ev.dots();
-                let mut dur_beats = duration_to_beats(dur, dots);
-                let tb = ev.tuplet_beats();
-                let tc = ev.tuplet_count();
-                if tb > 0.0 && tc > 0 {
-                    dur_beats = tb / tc as f64;
-                }
-                beat += dur_beats;
+                beat += event_advance_beats(ev);
             }
         }
         let final_key = beat_ikey(beat);
@@ -899,15 +1208,7 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
             } else if is_rhythmic_event(ev) {
                 keys.push(beat_ikey(rb + boundary_width as f64 * barline_epsilon));
 
-                let dur = ev.duration();
-                let dots = ev.dots();
-                let mut dur_beats = duration_to_beats(dur, dots);
-                let tb = ev.tuplet_beats();
-                let tc = ev.tuplet_count();
-                if tb > 0.0 && tc > 0 {
-                    dur_beats = tb / tc as f64;
-                }
-                beat += dur_beats;
+                beat += event_advance_beats(ev);
                 boundary_phase = 0;
             } else {
                 keys.push(beat_ikey(rb + boundary_width as f64 * barline_epsilon));
@@ -991,9 +1292,12 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
                 y: item.y,
                 stem_dir: item.stem_dir.clone(),
                 stem_y_end: item.stem_y_end,
+                stem_forced: item.stem_forced,
+                voice: item.voice,
                 width: item.width,
                 chord_ys: item.chord_ys.clone(),
                 chord_staff_positions: item.chord_staff_positions.clone(),
+                voice_items: item.voice_items.clone(),
             });
         }
         result.push(LaidOutStaff {

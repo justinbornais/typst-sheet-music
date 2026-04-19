@@ -67,7 +67,7 @@
 /// - staff-size: staff space distance (default 1.75mm)
 /// - system-spacing: vertical space between systems
 /// - staff-spacing: vertical space between staves within a system
-/// - music-font: SMuFL font family (defaults to Bravura)
+/// - music-font: SMuFL font family (defaults to Leland)
 /// - width: explicit width or auto
 /// - measure-numbers: "system", "every", "none"
 /// - measures-per-line: if set, force this many measures per system line
@@ -89,7 +89,7 @@
   system-spacing: 12mm,
   staff-spacing: 8mm,
   lyric-line-spacing: none,
-  music-font: "Bravura",
+  music-font: "Leland",
   music-font-metadata: none,
   width: auto,
   measure-numbers: "system",
@@ -99,8 +99,8 @@
   if staves.len() == 0 { return }
 
   // Alternate fonts are resolved through Typst so missing font-path setup still
-  // produces a CLI warning. Default Bravura is rendered from the WASM bundle.
-  if music-font != "Bravura" {
+  // produces a CLI warning. Default Leland is rendered from the WASM bundle.
+  if music-font != "Leland" {
     box(width: 0pt, height: 0pt, hide(text(font: music-font, size: 0.1pt, "\u{E050}")))
   }
 
@@ -168,7 +168,7 @@
   staff-size: 1.75mm,
   system-spacing: 12mm,
   lyric-line-spacing: none,
-  music-font: "Bravura",
+  music-font: "Leland",
   music-font-metadata: none,
   width: auto,
   measures-per-line: none,

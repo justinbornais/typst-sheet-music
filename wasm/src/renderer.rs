@@ -231,7 +231,15 @@ fn staff_marker_codepoint(kind: &str) -> Option<u32> {
 /// Place a glyph using its SMuFL bounding-box SW corner as the south-west anchor.
 /// The rendered origin (reference point) ends up at (x, y).
 #[inline]
-fn emit_glyph(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, smufl_name: &str, codepoint: u32, sp: f64, font: glyph::FontId) {
+fn emit_glyph(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y: f64,
+    smufl_name: &str,
+    codepoint: u32,
+    sp: f64,
+    font: glyph::FontId,
+) {
     let fsize = 4.0 * sp;
     let bb = glyph::bbox_for(font, smufl_name);
     let (px, py) = if let Some(b) = bb {
@@ -1137,9 +1145,15 @@ fn augmentation_dot_radius(sp: f64) -> f64 {
     0.22 * sp
 }
 
-fn augmentation_dot_y(note_center_y: f64, staff_pos: i32, dot_radius: f64, sp: f64, font: glyph::FontId) -> f64 {
+fn augmentation_dot_y(
+    note_center_y: f64,
+    staff_pos: i32,
+    dot_radius: f64,
+    sp: f64,
+    font: glyph::FontId,
+) -> f64 {
     if staff_pos % 2 != 0 {
-        note_center_y
+        note_center_y + 0.12 * sp
     } else {
         let ed = glyph::engraving_defaults(font);
         note_center_y + dot_radius + ed.staff_line_thickness * sp / 2.0 + 0.04 * sp
@@ -1189,7 +1203,207 @@ fn chord_notehead_x_offsets(positions: &[i32], stem_dir: &str, nh_w: f64, lsp: f
     offsets
 }
 
+fn voice_stem_side_offset(stem_dir: &str, nh_w: f64, lsp: f64) -> f64 {
+    if stem_dir == "down" {
+        -(nh_w - 0.075) * lsp
+    } else {
+        (nh_w - 0.075) * lsp
+    }
+}
+
+#[derive(Debug, Clone)]
+struct NoteheadInfo {
+    x: f64,
+    staff_pos: i32,
+    half_width: f64,
+}
+
+fn notehead_infos_for_item(
+    item: &LaidOutItem,
+    x: f64,
+    stem_dir: &str,
+    sp: f64,
+    font: glyph::FontId,
+) -> Vec<NoteheadInfo> {
+    match &item.event {
+        Event::Note(n) => {
+            let note_scale = if n.grace { GRACE_NOTE_SCALE } else { 1.0 };
+            let lsp = sp * note_scale;
+            let nh_w = glyph::advance_width_for(font, notehead_smufl(n.duration)) * lsp;
+            vec![NoteheadInfo {
+                x,
+                staff_pos: (-2.0 * item.y).round() as i32,
+                half_width: nh_w / 2.0,
+            }]
+        }
+        Event::Chord(c) => {
+            let note_scale = if c.grace { GRACE_NOTE_SCALE } else { 1.0 };
+            let lsp = sp * note_scale;
+            let smufl = notehead_smufl(c.duration);
+            let nh_w_sp = glyph::advance_width_for(font, smufl);
+            let offsets =
+                chord_notehead_x_offsets(&item.chord_staff_positions, stem_dir, nh_w_sp, lsp);
+            let half_width = nh_w_sp * lsp / 2.0;
+            item.chord_staff_positions
+                .iter()
+                .zip(offsets.iter())
+                .map(|(&staff_pos, &offset)| NoteheadInfo {
+                    x: x + offset,
+                    staff_pos,
+                    half_width,
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn stem_dir_for_item(
+    item: &LaidOutItem,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    idx: usize,
+) -> String {
+    adj_stem_dirs
+        .get(&idx)
+        .cloned()
+        .or(item.stem_dir.clone())
+        .unwrap_or_else(|| "up".to_string())
+}
+
+fn compute_cross_voice_notehead_offsets(
+    items: &[LaidOutItem],
+    item_xs: &[f64],
+    sp: f64,
+    font: glyph::FontId,
+) -> Vec<f64> {
+    let mut offsets = vec![0.0; items.len()];
+
+    for (i, item) in items.iter().enumerate() {
+        let Event::Note(n) = &item.event else {
+            continue;
+        };
+        let Some(voice) = item.voice else {
+            continue;
+        };
+
+        let staff_pos = (-2.0 * item.y).round() as i32;
+        let mut collides = false;
+        for (j, other) in items.iter().enumerate() {
+            if i == j || other.voice.is_none() || other.voice == Some(voice) {
+                continue;
+            }
+            if (other.x - item.x).abs() > 0.000001 {
+                continue;
+            }
+            let other_stem_dir = other.stem_dir.as_deref().unwrap_or("up");
+            let other_heads = notehead_infos_for_item(other, item_xs[j], other_stem_dir, sp, font);
+            if other_heads
+                .iter()
+                .any(|head| (head.staff_pos - staff_pos).abs() <= 1)
+            {
+                collides = true;
+                break;
+            }
+        }
+
+        if collides {
+            let note_scale = if n.grace { GRACE_NOTE_SCALE } else { 1.0 };
+            let lsp = sp * note_scale;
+            let nh_w = glyph::advance_width_for(font, notehead_smufl(n.duration));
+            let stem_dir = item.stem_dir.as_deref().unwrap_or("up");
+            offsets[i] = voice_stem_side_offset(stem_dir, nh_w, lsp);
+        }
+    }
+
+    offsets
+}
+
+fn dot_x_base_avoiding_cross_voice_noteheads(
+    items: &[LaidOutItem],
+    item_xs: &[f64],
+    idx: usize,
+    staff_pos: i32,
+    default_x: f64,
+    dot_radius: f64,
+    sp: f64,
+    lsp: f64,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    font: glyph::FontId,
+) -> f64 {
+    let Some(voice) = items[idx].voice else {
+        return default_x;
+    };
+
+    let mut x = default_x;
+    for (other_idx, other) in items.iter().enumerate() {
+        if other_idx == idx || other.voice.is_none() || other.voice == Some(voice) {
+            continue;
+        }
+        if (other.x - items[idx].x).abs() > 0.000001 {
+            continue;
+        }
+        let other_stem_dir = stem_dir_for_item(other, adj_stem_dirs, other_idx);
+        for head in notehead_infos_for_item(other, item_xs[other_idx], &other_stem_dir, sp, font) {
+            if (head.staff_pos - staff_pos).abs() <= 1 {
+                let candidate = head.x + head.half_width + dot_radius + 0.18 * lsp;
+                if candidate > x {
+                    x = candidate;
+                }
+            }
+        }
+    }
+    x
+}
+
 // ─── Beam helpers ──────────────────────────────────────────────────────
+
+fn resolve_chord_dot_collisions(
+    dot_xs: &mut [f64],
+    min_dot_xs: &[f64],
+    dot_ys: &[f64],
+    dot_radius: f64,
+    lsp: f64,
+) {
+    if dot_xs.len() < 2 {
+        return;
+    }
+
+    let min_dist = 2.0 * dot_radius + 0.22 * lsp;
+    for _ in 0..3 {
+        let mut changed = false;
+        for a in 0..dot_xs.len() {
+            for b in (a + 1)..dot_xs.len() {
+                let dx = (dot_xs[a] - dot_xs[b]).abs();
+                let dy = (dot_ys[a] - dot_ys[b]).abs();
+                if dx * dx + dy * dy >= min_dist * min_dist {
+                    continue;
+                }
+
+                let left = if dot_xs[a] <= dot_xs[b] { a } else { b };
+                let right = if left == a { b } else { a };
+                let needed_dx = (min_dist * min_dist - dy * dy).max(0.0).sqrt() + 0.02 * lsp;
+                let target = dot_xs[right] - needed_dx;
+                let adjusted = target.max(min_dot_xs[left]);
+                if adjusted < dot_xs[left] {
+                    dot_xs[left] = adjusted;
+                    changed = true;
+                }
+
+                let dx_after = (dot_xs[left] - dot_xs[right]).abs();
+                if dx_after * dx_after + dy * dy < min_dist * min_dist {
+                    let adjusted_other = (dot_xs[left] + needed_dx).max(min_dot_xs[right]);
+                    if adjusted_other > dot_xs[right] {
+                        dot_xs[right] = adjusted_other;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+}
 
 fn beam_count(duration: i32) -> i32 {
     match duration {
@@ -1705,6 +1919,26 @@ fn center_whole_measure_rests(
     }
 }
 
+fn expand_voice_group_items(items: &[LaidOutItem]) -> Vec<LaidOutItem> {
+    fn push_expanded(out: &mut Vec<LaidOutItem>, item: &LaidOutItem, base_x: f64) {
+        if item.voice_items.is_empty() {
+            let mut cloned = item.clone();
+            cloned.x += base_x;
+            out.push(cloned);
+        } else {
+            for child in &item.voice_items {
+                push_expanded(out, child, base_x + item.x);
+            }
+        }
+    }
+
+    let mut expanded = Vec::new();
+    for item in items {
+        push_expanded(&mut expanded, item, 0.0);
+    }
+    expanded
+}
+
 fn render_system(
     cmds: &mut Vec<DrawCmd>,
     laid_out: &LaidOutStaff,
@@ -1723,7 +1957,8 @@ fn render_system(
     let clef_name = laid_out.clef.as_deref();
     let opening_time = laid_out.time.as_ref().or(time.as_ref());
     let show_opening_time = laid_out.show_time_prefix || show_time;
-    let items = &laid_out.items;
+    let expanded_items = expand_voice_group_items(&laid_out.items);
+    let items = &expanded_items;
     let total_layout_width = laid_out.total_width;
 
     let y_top = y_top_offset;
@@ -1785,7 +2020,14 @@ fn render_system(
     // Draw staff lines
     for i in 0..5 {
         let y = y_top - i as f64 * sp;
-        emit_line(cmds, 0.0, y, total_width * sp, y, ed.staff_line_thickness * sp);
+        emit_line(
+            cmds,
+            0.0,
+            y,
+            total_width * sp,
+            y,
+            ed.staff_line_thickness * sp,
+        );
     }
 
     // Opening barline — skipped when the group renderer draws a spanning barline
@@ -1805,7 +2047,15 @@ fn render_system(
     if let Some(c) = clef_name {
         let origin_offset = clef_origin_offset(c);
         let origin_y = y_top - origin_offset * sp;
-        emit_glyph(cmds, cx, origin_y, clef_smufl(c), clef_codepoint(c), sp, font);
+        emit_glyph(
+            cmds,
+            cx,
+            origin_y,
+            clef_smufl(c),
+            clef_codepoint(c),
+            sp,
+            font,
+        );
         cx += clef_w;
     }
 
@@ -1835,7 +2085,18 @@ fn render_system(
         .iter()
         .map(|item| music_start_x + item.x * scale_x * sp)
         .collect();
-    center_whole_measure_rests(items, &mut item_xs, music_start_x, total_width * sp, sp, font);
+    center_whole_measure_rests(
+        items,
+        &mut item_xs,
+        music_start_x,
+        total_width * sp,
+        sp,
+        font,
+    );
+    let cross_voice_offsets = compute_cross_voice_notehead_offsets(items, &item_xs, sp, font);
+    for (x, offset) in item_xs.iter_mut().zip(cross_voice_offsets.iter()) {
+        *x += offset;
+    }
 
     // Compute notehead bbox
     let black_bb = glyph::bbox_for(font, "noteheadBlack");
@@ -1852,7 +2113,9 @@ fn render_system(
         if beamable {
             let same_grace =
                 cur_beam.is_empty() || items[*cur_beam.first().unwrap()].event.grace() == grace;
-            if !same_grace {
+            let same_voice =
+                cur_beam.is_empty() || items[*cur_beam.first().unwrap()].voice == item.voice;
+            if !same_grace || !same_voice {
                 if cur_beam.len() >= 2 {
                     raw_beam_groups.push(cur_beam.clone());
                 }
@@ -1898,7 +2161,15 @@ fn render_system(
         // Unified stem direction
         let avg_y = group.iter().map(|&idx| items[idx].y).sum::<f64>() / group.len() as f64;
         let avg_staff_pos = -2.0 * avg_y;
-        let stem_dir = if group_is_grace {
+        let forced_stem_dir = group.iter().find_map(|&idx| {
+            items[idx]
+                .stem_forced
+                .then(|| items[idx].stem_dir.as_deref())
+                .flatten()
+        });
+        let stem_dir = if let Some(dir) = forced_stem_dir {
+            dir
+        } else if group_is_grace {
             "up"
         } else if avg_staff_pos > 4.0 {
             "up"
@@ -1937,9 +2208,13 @@ fn render_system(
             let by_staff = sy0 + t * (syn - sy0);
             let beam_levels = beam_count(item.event.duration());
             let nearest_edge = if stem_dir == "up" {
-                by_staff - (beam_levels - 1) as f64 * beam_step_staff - ed.beam_thickness * beam_scale
+                by_staff
+                    - (beam_levels - 1) as f64 * beam_step_staff
+                    - ed.beam_thickness * beam_scale
             } else {
-                by_staff + (beam_levels - 1) as f64 * beam_step_staff + ed.beam_thickness * beam_scale
+                by_staff
+                    + (beam_levels - 1) as f64 * beam_step_staff
+                    + ed.beam_thickness * beam_scale
             };
             let note_edge = if stem_dir == "up" {
                 item.y + black_top * beam_scale
@@ -2019,7 +2294,16 @@ fn render_system(
                 );
             }
             Event::TimeSig(t) => {
-                render_time_signature(cmds, x, y_top, t.upper, t.lower, t.symbol.as_deref(), sp, font);
+                render_time_signature(
+                    cmds,
+                    x,
+                    y_top,
+                    t.upper,
+                    t.lower,
+                    t.symbol.as_deref(),
+                    sp,
+                    font,
+                );
             }
             Event::Note(n) => {
                 let note_scale = if n.grace { GRACE_NOTE_SCALE } else { 1.0 };
@@ -2045,7 +2329,15 @@ fn render_system(
                 }
 
                 // Notehead
-                emit_glyph(cmds, x - nh_w / 2.0 * lsp, note_center_y, smufl, cp, lsp, font);
+                emit_glyph(
+                    cmds,
+                    x - nh_w / 2.0 * lsp,
+                    note_center_y,
+                    smufl,
+                    cp,
+                    lsp,
+                    font,
+                );
             }
             Event::Chord(c) => {
                 let note_scale = if c.grace { GRACE_NOTE_SCALE } else { 1.0 };
@@ -2208,9 +2500,20 @@ fn render_system(
                 // Dots
                 if n.dots > 0 {
                     let nh_w = glyph::advance_width_for(font, notehead_smufl(n.duration));
-                    let dot_x_base = x + nh_w / 2.0 * lsp + 0.76 * lsp;
                     let staff_pos = (-2.0 * item.y).round() as i32;
                     let dot_radius = augmentation_dot_radius(lsp);
+                    let dot_x_base = dot_x_base_avoiding_cross_voice_noteheads(
+                        items,
+                        &item_xs,
+                        i,
+                        staff_pos,
+                        x + nh_w / 2.0 * lsp + 0.76 * lsp,
+                        dot_radius,
+                        sp,
+                        lsp,
+                        &adj_stem_dirs,
+                        font,
+                    );
                     let dot_y = augmentation_dot_y(note_center_y, staff_pos, dot_radius, sp, font);
                     for d in 0..n.dots {
                         cmds.push(DrawCmd::Circle {
@@ -2269,15 +2572,54 @@ fn render_system(
                 let offsets =
                     chord_notehead_x_offsets(&item.chord_staff_positions, &stem_dir, nh_w, lsp);
                 if c.dots > 0 {
-                    for (ni, &ny) in chord_ys_abs.iter().enumerate() {
+                    let mut dot_x_bases = Vec::with_capacity(chord_ys_abs.len());
+                    for (ni, _) in chord_ys_abs.iter().enumerate() {
                         let nx = x + offsets[ni];
-                        let dot_x_base = nx + nh_w / 2.0 * lsp + 0.76 * lsp;
                         let staff_pos = item.chord_staff_positions[ni];
                         let dot_radius = augmentation_dot_radius(lsp);
-                        let dot_y = augmentation_dot_y(ny, staff_pos, dot_radius, sp, font);
+                        dot_x_bases.push(dot_x_base_avoiding_cross_voice_noteheads(
+                            items,
+                            &item_xs,
+                            i,
+                            staff_pos,
+                            nx + nh_w / 2.0 * lsp + 0.76 * lsp,
+                            dot_radius,
+                            sp,
+                            lsp,
+                            &adj_stem_dirs,
+                            font,
+                        ));
+                    }
+                    let farthest_dot_x = dot_x_bases
+                        .iter()
+                        .copied()
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    let dot_radius = augmentation_dot_radius(lsp);
+                    let mut dot_xs = Vec::with_capacity(chord_ys_abs.len());
+                    let mut dot_ys = Vec::with_capacity(chord_ys_abs.len());
+                    for (ni, &ny) in chord_ys_abs.iter().enumerate() {
+                        let stagger = (ni as f64 % 2.0) * 0.08 * lsp;
+                        dot_xs.push(dot_x_bases[ni].max(farthest_dot_x - 0.12 * lsp + stagger));
+                        dot_ys.push(augmentation_dot_y(
+                            ny,
+                            item.chord_staff_positions[ni],
+                            dot_radius,
+                            sp,
+                            font,
+                        ));
+                    }
+                    resolve_chord_dot_collisions(
+                        &mut dot_xs,
+                        &dot_x_bases,
+                        &dot_ys,
+                        dot_radius,
+                        lsp,
+                    );
+
+                    for (ni, &dot_y) in dot_ys.iter().enumerate() {
                         for d in 0..c.dots {
                             cmds.push(DrawCmd::Circle {
-                                x: dot_x_base + d as f64 * 0.5 * lsp,
+                                x: dot_xs[ni] + d as f64 * 0.5 * lsp,
                                 y: dot_y,
                                 r: dot_radius,
                             });
@@ -2617,7 +2959,15 @@ fn render_time_signature(
             emit_glyph(cmds, x, y_top - 2.0 * sp, "timeSigCommon", 0xE08A, sp, font);
         }
         Some("cut") => {
-            emit_glyph(cmds, x, y_top - 2.0 * sp, "timeSigCutCommon", 0xE08B, sp, font);
+            emit_glyph(
+                cmds,
+                x,
+                y_top - 2.0 * sp,
+                "timeSigCutCommon",
+                0xE08B,
+                sp,
+                font,
+            );
         }
         _ => {
             // Upper digits
@@ -3065,7 +3415,12 @@ fn below_slur_lowest_y_at(
     None
 }
 
-fn render_beam_group(cmds: &mut Vec<DrawCmd>, beam_notes: &[BeamNote], sp: f64, font: glyph::FontId) {
+fn render_beam_group(
+    cmds: &mut Vec<DrawCmd>,
+    beam_notes: &[BeamNote],
+    sp: f64,
+    font: glyph::FontId,
+) {
     let n = beam_notes.len();
     if n < 2 {
         return;
@@ -3432,7 +3787,13 @@ fn render_tuplets(
             .iter()
             .map(|&idx| {
                 if items[idx].event.is_note() || items[idx].event.is_chord() {
-                    note_stem_x(item_xs[idx], items[idx].event.duration(), &stem_dir, sp, font)
+                    note_stem_x(
+                        item_xs[idx],
+                        items[idx].event.duration(),
+                        &stem_dir,
+                        sp,
+                        font,
+                    )
                 } else {
                     item_xs[idx]
                 }
@@ -3718,7 +4079,8 @@ fn render_ties_and_slurs(
 
         let nh_smufl = notehead_smufl(ev.duration());
         let nh_w = glyph::advance_width_for(font, nh_smufl) * sp;
-        let next_nh_w = glyph::advance_width_for(font, notehead_smufl(items[j].event.duration())) * sp;
+        let next_nh_w =
+            glyph::advance_width_for(font, notehead_smufl(items[j].event.duration())) * sp;
 
         let start_x = item_xs[i] + nh_w / 2.0 * 0.8;
         let end_x = item_xs[j] - next_nh_w / 2.0 * 0.8;
@@ -3754,7 +4116,9 @@ fn render_ties_and_slurs(
             let stem_dir = get_stem_dir(start_idx);
             let direction = if stem_dir == "up" { -1.0 } else { 1.0 };
 
-            let nh_w = glyph::advance_width_for(font, notehead_smufl(items[start_idx].event.duration())) * sp;
+            let nh_w =
+                glyph::advance_width_for(font, notehead_smufl(items[start_idx].event.duration()))
+                    * sp;
             let next_nh_w = glyph::advance_width_for(font, notehead_smufl(ev.duration())) * sp;
 
             let start_x = item_xs[start_idx] + nh_w / 2.0 * 0.8;
@@ -3916,7 +4280,15 @@ fn render_trills(
             let step = wiggle_w * 0.92;
             let mut cx = wiggle_start;
             while cx < wiggle_end {
-                emit_glyph(cmds, cx, trill_y + 0.02 * sp, "wiggleTrill", wiggle_cp, sp, font);
+                emit_glyph(
+                    cmds,
+                    cx,
+                    trill_y + 0.02 * sp,
+                    "wiggleTrill",
+                    wiggle_cp,
+                    sp,
+                    font,
+                );
                 cx += step;
             }
         }
@@ -4088,7 +4460,9 @@ fn render_octave_lines(
                         .copied()
                         .map(|se| y_top + se * sp)
                         .or_else(|| items[idx].stem_y_end.map(|se| y_top + se * sp));
-                    stem_tip.map(|st| note_bottom.min(st)).unwrap_or(note_bottom)
+                    stem_tip
+                        .map(|st| note_bottom.min(st))
+                        .unwrap_or(note_bottom)
                 })
                 .collect();
             let bot_y = elem_ys.iter().copied().fold(f64::INFINITY, f64::min);

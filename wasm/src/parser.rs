@@ -190,6 +190,34 @@ impl<'a> Parser<'a> {
         (value, p)
     }
 
+    fn read_voice_group(&self, mut p: usize) -> Option<(String, String, usize)> {
+        if self.peek(p) != Some(b'{') {
+            return None;
+        }
+        p += 1;
+        let body_start = p;
+        let mut depth = 0i32;
+        let mut split = None;
+        while p < self.len() {
+            match self.input[p] {
+                b'{' => depth += 1,
+                b'}' if depth == 0 => {
+                    let body_end = p;
+                    let split = split?;
+                    let upper = String::from_utf8_lossy(&self.input[body_start..split]).to_string();
+                    let lower =
+                        String::from_utf8_lossy(&self.input[split + 1..body_end]).to_string();
+                    return Some((upper, lower, p + 1));
+                }
+                b'}' => depth -= 1,
+                b';' if depth == 0 => split = Some(p),
+                _ => {}
+            }
+            p += 1;
+        }
+        None
+    }
+
     fn is_fingering_start(&self, p: usize) -> bool {
         self.peek(p) == Some(b'n')
             && p + 1 < self.len()
@@ -661,6 +689,31 @@ impl<'a> Parser<'a> {
                     word_end += 1;
                 }
                 let token = std::str::from_utf8(&self.input[self.pos..word_end]).unwrap_or("");
+
+                // Two voices on one staff: v{upper voice;lower voice}
+                if token == "v" {
+                    let mut group_pos = word_end;
+                    while group_pos < self.len() && is_whitespace_char(self.input[group_pos]) {
+                        group_pos += 1;
+                    }
+                    if let Some((upper_src, lower_src, next_pos)) = self.read_voice_group(group_pos)
+                    {
+                        let mut upper_parser =
+                            Parser::new(upper_src.trim(), self.current_base_octave);
+                        upper_parser.last_duration = self.last_duration;
+                        upper_parser.parse();
+                        let mut lower_parser =
+                            Parser::new(lower_src.trim(), self.current_base_octave);
+                        lower_parser.last_duration = self.last_duration;
+                        lower_parser.parse();
+                        self.events.push(Event::VoiceGroup(VoiceGroup {
+                            upper: upper_parser.events,
+                            lower: lower_parser.events,
+                        }));
+                        self.pos = next_pos;
+                        continue;
+                    }
+                }
 
                 // Ending: end{label: ...}
                 if token == "end" && self.peek(word_end) == Some(b'{') {
@@ -1338,6 +1391,27 @@ pub fn parse_music(input: &str, base_octave: i32) -> Vec<Event> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_two_voice_groups() {
+        let events = parse_music("v{c2 g,;c4 e g c}", 4);
+
+        match &events[0] {
+            Event::VoiceGroup(vg) => {
+                assert_eq!(vg.upper.len(), 2);
+                assert_eq!(vg.lower.len(), 4);
+                match &vg.upper[0] {
+                    Event::Note(n) => assert_eq!(n.duration, 2),
+                    other => panic!("expected upper voice note, got {other:?}"),
+                }
+                match &vg.lower[0] {
+                    Event::Note(n) => assert_eq!(n.duration, 4),
+                    other => panic!("expected lower voice note, got {other:?}"),
+                }
+            }
+            other => panic!("expected voice group, got {other:?}"),
+        }
+    }
 
     #[test]
     fn parses_named_longer_than_whole_durations() {

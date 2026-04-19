@@ -5,7 +5,7 @@ Render sheet music directly inside Typst using SMuFL-aware glyph placement and a
 ## Features
 
 - WASM-backed Typst API with no LilyPond or MuseScore CLI dependency.
-- Notes, rests, spacers, chords, accidentals, key signatures, time signatures, and supported clefs.
+- Notes, rests, spacers, chords, multiple voices, accidentals, key signatures, time signatures, and supported clefs.
 - Rhythms from maxima, longa, and breve through standard shorter note values.
 - Inline annotations: dynamics, hairpins, articulations, fingerings, chord symbols, expression text, staff text, staff markers, and lyrics.
 - Notation features: beams, ties, slurs, tuplets, octave lines, trills, grace notes / acciaccaturas, repeat barlines, endings, and dotted notes.
@@ -248,6 +248,11 @@ Examples of accepted inputs:
   - Repeated spaces add extra horizontal gap: `c e   g c`
 
 - **Chords**: `<c e g>4`, `<c e g>breve`, `<c e g>maxima`
+
+- **Multiple voices on one staff**: `v{c2 g,;c4 e g c}`
+  - First voice before `;` is stem-up
+  - Second voice after `;` is stem-down
+  - Beats align inside the voice group, so shorter notes line up under longer notes
 
 - **Articulations**: `>` accent, `*` staccato, `-` tenuto, `_` fermata
 

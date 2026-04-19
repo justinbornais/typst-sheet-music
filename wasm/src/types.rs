@@ -188,6 +188,12 @@ pub struct Spacer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VoiceGroup {
+    pub upper: Vec<Event>,
+    pub lower: Vec<Event>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Event {
     #[serde(rename = "note")]
@@ -208,6 +214,8 @@ pub enum Event {
     Gap(Gap),
     #[serde(rename = "spacer")]
     Spacer(Spacer),
+    #[serde(rename = "voice-group")]
+    VoiceGroup(VoiceGroup),
     #[serde(rename = "line-break")]
     LineBreak,
 }
@@ -221,6 +229,9 @@ impl Event {
     }
     pub fn is_chord(&self) -> bool {
         matches!(self, Event::Chord(_))
+    }
+    pub fn is_voice_group(&self) -> bool {
+        matches!(self, Event::VoiceGroup(_))
     }
     pub fn is_barline(&self) -> bool {
         matches!(self, Event::Barline(_))
@@ -720,9 +731,12 @@ pub struct LaidOutItem {
     pub y: f64,
     pub stem_dir: Option<String>,
     pub stem_y_end: Option<f64>,
+    pub stem_forced: bool,
+    pub voice: Option<i32>,
     pub width: f64,
     pub chord_ys: Vec<f64>,
     pub chord_staff_positions: Vec<i32>,
+    pub voice_items: Vec<LaidOutItem>,
 }
 
 #[derive(Debug, Clone)]
