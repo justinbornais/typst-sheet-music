@@ -3647,7 +3647,8 @@ fn render_inline_text(
 ) {
     let fng_stack_step = 1.35 * sp;
     let default_sp_numeric = 1.75; // default-staff-space in mm
-    let fng_font_size = 7.65 * (sp / default_sp_numeric);
+    let fng_font_size = 7.85 * (sp / default_sp_numeric);
+    let bold_fng_font_size = fng_font_size * 1.1;
     let ed = glyph::engraving_defaults(font);
     let beam_gap = (0.2 + 0.4 * ed.beam_thickness).max(0.35) * sp;
 
@@ -3663,7 +3664,7 @@ fn render_inline_text(
         } else {
             fng_pos_default
         };
-        let values = fng.values();
+        let marks = fng.marks();
         if fng_pos == "below" {
             let beam_clear_y = if is_beamed && stem_dir == "down" {
                 stem_end.map(|se| se - beam_gap)
@@ -3675,14 +3676,18 @@ fn render_inline_text(
                 fng_base_y = fng_base_y.min(clear_y);
             }
             let mut cur_y = fng_base_y;
-            for &v in &values {
-                if v != 0 {
+            for mark in &marks {
+                if mark.value != 0 {
                     cmds.push(DrawCmd::Text {
                         x,
                         y: cur_y,
-                        v: v.to_string(),
-                        s: fng_font_size,
-                        w: "regular".into(),
+                        v: mark.value.to_string(),
+                        s: if mark.bold {
+                            bold_fng_font_size
+                        } else {
+                            fng_font_size
+                        },
+                        w: if mark.bold { "bold" } else { "regular" }.into(),
                         i: false,
                         a: "north".into(),
                     });
@@ -3699,14 +3704,18 @@ fn render_inline_text(
                 fng_base_y = fng_base_y.max(above_anchor_y);
             }
             let mut cur_y = fng_base_y;
-            for &v in &values {
-                if v != 0 {
+            for mark in &marks {
+                if mark.value != 0 {
                     cmds.push(DrawCmd::Text {
                         x,
                         y: cur_y,
-                        v: v.to_string(),
-                        s: fng_font_size,
-                        w: "regular".into(),
+                        v: mark.value.to_string(),
+                        s: if mark.bold {
+                            bold_fng_font_size
+                        } else {
+                            fng_font_size
+                        },
+                        w: if mark.bold { "bold" } else { "regular" }.into(),
                         i: false,
                         a: "south".into(),
                     });

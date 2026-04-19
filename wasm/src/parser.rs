@@ -225,19 +225,39 @@ impl<'a> Parser<'a> {
                 || (self.input[p + 1] == b'_' && p + 2 < self.len() && self.input[p + 2] == b'['))
     }
 
+    fn parse_fingering_part(part: &str) -> Option<FingeringMark> {
+        let bold = part.len() >= 3 && part.starts_with('*') && part.ends_with('*');
+        let value_text = if bold {
+            &part[1..part.len() - 1]
+        } else {
+            part
+        };
+        value_text
+            .parse::<i32>()
+            .ok()
+            .map(|value| FingeringMark { value, bold })
+    }
+
     fn parse_fingering(&self, p: usize) -> (Option<Fingering>, String, usize) {
         let below = p + 1 < self.len() && self.input[p + 1] == b'_';
         let start = p + if below { 3 } else { 2 };
         let (value, next_pos) = self.read_bracketed_text(start);
         let parts: Vec<&str> = value.split_whitespace().collect();
-        let fingering = if parts.len() == 1 {
-            parts[0].parse::<i32>().ok().map(Fingering::Single)
-        } else if parts.len() > 1 {
-            let vals: Vec<i32> = parts.iter().filter_map(|s| s.parse().ok()).collect();
-            if vals.is_empty() {
+        let fingering = if !parts.is_empty() {
+            let marks: Vec<FingeringMark> = parts
+                .iter()
+                .filter_map(|part| Self::parse_fingering_part(part))
+                .collect();
+            if marks.is_empty() {
                 None
+            } else if marks.iter().any(|mark| mark.bold) {
+                Some(Fingering::Marked(marks))
+            } else if marks.len() == 1 {
+                Some(Fingering::Single(marks[0].value))
             } else {
-                Some(Fingering::Multiple(vals))
+                Some(Fingering::Multiple(
+                    marks.iter().map(|mark| mark.value).collect(),
+                ))
             }
         } else {
             None
@@ -1461,6 +1481,25 @@ mod tests {
         match &events[8] {
             Event::Spacer(s) => assert_eq!(s.duration, DURATION_MAXIMA),
             other => panic!("expected maxima spacer, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_bold_fingering_marks() {
+        let events = parse_music("<c e g>4n[1 *3* 5]", 4);
+
+        match &events[0] {
+            Event::Chord(c) => {
+                let marks = c.fingering.as_ref().expect("fingering").marks();
+                assert_eq!(marks.len(), 3);
+                assert_eq!(marks[0].value, 1);
+                assert!(!marks[0].bold);
+                assert_eq!(marks[1].value, 3);
+                assert!(marks[1].bold);
+                assert_eq!(marks[2].value, 5);
+                assert!(!marks[2].bold);
+            }
+            other => panic!("expected chord, got {other:?}"),
         }
     }
 }

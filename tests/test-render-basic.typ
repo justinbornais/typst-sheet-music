@@ -264,7 +264,7 @@ Bass: B3 (no ledger), C4 (1 ledger), F2 (no ledger), E2 (1 ledger):
   staves: (
     (
       clef: "treble",
-      music: "<c e g>4n[1 3 5] <d f a> <e g b>n_[1 3 5] <f a c'>n[1 3]",
+      music: "<c e g>4n[1 *3* 5] <d f a> <e g b>n_[1 3 5] <f a c'>n[1 3]",
     ),
   ),
 )

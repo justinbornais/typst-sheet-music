@@ -52,10 +52,17 @@ pub struct Note {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FingeringMark {
+    pub value: i32,
+    pub bold: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Fingering {
     Single(i32),
     Multiple(Vec<i32>),
+    Marked(Vec<FingeringMark>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -761,6 +768,21 @@ impl Fingering {
         match self {
             Fingering::Single(v) => vec![*v],
             Fingering::Multiple(vs) => vs.clone(),
+            Fingering::Marked(ms) => ms.iter().map(|m| m.value).collect(),
+        }
+    }
+
+    pub fn marks(&self) -> Vec<FingeringMark> {
+        match self {
+            Fingering::Single(v) => vec![FingeringMark {
+                value: *v,
+                bold: false,
+            }],
+            Fingering::Multiple(vs) => vs
+                .iter()
+                .map(|&value| FingeringMark { value, bold: false })
+                .collect(),
+            Fingering::Marked(ms) => ms.clone(),
         }
     }
 }

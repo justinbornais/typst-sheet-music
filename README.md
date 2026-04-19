@@ -264,7 +264,7 @@ Examples of accepted inputs:
   - Dynamics: `v[pp]`, `v[mf]`, `v[ff]`
   - Staff text above: `text[Solo]`
   - Expression text below: `exp[dolce]`
-  - Fingerings: `n[3]`, `n_[2]`, `n[1 3 5]`
+  - Fingerings: `n[3]`, `n_[2]`, `n[1 *3* 5]`
   - Chord symbols: `[C]`, `[Am7]`, `[D/F#]`
   - Staff markers: `bm` (breath mark), `//` (caesura), `ds`, `coda`
 
