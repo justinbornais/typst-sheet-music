@@ -10,6 +10,7 @@ use ttf_parser::{Face, GlyphId, OutlineBuilder};
 // ─── Constants ─────────────────────────────────────────────────────────
 
 const ACCIDENTAL_PADDING: f64 = 0.35;
+const CHORD_ACCIDENTAL_STACK_PADDING: f64 = 0.22;
 const INLINE_CLEF_SCALE: f64 = 0.8;
 const CLEF_PADDING: f64 = 0.5;
 const GRACE_NOTE_SCALE: f64 = 0.68;
@@ -1359,12 +1360,7 @@ fn arc_extreme_y_at(
     Some(endpoint_y + direction * local_depth)
 }
 
-fn overlapping_tie_span(
-    tie_spans: &[ArcSpan],
-    start_x: f64,
-    end_x: f64,
-    direction: f64,
-) -> bool {
+fn overlapping_tie_span(tie_spans: &[ArcSpan], start_x: f64, end_x: f64, direction: f64) -> bool {
     let left_x = start_x.min(end_x);
     let right_x = start_x.max(end_x);
     tie_spans.iter().any(|span| {
@@ -2580,10 +2576,16 @@ fn render_system(
                     .unwrap_or_else(|| "up".to_string());
                 let offsets =
                     chord_notehead_x_offsets(&item.chord_staff_positions, &stem_dir, nh_w, lsp);
-                let accidental_specs: Vec<Option<&str>> =
-                    c.notes.iter().map(|note| note.accidental.as_deref()).collect();
-                let (accidental_lanes, lane_widths) =
-                    layout::chord_accidental_lanes(&item.chord_staff_positions, &accidental_specs, font);
+                let accidental_specs: Vec<Option<&str>> = c
+                    .notes
+                    .iter()
+                    .map(|note| note.accidental.as_deref())
+                    .collect();
+                let (accidental_lanes, lane_widths) = layout::chord_accidental_lanes(
+                    &item.chord_staff_positions,
+                    &accidental_specs,
+                    font,
+                );
 
                 for (ni, cn) in c.notes.iter().enumerate() {
                     let ny = y_top + item.chord_ys[ni] * sp;
@@ -2617,7 +2619,8 @@ fn render_system(
                             let lane = accidental_lanes[ni].unwrap_or(0);
                             let mut column_right_edge = target_left_edge - ACCIDENTAL_PADDING * lsp;
                             for lane_width in lane_widths.iter().take(lane) {
-                                column_right_edge -= lane_width * lsp + ACCIDENTAL_PADDING * lsp;
+                                column_right_edge -=
+                                    lane_width * lsp + CHORD_ACCIDENTAL_STACK_PADDING * lsp;
                             }
                             let acc_x = column_right_edge - acc_w * lsp;
                             emit_glyph(cmds, acc_x, ny, acc_sm, acc_cp, lsp, font);
@@ -3726,12 +3729,15 @@ fn below_slur_lowest_y_at(
                 }
 
                 let start_x = x1
-                    + glyph::advance_width_for(font, notehead_smufl(items[start_idx].event.duration()))
-                        * sp
+                    + glyph::advance_width_for(
+                        font,
+                        notehead_smufl(items[start_idx].event.duration()),
+                    ) * sp
                         / 2.0
                         * 0.8;
                 let end_x = x2
-                    - glyph::advance_width_for(font, notehead_smufl(item.event.duration())) * sp / 2.0
+                    - glyph::advance_width_for(font, notehead_smufl(item.event.duration())) * sp
+                        / 2.0
                         * 0.8;
                 let overlaps_tie = overlapping_tie_span(&tie_spans, start_x, end_x, -1.0);
                 let style = if overlaps_tie {
@@ -3740,7 +3746,8 @@ fn below_slur_lowest_y_at(
                     SLUR_ARC_STYLE
                 };
                 let anchor_offset = if overlaps_tie { 0.95 * sp } else { 0.55 * sp };
-                let y1 = y_top + event_arc_reference_y(&items[start_idx], -1.0) * sp - anchor_offset;
+                let y1 =
+                    y_top + event_arc_reference_y(&items[start_idx], -1.0) * sp - anchor_offset;
                 let y2 = y_top + event_arc_reference_y(item, -1.0) * sp - anchor_offset;
 
                 return arc_extreme_y_at(start_x, y1, end_x, y2, target_x, -1.0, sp, style);
@@ -3783,8 +3790,10 @@ fn above_slur_highest_y_at(
                 }
 
                 let start_x = item_xs[start_idx]
-                    + glyph::advance_width_for(font, notehead_smufl(items[start_idx].event.duration()))
-                        * sp
+                    + glyph::advance_width_for(
+                        font,
+                        notehead_smufl(items[start_idx].event.duration()),
+                    ) * sp
                         / 2.0
                         * 0.8;
                 let end_x = item_xs[i]
@@ -4376,7 +4385,11 @@ fn render_inline_text(
             {
                 staff_base_y = staff_base_y.max(slur_top_y + 0.45 * sp);
                 let slur_mid_x = (slur_left_x + slur_right_x) / 2.0;
-                staff_x += if x <= slur_mid_x { 0.18 * sp } else { -0.18 * sp };
+                staff_x += if x <= slur_mid_x {
+                    0.18 * sp
+                } else {
+                    -0.18 * sp
+                };
             }
             cmds.push(DrawCmd::Text {
                 x: staff_x,
@@ -4876,9 +4889,11 @@ fn render_ties_and_slurs(
             } else {
                 SLUR_ARC_STYLE
             };
-            let start_y = y_top + event_arc_reference_y(&items[start_idx], direction) * sp
+            let start_y = y_top
+                + event_arc_reference_y(&items[start_idx], direction) * sp
                 + direction * anchor_offset;
-            let end_y = y_top + event_arc_reference_y(item, direction) * sp + direction * anchor_offset;
+            let end_y =
+                y_top + event_arc_reference_y(item, direction) * sp + direction * anchor_offset;
 
             render_arc(cmds, start_x, start_y, end_x, end_y, direction, sp, style);
         }

@@ -12,6 +12,7 @@ const DEFAULT_CLEF_PADDING: f64 = 0.5;
 const DEFAULT_KEY_SIG_PADDING: f64 = 1.0;
 const DEFAULT_TIME_SIG_PADDING: f64 = 1.25;
 const DEFAULT_ACCIDENTAL_PADDING: f64 = 0.35;
+const DEFAULT_CHORD_ACCIDENTAL_STACK_PADDING: f64 = 0.22;
 const DEFAULT_ACCIDENTAL_CLEARANCE: f64 = 0.16;
 const ACCIDENTAL_STACK_VERTICAL_GAP: f64 = 0.04;
 const BARLINE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
@@ -503,12 +504,15 @@ fn required_leading_accidental_space(
                 .collect();
             let accidental_specs: Vec<Option<&str>> =
                 c.notes.iter().map(|n| n.accidental.as_deref()).collect();
-            let (_, lane_widths) = chord_accidental_lanes(&diatonic_positions, &accidental_specs, font);
+            let (_, lane_widths) =
+                chord_accidental_lanes(&diatonic_positions, &accidental_specs, font);
             let stack_width = if lane_widths.is_empty() {
                 0.0
             } else {
                 lane_widths.iter().sum::<f64>()
-                    + DEFAULT_ACCIDENTAL_PADDING * lane_widths.len() as f64
+                    + DEFAULT_ACCIDENTAL_PADDING
+                    + DEFAULT_CHORD_ACCIDENTAL_STACK_PADDING
+                        * (lane_widths.len().saturating_sub(1) as f64)
             };
             if stack_width > 0.0 {
                 event_right_extent
@@ -1708,7 +1712,8 @@ mod tests {
         let positions = [0, 1, 2];
         let accidentals = [Some("flat"), Some("flat"), Some("flat")];
 
-        let (lanes, lane_widths) = chord_accidental_lanes(&positions, &accidentals, glyph::FontId::Bravura);
+        let (lanes, lane_widths) =
+            chord_accidental_lanes(&positions, &accidentals, glyph::FontId::Bravura);
 
         assert_eq!(lanes, vec![Some(0), Some(2), Some(1)]);
         assert_eq!(lane_widths.len(), 3);
@@ -1719,7 +1724,8 @@ mod tests {
         let positions = [0, 8, 16];
         let accidentals = [Some("flat"), Some("flat"), Some("flat")];
 
-        let (lanes, lane_widths) = chord_accidental_lanes(&positions, &accidentals, glyph::FontId::Bravura);
+        let (lanes, lane_widths) =
+            chord_accidental_lanes(&positions, &accidentals, glyph::FontId::Bravura);
 
         assert_eq!(lanes, vec![Some(0), Some(0), Some(0)]);
         assert_eq!(lane_widths.len(), 1);
@@ -1750,7 +1756,8 @@ mod tests {
         let flats = [Some("flat"), Some("flat"), Some("flat")];
         let naturals = [Some("natural"), Some("natural"), Some("natural")];
 
-        let (_, flat_lane_widths) = chord_accidental_lanes(&positions, &flats, glyph::FontId::Bravura);
+        let (_, flat_lane_widths) =
+            chord_accidental_lanes(&positions, &flats, glyph::FontId::Bravura);
         let (_, natural_lane_widths) =
             chord_accidental_lanes(&positions, &naturals, glyph::FontId::Bravura);
 
