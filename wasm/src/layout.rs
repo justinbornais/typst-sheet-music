@@ -608,12 +608,8 @@ pub fn event_width_font(
             let factor = duration_spacing_factor(dur as f64, dots);
             let mut w = DEFAULT_NOTE_SPACING_BASE * factor;
 
-            let tb = event.tuplet_beats();
-            let tc = event.tuplet_count();
-            if tb > 0.0 && tc > 0 {
-                let equiv_dur = 4.0 / tb;
-                let total_w = DEFAULT_NOTE_SPACING_BASE * duration_spacing_factor(equiv_dur, 0);
-                w = total_w / tc as f64;
+            if let Some(scale) = tuplet_duration_scale(event) {
+                w *= scale;
             }
             if plain_note_pair(event, next) {
                 w *= PLAIN_NOTE_SPACING_MULTIPLIER;
@@ -623,15 +619,30 @@ pub fn event_width_font(
     }
 }
 
+fn tuplet_duration_scale(event: &Event) -> Option<f64> {
+    let in_time_of = event.tuplet_beats();
+    if in_time_of <= 0.0 {
+        return None;
+    }
+    let written_count = if event.tuplet_number() > 0 {
+        event.tuplet_number()
+    } else {
+        event.tuplet_count()
+    };
+    if written_count > 0 {
+        Some(in_time_of / written_count as f64)
+    } else {
+        None
+    }
+}
+
 fn event_advance_beats(event: &Event) -> f64 {
     match event {
         Event::VoiceGroup(vg) => voice_group_duration_beats(vg),
         _ if is_rhythmic_event(event) => {
             let mut dur_beats = duration_to_beats(event.duration(), event.dots());
-            let tb = event.tuplet_beats();
-            let tc = event.tuplet_count();
-            if tb > 0.0 && tc > 0 {
-                dur_beats = tb / tc as f64;
+            if let Some(scale) = tuplet_duration_scale(event) {
+                dur_beats *= scale;
             }
             dur_beats
         }
@@ -946,10 +957,12 @@ fn layout_voice_group_items(
     current_clef: &str,
     font: glyph::FontId,
 ) -> Vec<LaidOutItem> {
-    let (upper_items, upper_width) =
+    let (mut upper_items, upper_width) =
         layout_event_sequence_font(&vg.upper, current_clef, font, Some("up"), Some(1));
-    let (lower_items, lower_width) =
+    let (mut lower_items, lower_width) =
         layout_event_sequence_font(&vg.lower, current_clef, font, Some("down"), Some(2));
+    adjust_voice_rests(&mut upper_items, &vg.upper, &vg.lower, 2.6);
+    adjust_voice_rests(&mut lower_items, &vg.lower, &vg.upper, -4.0);
 
     let upper = LaidOutStaff {
         items: upper_items,
@@ -977,6 +990,60 @@ fn layout_voice_group_items(
         }
     }
     voice_items
+}
+
+fn rest_y_position(duration: i32) -> f64 {
+    match duration {
+        1 => -1.0,
+        DURATION_MAXIMA | DURATION_LONGA | DURATION_BREVE => -2.0,
+        _ => -2.0,
+    }
+}
+
+fn rhythmic_spans(events: &[Event]) -> Vec<Option<(f64, f64)>> {
+    let mut beat = 0.0;
+    let mut spans = Vec::with_capacity(events.len());
+    for event in events {
+        if is_rhythmic_event(event) {
+            let start = beat;
+            beat += event_advance_beats(event);
+            spans.push(Some((start, beat)));
+        } else {
+            spans.push(None);
+        }
+    }
+    spans
+}
+
+fn has_opposing_voice_activity(span: (f64, f64), opposing_spans: &[Option<(f64, f64)>]) -> bool {
+    const TOUCH_EPSILON: f64 = 0.000001;
+    let (start, end) = span;
+    opposing_spans.iter().any(|opposing| {
+        let Some((other_start, other_end)) = opposing else {
+            return false;
+        };
+        *other_end >= start - TOUCH_EPSILON && *other_start <= end + TOUCH_EPSILON
+    })
+}
+
+fn adjust_voice_rests(
+    items: &mut [LaidOutItem],
+    voice_events: &[Event],
+    opposing_events: &[Event],
+    separated_y: f64,
+) {
+    let voice_spans = rhythmic_spans(voice_events);
+    let opposing_spans = rhythmic_spans(opposing_events);
+    for (idx, item) in items.iter_mut().enumerate() {
+        if !matches!(item.event, Event::Rest(_)) {
+            continue;
+        }
+        if let Some(span) = voice_spans.get(idx).and_then(|span| *span) {
+            if has_opposing_voice_activity(span, &opposing_spans) {
+                item.y = separated_y;
+            }
+        }
+    }
 }
 
 fn layout_event_sequence_font(
@@ -1033,11 +1100,7 @@ fn layout_event_sequence_font(
                 voice_items = layout_voice_group_items(vg, &current_clef, font);
             }
             Event::Rest(r) => {
-                y = match r.duration {
-                    1 => -1.0,
-                    DURATION_MAXIMA | DURATION_LONGA | DURATION_BREVE => -2.0,
-                    _ => -2.0,
-                };
+                y = rest_y_position(r.duration);
             }
             Event::Clef(c) => {
                 current_clef = c.clef.clone();
@@ -1510,6 +1573,27 @@ mod tests {
         })
     }
 
+    fn mark_tuplet(event: &mut Event, in_time_of: f64, number: i32, count: i32) {
+        match event {
+            Event::Note(n) => {
+                n.tuplet_beats = in_time_of;
+                n.tuplet_number = number;
+                n.tuplet_count = count;
+            }
+            Event::Rest(r) => {
+                r.tuplet_beats = in_time_of;
+                r.tuplet_number = number;
+                r.tuplet_count = count;
+            }
+            Event::Chord(c) => {
+                c.tuplet_beats = in_time_of;
+                c.tuplet_number = number;
+                c.tuplet_count = count;
+            }
+            _ => {}
+        }
+    }
+
     fn chord(notes: &[(&str, Option<&str>, i32)], duration: i32) -> Event {
         Event::Chord(Chord {
             notes: notes
@@ -1574,6 +1658,75 @@ mod tests {
                 * duration_spacing_factor(4.0, 0)
                 * PLAIN_NOTE_SPACING_MULTIPLIER
         );
+    }
+
+    #[test]
+    fn tuplets_scale_written_duration_for_spacing_and_alignment() {
+        let mut triplet_eighths = vec![
+            note("c", None, 8),
+            note("d", None, 8),
+            note("e", None, 8),
+        ];
+        for event in &mut triplet_eighths {
+            mark_tuplet(event, 2.0, 3, 3);
+        }
+
+        let regular_eighth = note("f", None, 8);
+        let triplet_width = event_width(&triplet_eighths[0], None, None);
+        let regular_width = event_width(&regular_eighth, None, None);
+
+        assert_eq!(
+            event_advance_beats(&triplet_eighths[0]),
+            duration_to_beats(8, 0) * 2.0 / 3.0
+        );
+        assert_eq!(
+            voice_sequence_duration_beats(&triplet_eighths),
+            duration_to_beats(8, 0) * 2.0
+        );
+        assert!(triplet_width < regular_width);
+    }
+
+    #[test]
+    fn multi_voice_rests_move_away_from_opposing_voice() {
+        let default_rest_y = layout_staff(&[rest(8)], Some("treble"), None, false, &[]).items[0].y;
+        let voice_items = layout_voice_group_items(
+            &VoiceGroup {
+                upper: vec![rest(8), note("c", None, 8)],
+                lower: vec![note("e", None, 8), rest(8)],
+            },
+            "treble",
+            glyph::FontId::Bravura,
+        );
+        let upper_rest = voice_items
+            .iter()
+            .find(|item| item.voice == Some(1) && matches!(item.event, Event::Rest(_)))
+            .unwrap();
+        let lower_rest = voice_items
+            .iter()
+            .find(|item| item.voice == Some(2) && matches!(item.event, Event::Rest(_)))
+            .unwrap();
+
+        assert!(upper_rest.y > default_rest_y);
+        assert!(lower_rest.y < default_rest_y);
+    }
+
+    #[test]
+    fn multi_voice_rests_stay_normal_without_opposing_activity() {
+        let default_rest_y = layout_staff(&[rest(8)], Some("treble"), None, false, &[]).items[0].y;
+        let voice_items = layout_voice_group_items(
+            &VoiceGroup {
+                upper: vec![rest(8)],
+                lower: Vec::new(),
+            },
+            "treble",
+            glyph::FontId::Bravura,
+        );
+        let upper_rest = voice_items
+            .iter()
+            .find(|item| item.voice == Some(1) && matches!(item.event, Event::Rest(_)))
+            .unwrap();
+
+        assert_eq!(upper_rest.y, default_rest_y);
     }
 
     #[test]
