@@ -1553,7 +1553,13 @@ fn compute_below_extent_sp(items: &[LaidOutItem]) -> f64 {
                 .map(|f| f.marks().iter().filter(|mark| mark.value != 0).count())
                 .unwrap_or(0);
             if mark_count > 0 {
-                let fng_base = (-4.0_f64 - 0.55).min(item.y - 0.85);
+                let bottom_ref = match ev {
+                    Event::Chord(_) if !item.chord_ys.is_empty() => {
+                        item.chord_ys.iter().copied().fold(f64::INFINITY, f64::min)
+                    }
+                    _ => item.y,
+                };
+                let fng_base = (-4.0_f64 - 0.85).min(bottom_ref - 1.15);
                 item_bottom = item_bottom.min(fng_base - mark_count as f64 * 1.35);
             }
         }
@@ -2882,6 +2888,7 @@ fn render_system(
                     ev,
                     above_anchor,
                     note_center_y,
+                    note_center_y,
                     y_top,
                     y_bottom,
                     sp,
@@ -2902,6 +2909,7 @@ fn render_system(
                     .iter()
                     .copied()
                     .fold(f64::NEG_INFINITY, f64::max);
+                let bottom_y = chord_ys_abs.iter().copied().fold(f64::INFINITY, f64::min);
                 let stem_dir = adj_stem_dirs
                     .get(&i)
                     .cloned()
@@ -2919,6 +2927,7 @@ fn render_system(
                     ev,
                     above_anchor,
                     top_y,
+                    bottom_y,
                     y_top,
                     y_bottom,
                     sp,
@@ -3914,15 +3923,15 @@ fn below_fingering_stack_bottom(
         .copied()
         .map(|se| y_top + se * sp)
         .or_else(|| item.stem_y_end.map(|se| y_top + se * sp));
-    let note_y = match &item.event {
+    let below_ref_y = match &item.event {
         Event::Chord(_) if !item.chord_ys.is_empty() => item
             .chord_ys
             .iter()
             .map(|&vy| y_top + vy * sp)
-            .fold(f64::NEG_INFINITY, f64::max),
+            .fold(f64::INFINITY, f64::min),
         _ => y_top + item.y * sp,
     };
-    let mut base_y = (y_bottom - 0.55 * sp).min(note_y - 0.85 * sp);
+    let mut base_y = (y_bottom - 0.85 * sp).min(below_ref_y - 1.15 * sp);
     if adj_stem_ends.contains_key(&idx) && stem_dir == "down" {
         if let Some(se) = stem_end {
             let ed = glyph::engraving_defaults(font);
@@ -3998,6 +4007,7 @@ fn render_inline_text(
     ev: &Event,
     above_anchor_y: f64,
     note_y: f64,
+    below_ref_y: f64,
     y_top: f64,
     y_bottom: f64,
     sp: f64,
@@ -4033,7 +4043,7 @@ fn render_inline_text(
             } else {
                 None
             };
-            let mut fng_base_y = (y_bottom - 0.55 * sp).min(note_y - 0.85 * sp);
+            let mut fng_base_y = (y_bottom - 0.85 * sp).min(below_ref_y - 1.15 * sp);
             if let Some(clear_y) = beam_clear_y {
                 fng_base_y = fng_base_y.min(clear_y);
             }
