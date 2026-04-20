@@ -17,7 +17,7 @@ This document provides a series of tests to verify the rendering of edge cases i
 
 #v(1cm)
 
-== Test 2: Multi-System First Ending with 8va, Chords, and Fingerings
+== Test 2: Multi-System First Ending with 8va, 15ma, Chords, and Fingerings
 
 #score(
   key: "D",
@@ -31,7 +31,7 @@ This document provides a series of tests to verify the rendering of edge cases i
       music: "
         |: d'4[A] e' f#' a' |
         end{1.: 8a{<d'' f#'' a''>4n[1 *3* 5] <e'' g'' b''>4n[1 2 *5*] <f#'' a'' c#'''>4n[*1* 3 5] <g'' b'' d'''>4n[1 *2* 5] |
-        <a'' c#''' e'''>4n[1 3 *5*] <b'' d''' f#'''>4n[*1* 2 5] <c#''' e''' g'''>4n[1 *3* 5] <d''' f#''' a'''>4n[*1* 3 5]}} :|
+        <a'' c#''' e'''>4n[1 3 *5*] <b'' d''' f#'''>4n[*1* 2 5]} 15a{<c#''' e''' g'''>4n[1 *3* 5] <d''' f#''' a'''>4n[*1* 3 5]}} :|
         end{2.: d''2[A] f#'' | d''1}
       ",
     ),
@@ -48,7 +48,7 @@ This document provides a series of tests to verify the rendering of edge cases i
   staves: (
     (
       clef: "treble",
-      music: "v{{2,3:c''8 b' a'} g'8 r e'';c'4. <g b d'>4.} | v{<a' c''>8 <b' d''> <c'' e''> {2,3:d''16 e'' f''};r8 g4 r8}",
+      music: "v{{2,3:c''8 b' a'} g'8 r e'';c'4. <g b d'>4.} | v{<a' c''>8 <b' d''> <c'' e''>  {2,3:d''16 e'' f''};r8 g4 r8}",
     ),
   ),
 )

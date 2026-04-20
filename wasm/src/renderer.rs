@@ -1536,6 +1536,33 @@ fn compute_below_extent_sp(items: &[LaidOutItem]) -> f64 {
         if lyric_count > 0 {
             max_sp = max_sp.max(3.1 + lyric_count as f64 * 1.75 + 2.0);
         }
+
+        let mut item_bottom = match ev {
+            Event::Note(_) => item.y - 1.0,
+            Event::Chord(_) if !item.chord_ys.is_empty() => {
+                item.chord_ys.iter().copied().fold(f64::INFINITY, f64::min) - 1.0
+            }
+            _ => 0.0,
+        };
+        if let Some(stem_end) = item.stem_y_end {
+            item_bottom = item_bottom.min(stem_end);
+        }
+        if ev.fingering().is_some() && ev.fingering_position() == "below" {
+            let mark_count = ev
+                .fingering()
+                .map(|f| f.marks().iter().filter(|mark| mark.value != 0).count())
+                .unwrap_or(0);
+            if mark_count > 0 {
+                let fng_base = (-4.0_f64 - 0.55).min(item.y - 0.85);
+                item_bottom = item_bottom.min(fng_base - mark_count as f64 * 1.35);
+            }
+        }
+        if ev.octave_line_number() > 0 && ev.octave_line_direction().unwrap_or("above") == "below" {
+            item_bottom -= 2.0;
+        }
+        if item_bottom < -4.0 {
+            max_sp = max_sp.max(-4.0 - item_bottom + 0.5);
+        }
     }
     max_sp
 }
@@ -1548,17 +1575,50 @@ fn compute_above_extent_sp(items: &[LaidOutItem]) -> f64 {
         let has_chord = ev.chord_symbol().map_or(false, |c| !c.is_empty());
         let has_staff_text = ev.staff_text().map_or(false, |t| !t.is_empty());
         let has_ending = ev.ending().is_some();
-        let has_fingering = ev.fingering().is_some();
+        let mut item_top = match ev {
+            Event::Note(_) => item.y + 1.0,
+            Event::Chord(_) if !item.chord_ys.is_empty() => {
+                item.chord_ys
+                    .iter()
+                    .copied()
+                    .fold(f64::NEG_INFINITY, f64::max)
+                    + 1.0
+            }
+            _ => 0.0,
+        };
+        if let Some(stem_end) = item.stem_y_end {
+            item_top = item_top.max(stem_end);
+        }
+        if ev.fingering().is_some() && ev.fingering_position() != "below" {
+            let mark_count = ev
+                .fingering()
+                .map(|f| f.marks().iter().filter(|mark| mark.value != 0).count())
+                .unwrap_or(0);
+            if mark_count > 0 {
+                item_top = item_top.max(item.y + 0.85 + mark_count as f64 * 1.35);
+            }
+        }
+        if ev.octave_line_number() > 0 && ev.octave_line_direction().unwrap_or("above") == "above" {
+            item_top += 1.45;
+        }
         if has_ending {
-            if has_chord || has_staff_text {
-                max_sp = max_sp.max(9.0); // chord/text above bracket line + bracket height
+            let ending_gap = if ev.octave_line_number() > 0
+                && ev.octave_line_direction().unwrap_or("above") == "above"
+            {
+                2.15
             } else {
-                max_sp = max_sp.max(5.0); // just the bracket
+                0.95
+            };
+            max_sp = max_sp.max((item_top + ending_gap).max(5.0));
+            if has_chord || has_staff_text {
+                max_sp = max_sp.max(item_top + ending_gap + 3.0);
             }
         } else if has_staff_text || has_chord {
             max_sp = max_sp.max(5.5);
-        } else if has_fingering {
-            max_sp = max_sp.max(3.0);
+        } else if ev.fingering().is_some() {
+            max_sp = max_sp.max(item_top.max(3.0));
+        } else if item_top > 0.0 {
+            max_sp = max_sp.max(item_top);
         }
     }
     max_sp
@@ -2957,11 +3017,14 @@ fn render_system(
         items,
         &item_xs,
         &adj_stem_ends,
+        &adj_stem_dirs,
         y_top,
         y_bottom,
         sp,
         music_start_x,
         total_width,
+        fng_pos,
+        font,
     );
 
     // ── Ending brackets (voltas) ──
@@ -2975,6 +3038,7 @@ fn render_system(
         y_bottom,
         sp,
         total_width,
+        fng_pos,
         font,
     );
 
@@ -3707,6 +3771,204 @@ fn chord_top_anchor_y(top_y: f64, stem_dir: &str, stem_end: Option<f64>, sp: f64
     }
 }
 
+fn fingering_stack_step(sp: f64) -> f64 {
+    1.35 * sp
+}
+
+fn fingering_respects_above_default(ev: &Event, fng_pos_default: &str) -> bool {
+    ev.fingering().is_some() && ev.fingering_position() != "below" && fng_pos_default != "below"
+}
+
+fn above_anchor_for_item(
+    item: &LaidOutItem,
+    stem_dir: &str,
+    stem_end: Option<f64>,
+    y_top: f64,
+    sp: f64,
+) -> f64 {
+    match &item.event {
+        Event::Chord(_) if !item.chord_ys.is_empty() => {
+            let top_y = item
+                .chord_ys
+                .iter()
+                .map(|&vy| y_top + vy * sp)
+                .fold(f64::NEG_INFINITY, f64::max);
+            chord_top_anchor_y(top_y, stem_dir, stem_end, sp)
+        }
+        _ => note_top_anchor_y(y_top + item.y * sp, stem_dir, stem_end, sp),
+    }
+}
+
+fn above_fingering_stack_top(
+    item: &LaidOutItem,
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let marks = item.event.fingering()?.marks();
+    let mark_count = marks.iter().filter(|mark| mark.value != 0).count();
+    if mark_count == 0 || !fingering_respects_above_default(&item.event, fng_pos_default) {
+        return None;
+    }
+
+    let stem_dir = adj_stem_dirs
+        .get(&idx)
+        .map(|s| s.as_str())
+        .or(item.stem_dir.as_deref())
+        .unwrap_or("up");
+    let stem_end = adj_stem_ends
+        .get(&idx)
+        .copied()
+        .map(|se| y_top + se * sp)
+        .or_else(|| item.stem_y_end.map(|se| y_top + se * sp));
+    let anchor_y = above_anchor_for_item(item, stem_dir, stem_end, y_top, sp);
+    let note_y = match &item.event {
+        Event::Chord(_) if !item.chord_ys.is_empty() => item
+            .chord_ys
+            .iter()
+            .map(|&vy| y_top + vy * sp)
+            .fold(f64::NEG_INFINITY, f64::max),
+        _ => y_top + item.y * sp,
+    };
+    let mut base_y = (y_top + 0.8 * sp).max(note_y + 0.85 * sp);
+    let is_beamed = adj_stem_ends.contains_key(&idx);
+    let ed = glyph::engraving_defaults(font);
+    let beam_gap = (0.2 + 0.4 * ed.beam_thickness).max(0.35) * sp;
+
+    if is_beamed && stem_dir == "up" {
+        if let Some(se) = stem_end {
+            base_y = base_y.max(se + beam_gap);
+        }
+    } else if stem_dir == "up" && item.event.duration() >= 8 {
+        base_y = base_y.max(anchor_y);
+    }
+
+    Some(base_y + mark_count as f64 * fingering_stack_step(sp))
+}
+
+fn above_item_content_top(
+    item: &LaidOutItem,
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> f64 {
+    let visual_top = note_visual_top(item, y_top, sp);
+    let stem_top = adj_stem_ends
+        .get(&idx)
+        .copied()
+        .map(|se| y_top + se * sp)
+        .or_else(|| item.stem_y_end.map(|se| y_top + se * sp))
+        .map(|se| visual_top.max(se))
+        .unwrap_or(visual_top);
+    let fingering_top = above_fingering_stack_top(
+        item,
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    )
+    .unwrap_or(stem_top);
+
+    stem_top.max(fingering_top)
+}
+
+fn fingering_respects_below_default(ev: &Event, fng_pos_default: &str) -> bool {
+    ev.fingering().is_some() && (ev.fingering_position() == "below" || fng_pos_default == "below")
+}
+
+fn below_fingering_stack_bottom(
+    item: &LaidOutItem,
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    y_bottom: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let marks = item.event.fingering()?.marks();
+    let mark_count = marks.iter().filter(|mark| mark.value != 0).count();
+    if mark_count == 0 || !fingering_respects_below_default(&item.event, fng_pos_default) {
+        return None;
+    }
+
+    let stem_dir = adj_stem_dirs
+        .get(&idx)
+        .map(|s| s.as_str())
+        .or(item.stem_dir.as_deref())
+        .unwrap_or("up");
+    let stem_end = adj_stem_ends
+        .get(&idx)
+        .copied()
+        .map(|se| y_top + se * sp)
+        .or_else(|| item.stem_y_end.map(|se| y_top + se * sp));
+    let note_y = match &item.event {
+        Event::Chord(_) if !item.chord_ys.is_empty() => item
+            .chord_ys
+            .iter()
+            .map(|&vy| y_top + vy * sp)
+            .fold(f64::NEG_INFINITY, f64::max),
+        _ => y_top + item.y * sp,
+    };
+    let mut base_y = (y_bottom - 0.55 * sp).min(note_y - 0.85 * sp);
+    if adj_stem_ends.contains_key(&idx) && stem_dir == "down" {
+        if let Some(se) = stem_end {
+            let ed = glyph::engraving_defaults(font);
+            let beam_gap = (0.2 + 0.4 * ed.beam_thickness).max(0.35) * sp;
+            base_y = base_y.min(se - beam_gap);
+        }
+    }
+
+    Some(base_y - mark_count as f64 * fingering_stack_step(sp))
+}
+
+fn below_item_content_bottom(
+    item: &LaidOutItem,
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    y_bottom: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> f64 {
+    let visual_bottom = note_visual_bottom(item, y_top, sp);
+    let stem_bottom = adj_stem_ends
+        .get(&idx)
+        .copied()
+        .map(|se| y_top + se * sp)
+        .or_else(|| item.stem_y_end.map(|se| y_top + se * sp))
+        .map(|se| visual_bottom.min(se))
+        .unwrap_or(visual_bottom);
+    let fingering_bottom = below_fingering_stack_bottom(
+        item,
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        y_bottom,
+        sp,
+        fng_pos_default,
+        font,
+    )
+    .unwrap_or(stem_bottom);
+
+    stem_bottom.min(fingering_bottom)
+}
+
 fn inline_clef_draw_offset(prev: Option<&Event>, next: Option<&Event>, sp: f64) -> f64 {
     let prev_is_music = prev.map_or(false, |p| {
         p.is_note() || p.is_chord() || p.is_rest() || matches!(p, Event::Spacer(_))
@@ -3745,7 +4007,7 @@ fn render_inline_text(
     is_beamed: bool,
     font: glyph::FontId,
 ) {
-    let fng_stack_step = 1.35 * sp;
+    let fng_stack_step = fingering_stack_step(sp);
     let default_sp_numeric = 1.75; // default-staff-space in mm
     let fng_font_size = 7.85 * (sp / default_sp_numeric);
     let bold_fng_font_size = fng_font_size * 1.1;
@@ -3956,7 +4218,7 @@ fn render_tuplets(
 ) {
     // Find tuplet groups
     let mut tuplet_groups: Vec<(Vec<usize>, i32)> = Vec::with_capacity(items.len() / 3);
-    let mut cur_indices = Vec::with_capacity(8);
+    let mut cur_indices: Vec<usize> = Vec::with_capacity(8);
     let mut cur_number = 0;
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
@@ -4521,11 +4783,14 @@ fn render_octave_lines(
     items: &[LaidOutItem],
     item_xs: &[f64],
     adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
     y_top: f64,
     y_bottom: f64,
     sp: f64,
     music_start_x: f64,
     total_width: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
 ) {
     struct OctGroup {
         indices: Vec<usize>,
@@ -4535,33 +4800,15 @@ fn render_octave_lines(
         ends_here: bool,
     }
     let mut groups: Vec<OctGroup> = Vec::with_capacity(4);
-    let mut cur_indices = Vec::with_capacity(8);
-    for (i, item) in items.iter().enumerate() {
-        let ev = &item.event;
-        if ev.is_anchor() && ev.octave_line_number() > 0 {
-            cur_indices.push(i);
-        } else if !cur_indices.is_empty() {
-            let first = cur_indices[0];
-            let last = *cur_indices.last().unwrap();
-            groups.push(OctGroup {
-                indices: cur_indices.clone(),
-                number: items[first].event.octave_line_number(),
-                direction: items[first]
-                    .event
-                    .octave_line_direction()
-                    .unwrap_or("above")
-                    .to_string(),
-                starts_here: items[first].event.octave_line_start(),
-                ends_here: items[last].event.octave_line_end(),
-            });
-            cur_indices.clear();
+    let mut cur_indices: Vec<usize> = Vec::with_capacity(8);
+    let push_oct_group = |groups: &mut Vec<OctGroup>, cur_indices: &mut Vec<usize>| {
+        if cur_indices.is_empty() {
+            return;
         }
-    }
-    if !cur_indices.is_empty() {
         let first = cur_indices[0];
         let last = *cur_indices.last().unwrap();
         groups.push(OctGroup {
-            indices: cur_indices,
+            indices: cur_indices.clone(),
             number: items[first].event.octave_line_number(),
             direction: items[first]
                 .event
@@ -4571,7 +4818,33 @@ fn render_octave_lines(
             starts_here: items[first].event.octave_line_start(),
             ends_here: items[last].event.octave_line_end(),
         });
+        cur_indices.clear();
+    };
+
+    for (i, item) in items.iter().enumerate() {
+        let ev = &item.event;
+        if ev.is_anchor() && ev.octave_line_number() > 0 {
+            if !cur_indices.is_empty() {
+                let first = cur_indices[0];
+                let cur_number = items[first].event.octave_line_number();
+                let cur_direction = items[first]
+                    .event
+                    .octave_line_direction()
+                    .unwrap_or("above");
+                let next_direction = ev.octave_line_direction().unwrap_or("above");
+                if ev.octave_line_start()
+                    || ev.octave_line_number() != cur_number
+                    || next_direction != cur_direction
+                {
+                    push_oct_group(&mut groups, &mut cur_indices);
+                }
+            }
+            cur_indices.push(i);
+        } else if !cur_indices.is_empty() {
+            push_oct_group(&mut groups, &mut cur_indices);
+        }
     }
+    push_oct_group(&mut groups, &mut cur_indices);
 
     let tuplet_font_size = 7.75 * (sp / 1.75);
     let line_w = 0.12 * sp;
@@ -4598,132 +4871,133 @@ fn render_octave_lines(
                 .indices
                 .iter()
                 .map(|&idx| {
-                    // Top edge of the highest notehead (centre + half notehead height).
-                    let note_top = if items[idx].chord_ys.is_empty() {
-                        y_top + items[idx].y * sp + 0.5 * sp
-                    } else {
-                        let max_y = items[idx]
-                            .chord_ys
-                            .iter()
-                            .copied()
-                            .fold(f64::NEG_INFINITY, f64::max);
-                        y_top + max_y * sp + 0.5 * sp
-                    };
-                    // If the stem tip extends even higher, use that instead.
-                    let stem_tip = adj_stem_ends
-                        .get(&idx)
-                        .copied()
-                        .map(|se| y_top + se * sp)
-                        .or_else(|| items[idx].stem_y_end.map(|se| y_top + se * sp));
-                    stem_tip.map(|st| note_top.max(st)).unwrap_or(note_top)
+                    above_item_content_top(
+                        &items[idx],
+                        idx,
+                        adj_stem_ends,
+                        adj_stem_dirs,
+                        y_top,
+                        sp,
+                        fng_pos_default,
+                        font,
+                    )
                 })
                 .collect();
             let top_y = elem_ys.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             // Bracket sits above the highest element AND at least above the staff top.
-            let bracket_y = top_y.max(y_top) + 0.75 * sp;
+            let bracket_y = top_y.max(y_top) + 0.45 * sp;
             let tick_len = 0.45 * sp;
+            let line_start = if og.starts_here {
+                let suffix = if og.number == 15 { "ma" } else { "va" };
+                let number_size = tuplet_font_size * 1.12;
+                let suffix_size = number_size * 0.58;
+                let number_w = if og.number.to_string().len() > 1 {
+                    1.7 * sp
+                } else {
+                    0.9 * sp
+                };
+                let suffix_w = if suffix.len() > 1 {
+                    0.72 * sp
+                } else {
+                    0.42 * sp
+                };
+                let label_w = number_w + suffix_w;
+                let label_x = (x0 - label_w - 0.12 * sp).max(music_start_x);
+
+                cmds.push(DrawCmd::Text {
+                    x: label_x,
+                    y: bracket_y + 0.08 * sp,
+                    v: og.number.to_string(),
+                    s: number_size,
+                    w: "bold".into(),
+                    i: true,
+                    a: "north-west".into(),
+                });
+                cmds.push(DrawCmd::Text {
+                    x: label_x + number_w,
+                    y: bracket_y + 0.16 * sp,
+                    v: suffix.to_string(),
+                    s: suffix_size,
+                    w: "bold".into(),
+                    i: true,
+                    a: "north-west".into(),
+                });
+
+                (label_x + label_w + 0.62 * sp).min(x1 - 0.4 * sp).max(x0)
+            } else {
+                x0
+            };
 
             // Dashed line
-            render_dashed_line(cmds, x0, x1, bracket_y, sp);
-            if og.starts_here {
-                emit_line(cmds, x0, bracket_y, x0, bracket_y - tick_len, line_w);
-            }
+            render_dashed_line(cmds, line_start, x1, bracket_y, sp);
             if og.ends_here {
                 emit_line(cmds, x1, bracket_y, x1, bracket_y - tick_len, line_w);
-            }
-
-            // Label
-            if og.starts_here {
-                let suffix = if og.number == 15 { "ma" } else { "va" };
-                cmds.push(DrawCmd::Text {
-                    x: x0 + 0.3 * sp,
-                    y: bracket_y + 0.45 * sp,
-                    v: og.number.to_string(),
-                    s: tuplet_font_size,
-                    w: "bold".into(),
-                    i: false,
-                    a: "south".into(),
-                });
-                let offset_x = if og.number.to_string().len() > 1 {
-                    1.3 * sp
-                } else {
-                    0.8 * sp
-                };
-                cmds.push(DrawCmd::Text {
-                    x: x0 + 0.3 * sp + offset_x,
-                    y: bracket_y + 0.45 * sp,
-                    v: suffix.to_string(),
-                    s: 0.55 * tuplet_font_size,
-                    w: "bold".into(),
-                    i: false,
-                    a: "south".into(),
-                });
             }
         } else {
             let elem_ys: Vec<f64> = og
                 .indices
                 .iter()
                 .map(|&idx| {
-                    // Bottom edge of the lowest notehead (centre - half notehead height).
-                    let note_bottom = if items[idx].chord_ys.is_empty() {
-                        y_top + items[idx].y * sp - 0.5 * sp
-                    } else {
-                        let min_y = items[idx]
-                            .chord_ys
-                            .iter()
-                            .copied()
-                            .fold(f64::INFINITY, f64::min);
-                        y_top + min_y * sp - 0.5 * sp
-                    };
-                    // If the stem tip extends even lower, use that instead.
-                    let stem_tip = adj_stem_ends
-                        .get(&idx)
-                        .copied()
-                        .map(|se| y_top + se * sp)
-                        .or_else(|| items[idx].stem_y_end.map(|se| y_top + se * sp));
-                    stem_tip
-                        .map(|st| note_bottom.min(st))
-                        .unwrap_or(note_bottom)
+                    below_item_content_bottom(
+                        &items[idx],
+                        idx,
+                        adj_stem_ends,
+                        adj_stem_dirs,
+                        y_top,
+                        y_bottom,
+                        sp,
+                        fng_pos_default,
+                        font,
+                    )
                 })
                 .collect();
             let bot_y = elem_ys.iter().copied().fold(f64::INFINITY, f64::min);
-            // Bracket sits below the lowest element AND at least below the staff bottom.
-            let bracket_y = bot_y.min(y_bottom) - 0.75 * sp;
+            let bracket_y = bot_y.min(y_bottom) - 1.75 * sp;
             let tick_len = 0.45 * sp;
+            let line_start = if og.starts_here {
+                let suffix = if og.number == 15 { "mb" } else { "vb" };
+                let number_size = tuplet_font_size * 1.12;
+                let suffix_size = number_size * 0.58;
+                let number_w = if og.number.to_string().len() > 1 {
+                    1.7 * sp
+                } else {
+                    0.9 * sp
+                };
+                let suffix_w = if suffix.len() > 1 {
+                    0.72 * sp
+                } else {
+                    0.42 * sp
+                };
+                let label_w = number_w + suffix_w;
+                let label_x = (x0 - label_w - 0.12 * sp).max(music_start_x);
 
-            render_dashed_line(cmds, x0, x1, bracket_y, sp);
-            if og.starts_here {
-                emit_line(cmds, x0, bracket_y, x0, bracket_y + tick_len, line_w);
-            }
+                cmds.push(DrawCmd::Text {
+                    x: label_x,
+                    y: bracket_y,
+                    v: og.number.to_string(),
+                    s: number_size,
+                    w: "bold".into(),
+                    i: true,
+                    a: "south-west".into(),
+                });
+                cmds.push(DrawCmd::Text {
+                    x: label_x + number_w,
+                    y: bracket_y,
+                    v: suffix.to_string(),
+                    s: suffix_size,
+                    w: "bold".into(),
+                    i: true,
+                    a: "south-west".into(),
+                });
+
+                (label_x + label_w + 0.62 * sp).min(x1 - 0.4 * sp).max(x0)
+            } else {
+                x0
+            };
+
+            render_dashed_line(cmds, line_start, x1, bracket_y, sp);
             if og.ends_here {
                 emit_line(cmds, x1, bracket_y, x1, bracket_y + tick_len, line_w);
-            }
-
-            if og.starts_here {
-                let suffix = if og.number == 15 { "mb" } else { "vb" };
-                cmds.push(DrawCmd::Text {
-                    x: x0 + 0.3 * sp,
-                    y: bracket_y - 0.45 * sp,
-                    v: og.number.to_string(),
-                    s: tuplet_font_size,
-                    w: "bold".into(),
-                    i: false,
-                    a: "north".into(),
-                });
-                let offset_x = if og.number.to_string().len() > 1 {
-                    1.3 * sp
-                } else {
-                    0.8 * sp
-                };
-                cmds.push(DrawCmd::Text {
-                    x: x0 + 0.3 * sp + offset_x,
-                    y: bracket_y - 0.45 * sp,
-                    v: suffix.to_string(),
-                    s: 0.55 * tuplet_font_size,
-                    w: "bold".into(),
-                    i: false,
-                    a: "north".into(),
-                });
             }
         }
     }
@@ -4745,12 +5019,13 @@ fn render_endings(
     cmds: &mut Vec<DrawCmd>,
     items: &[LaidOutItem],
     item_xs: &[f64],
-    _adj_stem_ends: &std::collections::HashMap<usize, f64>,
-    _adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
     y_top: f64,
     _y_bottom: f64,
     sp: f64,
     total_width: f64,
+    fng_pos_default: &str,
     font: glyph::FontId,
 ) {
     struct EndingGroup {
@@ -4878,9 +5153,33 @@ fn render_endings(
             final_barline_x
         };
 
-        // Bracket sits high enough that chord symbols (which appear inside it
-        // at y_top + 1.5 sp) are clearly below the bracket line.
-        let bracket_y = y_top + 3.5 * sp;
+        let content_top = eg
+            .indices
+            .iter()
+            .copied()
+            .map(|idx| {
+                above_item_content_top(
+                    &items[idx],
+                    idx,
+                    adj_stem_ends,
+                    adj_stem_dirs,
+                    y_top,
+                    sp,
+                    fng_pos_default,
+                    font,
+                )
+            })
+            .fold(y_top, f64::max);
+        let has_above_octave_line = eg.indices.iter().copied().any(|idx| {
+            items[idx].event.octave_line_number() > 0
+                && items[idx].event.octave_line_direction().unwrap_or("above") == "above"
+        });
+        let content_gap = if has_above_octave_line {
+            2.15 * sp
+        } else {
+            0.95 * sp
+        };
+        let bracket_y = (y_top + 3.5 * sp).max(content_top + content_gap);
         let hook_depth = 0.65 * sp;
 
         emit_line(cmds, x0, bracket_y, x1, bracket_y, line_w);
