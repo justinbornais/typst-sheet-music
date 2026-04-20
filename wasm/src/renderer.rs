@@ -1588,7 +1588,7 @@ pub fn render_system_group(
     let mut cmds = Vec::with_capacity(estimated_cmds);
     let num_staves = laid_out_staves.len();
     let staff_height_mm = 4.0 * sp_unit;
-    let use_spanning_barlines = num_staves > 1;
+    let use_spanning_barlines = num_staves > 1 && staff_group != "separate";
 
     // Compute shared prefix data
     let (shared_time_x, shared_music_start_x) =
@@ -1756,9 +1756,9 @@ pub fn render_system_group(
             );
         }
 
-        // Spanning barlines — opening, all internal measure barlines, and final,
-        // all spanning the full height from the first staff top to the last staff bottom.
-        {
+        if use_spanning_barlines {
+            // Spanning barlines — opening, all internal measure barlines, and final,
+            // all spanning the full height from the first staff top to the last staff bottom.
             let staff0 = &laid_out_staves[0];
             let s0_total_w = staff0.total_width;
             let avail_music_w = if let Some(w) = avail_width_mm {
@@ -3525,59 +3525,159 @@ fn render_beam_group(
         .unwrap_or(0);
     let ed = glyph::engraving_defaults(font);
     let beam_step = (ed.beam_thickness + ed.beam_spacing) * sp;
+    let beam_thickness = ed.beam_thickness * sp;
 
     for level in 1..=max_beams {
         let y_offset = sign * (level - 1) as f64 * beam_step;
         let threshold = min_dur_for_level(level);
-        let mut seg: Vec<&BeamNote> = Vec::new();
+        let mut seg_start: Option<usize> = None;
 
-        let flush_seg =
-            |cmds: &mut Vec<DrawCmd>, seg: &[&BeamNote], stem_dir: &str, sp: f64, y_offset: f64| {
-                if seg.len() >= 2 {
-                    let t = ed.beam_thickness * sp;
-                    let (x0, y0) = (
-                        seg.first().unwrap().stem_x,
-                        seg.first().unwrap().beam_y + y_offset,
-                    );
-                    let (xn, yn) = (
-                        seg.last().unwrap().stem_x,
-                        seg.last().unwrap().beam_y + y_offset,
-                    );
-                    if stem_dir == "up" {
-                        cmds.push(DrawCmd::Polygon {
-                            pts: vec![x0, y0 - t, xn, yn - t, xn, yn, x0, y0],
-                        });
-                    } else {
-                        cmds.push(DrawCmd::Polygon {
-                            pts: vec![x0, y0, xn, yn, xn, yn + t, x0, y0 + t],
-                        });
-                    }
-                } else if seg.len() == 1 {
-                    let t = ed.beam_thickness * sp;
-                    let sx = seg[0].stem_x;
-                    let sy = seg[0].beam_y + y_offset;
-                    let stub_w = 0.75 * sp;
-                    if stem_dir == "up" {
-                        cmds.push(DrawCmd::Polygon {
-                            pts: vec![sx, sy - t, sx + stub_w, sy - t, sx + stub_w, sy, sx, sy],
-                        });
-                    } else {
-                        cmds.push(DrawCmd::Polygon {
-                            pts: vec![sx, sy, sx + stub_w, sy, sx + stub_w, sy + t, sx, sy + t],
-                        });
-                    }
-                }
-            };
-
-        for bn in beam_notes {
+        for (idx, bn) in beam_notes.iter().enumerate() {
             if bn.duration >= threshold {
-                seg.push(bn);
+                if seg_start.is_none() {
+                    seg_start = Some(idx);
+                }
             } else {
-                flush_seg(cmds, &seg, stem_dir, sp, y_offset);
-                seg.clear();
+                if let Some(start) = seg_start.take() {
+                    emit_beam_segment(
+                        cmds,
+                        beam_notes,
+                        start,
+                        idx - 1,
+                        stem_dir,
+                        sp,
+                        y_offset,
+                        beam_thickness,
+                    );
+                }
             }
         }
-        flush_seg(cmds, &seg, stem_dir, sp, y_offset);
+        if let Some(start) = seg_start {
+            emit_beam_segment(
+                cmds,
+                beam_notes,
+                start,
+                n - 1,
+                stem_dir,
+                sp,
+                y_offset,
+                beam_thickness,
+            );
+        }
+    }
+}
+
+fn emit_beam_segment(
+    cmds: &mut Vec<DrawCmd>,
+    beam_notes: &[BeamNote],
+    start: usize,
+    end: usize,
+    stem_dir: &str,
+    sp: f64,
+    y_offset: f64,
+    thickness: f64,
+) {
+    let (x0, y0, x1, y1) = if start < end {
+        let first = &beam_notes[start];
+        let last = &beam_notes[end];
+        (
+            first.stem_x,
+            first.beam_y + y_offset,
+            last.stem_x,
+            last.beam_y + y_offset,
+        )
+    } else {
+        let idx = start;
+        let note = &beam_notes[idx];
+        let sx = note.stem_x;
+        let sy = note.beam_y + y_offset;
+        let stub_w = 0.75 * sp;
+
+        let neighbor = if idx > 0 {
+            Some((idx - 1, -1.0))
+        } else if idx + 1 < beam_notes.len() {
+            Some((idx + 1, 1.0))
+        } else {
+            None
+        };
+
+        if let Some((neighbor_idx, side)) = neighbor {
+            let other = &beam_notes[neighbor_idx];
+            let dx = sx - other.stem_x;
+            let slope = if dx.abs() > f64::EPSILON {
+                (sy - (other.beam_y + y_offset)) / dx
+            } else {
+                0.0
+            };
+            let ex = sx + side * stub_w;
+            let ey = sy + slope * (ex - sx);
+            if side < 0.0 {
+                (ex, ey, sx, sy)
+            } else {
+                (sx, sy, ex, ey)
+            }
+        } else {
+            (sx, sy, sx + stub_w, sy)
+        }
+    };
+
+    if stem_dir == "up" {
+        cmds.push(DrawCmd::Polygon {
+            pts: vec![x0, y0 - thickness, x1, y1 - thickness, x1, y1, x0, y0],
+        });
+    } else {
+        cmds.push(DrawCmd::Polygon {
+            pts: vec![x0, y0, x1, y1, x1, y1 + thickness, x0, y0 + thickness],
+        });
+    }
+}
+
+#[cfg(test)]
+mod beam_tests {
+    use super::*;
+
+    fn beam_note(stem_x: f64, beam_y: f64, duration: i32) -> BeamNote {
+        BeamNote {
+            stem_x,
+            beam_y,
+            duration,
+            stem_dir: "up".to_string(),
+        }
+    }
+
+    fn polygon(cmds: &[DrawCmd], idx: usize) -> &[f64] {
+        match &cmds[idx] {
+            DrawCmd::Polygon { pts } => pts,
+            other => panic!("expected polygon, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ending_singleton_secondary_beam_faces_left() {
+        let notes = vec![beam_note(0.0, 10.0, 8), beam_note(10.0, 11.0, 16)];
+        let mut cmds = Vec::new();
+
+        render_beam_group(&mut cmds, &notes, 1.0, glyph::FontId::Bravura);
+
+        assert_eq!(cmds.len(), 2);
+        let secondary = polygon(&cmds, 1);
+        assert!(secondary[0] < notes[1].stem_x);
+        assert_eq!(secondary[2], notes[1].stem_x);
+        assert!(secondary[0] < secondary[2]);
+    }
+
+    #[test]
+    fn starting_singleton_secondary_beam_faces_right() {
+        let notes = vec![beam_note(0.0, 11.0, 16), beam_note(10.0, 10.0, 8)];
+        let mut cmds = Vec::new();
+
+        render_beam_group(&mut cmds, &notes, 1.0, glyph::FontId::Bravura);
+
+        assert_eq!(cmds.len(), 2);
+        let secondary = polygon(&cmds, 1);
+        assert_eq!(secondary[0], notes[0].stem_x);
+        assert!(secondary[2] > notes[0].stem_x);
+        assert!(secondary[0] < secondary[2]);
     }
 }
 

@@ -63,7 +63,7 @@
 /// - composer: composer name
 /// - arranger: arranger name
 /// - lyricist: lyricist name
-/// - staff-group: "none", "grand", "choir", "orchestra"
+/// - staff-group: "none", "grand", "bracket", "separate"
 /// - staff-size: staff space distance (default 1.75mm)
 /// - system-spacing: vertical space between systems
 /// - staff-spacing: vertical space between staves within a system

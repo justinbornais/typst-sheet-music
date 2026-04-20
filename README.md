@@ -102,7 +102,7 @@ Primary entry point for one or more staves.
 | `composer` | string | `none` | Composer name |
 | `arranger` | string | `none` | Arranger name |
 | `lyricist` | string | `none` | Lyricist name |
-| `staff-group` | string | `"none"` | `"none"`, `"grand"`, or `"bracket"` |
+| `staff-group` | string | `"none"` | `"none"`, `"grand"`, `"bracket"`, or `"separate"` |
 | `staff-size` | length | `1.75mm` | Staff space distance |
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `staff-spacing` | length | `8mm` | Vertical space between staves in a system |
