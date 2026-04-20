@@ -18,6 +18,7 @@ const ACCIDENTAL_STACK_VERTICAL_GAP: f64 = 0.04;
 const BARLINE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const TIED_GRACE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const SHORT_NOTE_ACCIDENTAL_CLEARANCE: f64 = 0.55;
+const FLAGGED_NOTE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.36;
 const EMPTY_MEASURE_REST_WIDTH: f64 = 1.8;
 const SYSTEM_START_CONTENT_PADDING: f64 = 0.55;
 const GRACE_NOTE_SCALE: f64 = 0.68;
@@ -385,6 +386,17 @@ fn note_cluster_stem_needs_accidental_space(event: &Event, next: &Event) -> bool
     })
 }
 
+fn flagged_note_before_longer_accidental(event: &Event, next: &Event) -> bool {
+    event.duration() >= 8
+        && next.duration() > 0
+        && event.duration() > next.duration()
+        && !event.grace()
+        && !next.grace()
+        && event_is_note_cluster(event)
+        && event_is_note_cluster(next)
+        && event_has_accidental(next)
+}
+
 fn needs_leading_accidental_space(event: &Event, next: &Event) -> bool {
     if !event_has_accidental(next) {
         return false;
@@ -437,6 +449,14 @@ fn pre_accidental_clearance(event: &Event) -> f64 {
         clearance += TIED_GRACE_TO_ACCIDENTAL_CLEARANCE;
     }
     clearance
+}
+
+fn flagged_note_accidental_extra(event: &Event, next: Option<&Event>) -> f64 {
+    if next.map_or(false, |next| flagged_note_before_longer_accidental(event, next)) {
+        FLAGGED_NOTE_TO_ACCIDENTAL_CLEARANCE
+    } else {
+        0.0
+    }
 }
 
 fn accidental_readability_clearance(event: &Event, next: &Event) -> f64 {
@@ -615,6 +635,7 @@ pub fn event_width_font(
                 w *= PLAIN_NOTE_SPACING_MULTIPLIER;
             }
             w + leading_accidental_extra(event, w, next, font)
+                + flagged_note_accidental_extra(event, next)
         }
     }
 }
@@ -1802,6 +1823,18 @@ mod tests {
         let scalar_eighth_width = DEFAULT_NOTE_SPACING_BASE * duration_spacing_factor(8.0, 0);
 
         assert!(stem_lane_width > scalar_eighth_width);
+    }
+
+    #[test]
+    fn flagged_short_notes_leave_room_before_longer_accidentals() {
+        let e_eighth = note("e", None, 8);
+        let f_sharp_quarter = note("f", Some("sharp"), 4);
+        let flagged_width = event_width(&e_eighth, None, Some(&f_sharp_quarter));
+        let scalar_eighth_width = DEFAULT_NOTE_SPACING_BASE * duration_spacing_factor(8.0, 0);
+        let compact_eighth_width = scalar_eighth_width * PLAIN_NOTE_SPACING_MULTIPLIER;
+
+        assert!(flagged_width > compact_eighth_width);
+        assert!(flagged_width < scalar_eighth_width);
     }
 
     #[test]

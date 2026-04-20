@@ -21,7 +21,7 @@ This includes tuplets.
       d {3:e8 r e} f#4 g | a b c#' d' | d' c' b a | g f# e d
       e f# g# a | b c#' d#' e' | e' d#' c#' b | a g# f# e
       f g a b& | c' d' e' f' | f' e' d' c' | b& a g f
-      {8,5:c3 d e& c d} e= f | g a b c' | c' b a g | f e d c
+      {4,5:c3 d e& c d} e= f | g a b c' | c' b a g | f e d c
       cresc{d e f# g | a b c#' d'} | decresc{d' c' b a | g f# e d}
       cresc{e f# g# a | b c#' d#' e'} | decresc{e' d#' c#' b | a g# f# e
       f g a b& | c' d' e' f'} | cresc{f' e' d' c' | b& a g f
