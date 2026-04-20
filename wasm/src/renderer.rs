@@ -1276,6 +1276,103 @@ fn voice_stem_side_offset(stem_dir: &str, nh_w: f64, lsp: f64) -> f64 {
     }
 }
 
+#[derive(Clone, Copy)]
+struct ArcStyle {
+    max_thickness: f64,
+    height_factor: f64,
+    min_height: f64,
+    max_height: f64,
+}
+
+#[derive(Clone, Copy)]
+struct ArcSpan {
+    start_x: f64,
+    end_x: f64,
+    direction: f64,
+}
+
+const TIE_ARC_STYLE: ArcStyle = ArcStyle {
+    max_thickness: 0.16,
+    height_factor: 0.16,
+    min_height: 0.45,
+    max_height: 1.3,
+};
+
+const SLUR_ARC_STYLE: ArcStyle = ArcStyle {
+    max_thickness: 0.22,
+    height_factor: 0.30,
+    min_height: 0.8,
+    max_height: 3.0,
+};
+
+const SLUR_OVER_TIE_ARC_STYLE: ArcStyle = ArcStyle {
+    max_thickness: 0.22,
+    height_factor: 0.30,
+    min_height: 0.9,
+    max_height: 3.0,
+};
+
+fn event_arc_reference_y(item: &LaidOutItem, direction: f64) -> f64 {
+    match &item.event {
+        Event::Chord(_) if !item.chord_ys.is_empty() => {
+            if direction < 0.0 {
+                item.chord_ys.iter().copied().fold(f64::INFINITY, f64::min)
+            } else {
+                item.chord_ys
+                    .iter()
+                    .copied()
+                    .fold(f64::NEG_INFINITY, f64::max)
+            }
+        }
+        _ => item.y,
+    }
+}
+
+fn arc_height(dx: f64, sp: f64, style: ArcStyle) -> f64 {
+    (dx.abs() * style.height_factor).clamp(style.min_height * sp, style.max_height * sp)
+}
+
+fn arc_extreme_y_at(
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+    target_x: f64,
+    direction: f64,
+    sp: f64,
+    style: ArcStyle,
+) -> Option<f64> {
+    let left_x = x1.min(x2);
+    let right_x = x1.max(x2);
+    if target_x < left_x || target_x > right_x {
+        return None;
+    }
+
+    let dx = x2 - x1;
+    let t = if dx.abs() > f64::EPSILON {
+        ((target_x - x1) / dx).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let endpoint_y = y1 + (y2 - y1) * t;
+    let local_depth = (std::f64::consts::PI * t).sin() * arc_height(dx, sp, style);
+    Some(endpoint_y + direction * local_depth)
+}
+
+fn overlapping_tie_span(
+    tie_spans: &[ArcSpan],
+    start_x: f64,
+    end_x: f64,
+    direction: f64,
+) -> bool {
+    let left_x = start_x.min(end_x);
+    let right_x = start_x.max(end_x);
+    tie_spans.iter().any(|span| {
+        span.direction == direction
+            && ranges_overlap(left_x, right_x, span.start_x, span.end_x, 0.0)
+    })
+}
+
 #[derive(Debug, Clone)]
 struct NoteheadInfo {
     x: f64,
@@ -2483,6 +2580,10 @@ fn render_system(
                     .unwrap_or_else(|| "up".to_string());
                 let offsets =
                     chord_notehead_x_offsets(&item.chord_staff_positions, &stem_dir, nh_w, lsp);
+                let accidental_specs: Vec<Option<&str>> =
+                    c.notes.iter().map(|note| note.accidental.as_deref()).collect();
+                let (accidental_lanes, lane_widths) =
+                    layout::chord_accidental_lanes(&item.chord_staff_positions, &accidental_specs, font);
 
                 for (ni, cn) in c.notes.iter().enumerate() {
                     let ny = y_top + item.chord_ys[ni] * sp;
@@ -2513,7 +2614,12 @@ fn render_system(
                                 font,
                             )
                             .unwrap_or(note_left_edge);
-                            let acc_x = target_left_edge - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
+                            let lane = accidental_lanes[ni].unwrap_or(0);
+                            let mut column_right_edge = target_left_edge - ACCIDENTAL_PADDING * lsp;
+                            for lane_width in lane_widths.iter().take(lane) {
+                                column_right_edge -= lane_width * lsp + ACCIDENTAL_PADDING * lsp;
+                            }
+                            let acc_x = column_right_edge - acc_w * lsp;
                             emit_glyph(cmds, acc_x, ny, acc_sm, acc_cp, lsp, font);
                         }
                     }
@@ -2686,8 +2792,16 @@ fn render_system(
 
                 // Dynamic
                 if let Some(ref dyn_mark) = n.dynamic {
-                    let dyn_y =
-                        dynamic_anchor_y(items, &item_xs, i, &adj_stem_dirs, y_top, y_bottom, sp);
+                    let dyn_y = dynamic_anchor_y(
+                        items,
+                        &item_xs,
+                        i,
+                        &adj_stem_dirs,
+                        y_top,
+                        y_bottom,
+                        sp,
+                        font,
+                    );
                     render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
                 }
             }
@@ -2859,8 +2973,16 @@ fn render_system(
 
                 // Dynamic
                 if let Some(ref dyn_mark) = c.dynamic {
-                    let dyn_y =
-                        dynamic_anchor_y(items, &item_xs, i, &adj_stem_dirs, y_top, y_bottom, sp);
+                    let dyn_y = dynamic_anchor_y(
+                        items,
+                        &item_xs,
+                        i,
+                        &adj_stem_dirs,
+                        y_top,
+                        y_bottom,
+                        sp,
+                        font,
+                    );
                     render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
                 }
             }
@@ -2884,6 +3006,9 @@ fn render_system(
                 let above_anchor = note_top_anchor_y(note_center_y, &stem_dir, stem_end, sp);
                 render_inline_text(
                     cmds,
+                    items,
+                    &item_xs,
+                    i,
                     x,
                     ev,
                     above_anchor,
@@ -2923,6 +3048,9 @@ fn render_system(
                 let above_anchor = chord_top_anchor_y(top_y, &stem_dir, stem_end, sp);
                 render_inline_text(
                     cmds,
+                    items,
+                    &item_xs,
+                    i,
                     x,
                     ev,
                     above_anchor,
@@ -3419,6 +3547,7 @@ fn dynamic_anchor_y(
     y_top: f64,
     y_bottom: f64,
     sp: f64,
+    font: glyph::FontId,
 ) -> f64 {
     let default_y = y_bottom - 1.0 * sp;
     let padding = 0.42 * sp;
@@ -3435,7 +3564,9 @@ fn dynamic_anchor_y(
         consider_obstacle(lowest_y);
     }
 
-    if let Some(lowest_y) = below_slur_lowest_y_at(items, item_xs, idx, adj_stem_dirs, y_top, sp) {
+    if let Some(lowest_y) =
+        below_slur_lowest_y_at(items, item_xs, idx, adj_stem_dirs, y_top, sp, font)
+    {
         consider_obstacle(lowest_y);
     }
 
@@ -3522,8 +3653,43 @@ fn below_slur_lowest_y_at(
     adj_stem_dirs: &std::collections::HashMap<usize, String>,
     y_top: f64,
     sp: f64,
+    font: glyph::FontId,
 ) -> Option<f64> {
     let mut stack: Vec<usize> = Vec::with_capacity(4);
+    let mut tie_spans: Vec<ArcSpan> = Vec::with_capacity(4);
+
+    for (i, item) in items.iter().enumerate() {
+        if !item.event.tie() {
+            continue;
+        }
+
+        let mut j = i + 1;
+        while j < items.len() {
+            if items[j].event.is_note() || items[j].event.is_chord() {
+                break;
+            }
+            j += 1;
+        }
+        if j >= items.len() {
+            continue;
+        }
+
+        let stem_dir = adj_stem_dirs
+            .get(&i)
+            .map(|s| s.as_str())
+            .or(items[i].stem_dir.as_deref())
+            .unwrap_or("up");
+        let direction = if stem_dir == "up" { -1.0 } else { 1.0 };
+        let nh_w = glyph::advance_width_for(font, notehead_smufl(items[i].event.duration())) * sp;
+        let next_nh_w =
+            glyph::advance_width_for(font, notehead_smufl(items[j].event.duration())) * sp;
+
+        tie_spans.push(ArcSpan {
+            start_x: (item_xs[i] + nh_w / 2.0 * 0.8).min(item_xs[j] - next_nh_w / 2.0 * 0.8),
+            end_x: (item_xs[i] + nh_w / 2.0 * 0.8).max(item_xs[j] - next_nh_w / 2.0 * 0.8),
+            direction,
+        });
+    }
 
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
@@ -3559,19 +3725,89 @@ fn below_slur_lowest_y_at(
                     continue;
                 }
 
-                let y1 = y_top + items[start_idx].y * sp - 0.5 * sp;
-                let y2 = y_top + item.y * sp - 0.5 * sp;
-                let dx = x2 - x1;
-                let arc_height = (dx.abs() * 0.3).clamp(0.8 * sp, 3.0 * sp);
-                let t = if dx.abs() > f64::EPSILON {
-                    ((target_x - x1) / dx).clamp(0.0, 1.0)
+                let start_x = x1
+                    + glyph::advance_width_for(font, notehead_smufl(items[start_idx].event.duration()))
+                        * sp
+                        / 2.0
+                        * 0.8;
+                let end_x = x2
+                    - glyph::advance_width_for(font, notehead_smufl(item.event.duration())) * sp / 2.0
+                        * 0.8;
+                let overlaps_tie = overlapping_tie_span(&tie_spans, start_x, end_x, -1.0);
+                let style = if overlaps_tie {
+                    SLUR_OVER_TIE_ARC_STYLE
                 } else {
-                    0.0
+                    SLUR_ARC_STYLE
                 };
-                let endpoint_y = y1 + (y2 - y1) * t;
-                let local_depth = (std::f64::consts::PI * t).sin() * arc_height;
+                let anchor_offset = if overlaps_tie { 0.95 * sp } else { 0.55 * sp };
+                let y1 = y_top + event_arc_reference_y(&items[start_idx], -1.0) * sp - anchor_offset;
+                let y2 = y_top + event_arc_reference_y(item, -1.0) * sp - anchor_offset;
 
-                return Some(endpoint_y - local_depth);
+                return arc_extreme_y_at(start_x, y1, end_x, y2, target_x, -1.0, sp, style);
+            }
+        }
+    }
+
+    None
+}
+
+fn above_slur_highest_y_at(
+    items: &[LaidOutItem],
+    item_xs: &[f64],
+    idx: usize,
+    y_top: f64,
+    sp: f64,
+    font: glyph::FontId,
+) -> Option<(f64, f64, f64)> {
+    let mut stack: Vec<usize> = Vec::with_capacity(4);
+
+    for (i, item) in items.iter().enumerate() {
+        let ev = &item.event;
+        if !ev.is_note() && !ev.is_chord() {
+            continue;
+        }
+
+        if ev.slur_start() {
+            stack.push(i);
+        }
+
+        if ev.slur_end() {
+            if let Some(start_idx) = stack.pop() {
+                if idx < start_idx || idx > i {
+                    continue;
+                }
+
+                let stem_dir = items[start_idx].stem_dir.as_deref().unwrap_or("up");
+                if stem_dir == "up" {
+                    continue;
+                }
+
+                let start_x = item_xs[start_idx]
+                    + glyph::advance_width_for(font, notehead_smufl(items[start_idx].event.duration()))
+                        * sp
+                        / 2.0
+                        * 0.8;
+                let end_x = item_xs[i]
+                    - glyph::advance_width_for(font, notehead_smufl(item.event.duration())) * sp
+                        / 2.0
+                        * 0.8;
+                let target_x = item_xs[idx];
+                let overlaps_tie = items[start_idx].event.tie();
+                let style = if overlaps_tie {
+                    SLUR_OVER_TIE_ARC_STYLE
+                } else {
+                    SLUR_ARC_STYLE
+                };
+                let anchor_offset = if overlaps_tie { 0.82 * sp } else { 0.55 * sp };
+                let start_y =
+                    y_top + event_arc_reference_y(&items[start_idx], 1.0) * sp + anchor_offset;
+                let end_y = y_top + event_arc_reference_y(item, 1.0) * sp + anchor_offset;
+
+                if let Some(highest_y) =
+                    arc_extreme_y_at(start_x, start_y, end_x, end_y, target_x, 1.0, sp, style)
+                {
+                    return Some((highest_y, start_x.min(end_x), start_x.max(end_x)));
+                }
             }
         }
     }
@@ -4003,6 +4239,9 @@ fn inline_clef_draw_offset(prev: Option<&Event>, next: Option<&Event>, sp: f64) 
 
 fn render_inline_text(
     cmds: &mut Vec<DrawCmd>,
+    items: &[LaidOutItem],
+    item_xs: &[f64],
+    idx: usize,
     x: f64,
     ev: &Event,
     above_anchor_y: f64,
@@ -4130,9 +4369,17 @@ fn render_inline_text(
         if !st.is_empty() {
             let staff_font_size = 12.0 * (sp / 1.75);
             // At least 1.0 sp above chord/fingering stack
-            let staff_base_y = (y_top + 2.7 * sp).max(above_stack_top + 1.0 * sp);
+            let mut staff_base_y = (y_top + 2.7 * sp).max(above_stack_top + 1.0 * sp);
+            let mut staff_x = x;
+            if let Some((slur_top_y, slur_left_x, slur_right_x)) =
+                above_slur_highest_y_at(items, item_xs, idx, y_top, sp, font)
+            {
+                staff_base_y = staff_base_y.max(slur_top_y + 0.45 * sp);
+                let slur_mid_x = (slur_left_x + slur_right_x) / 2.0;
+                staff_x += if x <= slur_mid_x { 0.18 * sp } else { -0.18 * sp };
+            }
             cmds.push(DrawCmd::Text {
-                x,
+                x: staff_x,
                 y: staff_base_y,
                 v: st.to_string(),
                 s: staff_font_size,
@@ -4550,6 +4797,7 @@ fn render_ties_and_slurs(
     };
 
     // Ties
+    let mut tie_spans: Vec<ArcSpan> = Vec::with_capacity(4);
     for (i, item) in items.iter().enumerate() {
         let ev = &item.event;
         if !ev.tie() {
@@ -4577,9 +4825,9 @@ fn render_ties_and_slurs(
 
         let start_x = item_xs[i] + nh_w / 2.0 * 0.8;
         let end_x = item_xs[j] - next_nh_w / 2.0 * 0.8;
-        let note_y = y_top + item.y * sp;
-        let next_note_y = y_top + items[j].y * sp;
-        let y_offset = direction * 0.35 * sp;
+        let note_y = y_top + event_arc_reference_y(item, direction) * sp;
+        let next_note_y = y_top + event_arc_reference_y(&items[j], direction) * sp;
+        let y_offset = direction * 0.28 * sp;
 
         render_arc(
             cmds,
@@ -4589,9 +4837,14 @@ fn render_ties_and_slurs(
             next_note_y + y_offset,
             direction,
             sp,
-            0.2,
-            0.25,
+            TIE_ARC_STYLE,
         );
+
+        tie_spans.push(ArcSpan {
+            start_x: start_x.min(end_x),
+            end_x: start_x.max(end_x),
+            direction,
+        });
     }
 
     // Slurs
@@ -4616,12 +4869,18 @@ fn render_ties_and_slurs(
 
             let start_x = item_xs[start_idx] + nh_w / 2.0 * 0.8;
             let end_x = item_xs[i] - next_nh_w / 2.0 * 0.8;
-            let start_y = y_top + items[start_idx].y * sp + direction * 0.5 * sp;
-            let end_y = y_top + item.y * sp + direction * 0.5 * sp;
+            let overlaps_tie = overlapping_tie_span(&tie_spans, start_x, end_x, direction);
+            let anchor_offset = if overlaps_tie { 0.95 * sp } else { 0.55 * sp };
+            let style = if overlaps_tie {
+                SLUR_OVER_TIE_ARC_STYLE
+            } else {
+                SLUR_ARC_STYLE
+            };
+            let start_y = y_top + event_arc_reference_y(&items[start_idx], direction) * sp
+                + direction * anchor_offset;
+            let end_y = y_top + event_arc_reference_y(item, direction) * sp + direction * anchor_offset;
 
-            render_arc(
-                cmds, start_x, start_y, end_x, end_y, direction, sp, 0.22, 0.3,
-            );
+            render_arc(cmds, start_x, start_y, end_x, end_y, direction, sp, style);
         }
     }
 }
@@ -4634,12 +4893,11 @@ fn render_arc(
     y2: f64,
     direction: f64,
     sp: f64,
-    max_thickness: f64,
-    height_factor: f64,
+    style: ArcStyle,
 ) {
     let dx = x2 - x1;
-    let arc_height = (dx.abs() * height_factor).clamp(0.8 * sp, 3.0 * sp);
-    let half_thick = max_thickness * sp / 2.0;
+    let arc_height = arc_height(dx, sp, style);
+    let half_thick = style.max_thickness * sp / 2.0;
 
     let outer_cp1_x = x1 + dx * 0.2;
     let outer_cp1_y = y1 + direction * (arc_height + half_thick) * 0.9;

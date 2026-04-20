@@ -13,6 +13,7 @@ const DEFAULT_KEY_SIG_PADDING: f64 = 1.0;
 const DEFAULT_TIME_SIG_PADDING: f64 = 1.25;
 const DEFAULT_ACCIDENTAL_PADDING: f64 = 0.35;
 const DEFAULT_ACCIDENTAL_CLEARANCE: f64 = 0.16;
+const ACCIDENTAL_STACK_VERTICAL_GAP: f64 = 0.04;
 const BARLINE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const TIED_GRACE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const SHORT_NOTE_ACCIDENTAL_CLEARANCE: f64 = 0.55;
@@ -222,6 +223,102 @@ fn accidental_width(acc: Option<&str>, font: glyph::FontId) -> f64 {
     accidental_smufl(acc).map_or(0.0, |name| glyph::advance_width_for(font, name))
 }
 
+fn accidental_vertical_span(acc: Option<&str>, font: glyph::FontId) -> Option<(f64, f64)> {
+    let name = accidental_smufl(acc)?;
+    let (mut bottom, mut top) = glyph::bbox_for(font, name)
+        .map(|bbox| (bbox.sw_y, bbox.ne_y))
+        .unwrap_or((-1.3, 1.3));
+
+    match acc {
+        Some("flat") => {
+            bottom += 0.18;
+            top -= 0.32;
+        }
+        Some("double-flat") => {
+            bottom += 0.14;
+            top -= 0.24;
+        }
+        _ => {}
+    }
+
+    Some((bottom, top))
+}
+
+fn alternating_accidental_order(sorted_indices: &[usize]) -> Vec<usize> {
+    let mut order = Vec::with_capacity(sorted_indices.len());
+    if sorted_indices.is_empty() {
+        return order;
+    }
+
+    let mut top = 0usize;
+    let mut bottom = sorted_indices.len() - 1;
+    while top <= bottom {
+        order.push(sorted_indices[top]);
+        if top == bottom {
+            break;
+        }
+        order.push(sorted_indices[bottom]);
+        top += 1;
+        bottom = bottom.saturating_sub(1);
+    }
+
+    order
+}
+
+fn accidental_ranges_overlap(a_bottom: f64, a_top: f64, b_bottom: f64, b_top: f64) -> bool {
+    a_bottom < b_top + ACCIDENTAL_STACK_VERTICAL_GAP
+        && b_bottom < a_top + ACCIDENTAL_STACK_VERTICAL_GAP
+}
+
+pub fn chord_accidental_lanes(
+    positions: &[i32],
+    accidentals: &[Option<&str>],
+    font: glyph::FontId,
+) -> (Vec<Option<usize>>, Vec<f64>) {
+    let mut note_lanes = vec![None; accidentals.len()];
+    let mut lane_widths: Vec<f64> = Vec::new();
+    let mut lane_spans: Vec<Vec<(f64, f64)>> = Vec::new();
+
+    let mut accidental_indices: Vec<usize> = accidentals
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, acc)| acc.map(|_| idx))
+        .collect();
+    accidental_indices.sort_by_key(|&idx| positions.get(idx).copied().unwrap_or_default());
+
+    for note_idx in alternating_accidental_order(&accidental_indices) {
+        let Some(accidental) = accidentals.get(note_idx).copied().flatten() else {
+            continue;
+        };
+        let Some((span_bottom, span_top)) = accidental_vertical_span(Some(accidental), font) else {
+            continue;
+        };
+        let center_y = -(positions.get(note_idx).copied().unwrap_or_default() as f64) / 2.0;
+        let note_bottom = center_y + span_bottom;
+        let note_top = center_y + span_top;
+        let width = accidental_width(Some(accidental), font);
+
+        let lane = lane_spans
+            .iter()
+            .position(|lane| {
+                lane.iter().all(|&(existing_bottom, existing_top)| {
+                    !accidental_ranges_overlap(note_bottom, note_top, existing_bottom, existing_top)
+                })
+            })
+            .unwrap_or_else(|| {
+                lane_spans.push(Vec::new());
+                lane_widths.push(0.0);
+                lane_spans.len() - 1
+            });
+
+        lane_spans[lane].push((note_bottom, note_top));
+        lane_widths[lane] = lane_widths[lane].max(width);
+        note_lanes[note_idx] = Some(lane);
+    }
+
+    (note_lanes, lane_widths)
+}
+
 fn event_has_accidental(event: &Event) -> bool {
     match event {
         Event::Note(n) => n.accidental.is_some(),
@@ -399,15 +496,23 @@ fn required_leading_accidental_space(
             }
         }
         Event::Chord(c) => {
-            let max_w = c
+            let diatonic_positions: Vec<i32> = c
                 .notes
                 .iter()
-                .map(|n| accidental_width(n.accidental.as_deref(), font))
-                .fold(0.0_f64, f64::max);
-            if max_w > 0.0 {
+                .map(|n| pitch::pitch_to_diatonic(&n.name, n.octave))
+                .collect();
+            let accidental_specs: Vec<Option<&str>> =
+                c.notes.iter().map(|n| n.accidental.as_deref()).collect();
+            let (_, lane_widths) = chord_accidental_lanes(&diatonic_positions, &accidental_specs, font);
+            let stack_width = if lane_widths.is_empty() {
+                0.0
+            } else {
+                lane_widths.iter().sum::<f64>()
+                    + DEFAULT_ACCIDENTAL_PADDING * lane_widths.len() as f64
+            };
+            if stack_width > 0.0 {
                 event_right_extent
-                    + (max_w
-                        + DEFAULT_ACCIDENTAL_PADDING
+                    + (stack_width
                         + notehead_half_width(next, font)
                         + DEFAULT_ACCIDENTAL_CLEARANCE
                         + accidental_readability_clearance(event, next))
@@ -1401,6 +1506,56 @@ mod tests {
         })
     }
 
+    fn chord(notes: &[(&str, Option<&str>, i32)], duration: i32) -> Event {
+        Event::Chord(Chord {
+            notes: notes
+                .iter()
+                .map(|(name, accidental, octave)| ChordNote {
+                    name: (*name).to_string(),
+                    accidental: accidental.map(str::to_string),
+                    octave: *octave,
+                })
+                .collect(),
+            duration,
+            dots: 0,
+            tie: false,
+            slur_start: false,
+            slur_end: false,
+            beam_start: false,
+            beam_end: false,
+            articulations: Vec::new(),
+            dynamic: None,
+            hairpin: None,
+            hairpin_start: false,
+            hairpin_end: false,
+            trill: false,
+            trill_line: false,
+            trill_start: false,
+            trill_end: false,
+            grace: false,
+            grace_slash: false,
+            ending: None,
+            ending_start: false,
+            ending_end: false,
+            fingering: None,
+            fingering_position: "above".to_string(),
+            chord_symbol: None,
+            staff_markers: Vec::new(),
+            staff_text: None,
+            expression_text: None,
+            lyrics: Vec::new(),
+            tuplet_beats: 0.0,
+            tuplet_number: 0,
+            tuplet_count: 0,
+            tuplet_start: false,
+            tuplet_end: false,
+            octave_line_number: 0,
+            octave_line_direction: None,
+            octave_line_start: false,
+            octave_line_end: false,
+        })
+    }
+
     #[test]
     fn plain_adjacent_notes_use_tighter_spacing() {
         let c = note("c", None, 4);
@@ -1546,6 +1701,60 @@ mod tests {
         let quarter_accidental_width = event_width(&c_quarter, None, Some(&c_sharp_quarter));
 
         assert!(dense_accidental_width > quarter_accidental_width);
+    }
+
+    #[test]
+    fn dense_chord_accidentals_alternate_outer_notes_first() {
+        let positions = [0, 1, 2];
+        let accidentals = [Some("flat"), Some("flat"), Some("flat")];
+
+        let (lanes, lane_widths) = chord_accidental_lanes(&positions, &accidentals, glyph::FontId::Bravura);
+
+        assert_eq!(lanes, vec![Some(0), Some(2), Some(1)]);
+        assert_eq!(lane_widths.len(), 3);
+    }
+
+    #[test]
+    fn spaced_chord_accidentals_share_a_single_lane() {
+        let positions = [0, 8, 16];
+        let accidentals = [Some("flat"), Some("flat"), Some("flat")];
+
+        let (lanes, lane_widths) = chord_accidental_lanes(&positions, &accidentals, glyph::FontId::Bravura);
+
+        assert_eq!(lanes, vec![Some(0), Some(0), Some(0)]);
+        assert_eq!(lane_widths.len(), 1);
+    }
+
+    #[test]
+    fn dense_chord_accidentals_reserve_more_leading_space() {
+        let bar = barline();
+        let single = chord(&[("b", Some("flat"), 4)], 4);
+        let dense = chord(
+            &[
+                ("b", Some("flat"), 4),
+                ("d", Some("flat"), 5),
+                ("f", Some("flat"), 5),
+            ],
+            4,
+        );
+
+        let single_width = event_width(&bar, None, Some(&single));
+        let dense_width = event_width(&bar, None, Some(&dense));
+
+        assert!(dense_width > single_width);
+    }
+
+    #[test]
+    fn flat_accidentals_can_share_more_lanes_than_naturals() {
+        let positions = [6, 8, 10];
+        let flats = [Some("flat"), Some("flat"), Some("flat")];
+        let naturals = [Some("natural"), Some("natural"), Some("natural")];
+
+        let (_, flat_lane_widths) = chord_accidental_lanes(&positions, &flats, glyph::FontId::Bravura);
+        let (_, natural_lane_widths) =
+            chord_accidental_lanes(&positions, &naturals, glyph::FontId::Bravura);
+
+        assert!(flat_lane_widths.len() < natural_lane_widths.len());
     }
 
     #[test]
