@@ -1608,6 +1608,9 @@ struct BeamGroupData {
 fn compute_below_extent_sp(items: &[LaidOutItem]) -> f64 {
     let mut max_sp = 0.0_f64;
     for item in items {
+        if !item.voice_items.is_empty() {
+            max_sp = max_sp.max(compute_below_extent_sp(&item.voice_items));
+        }
         let ev = &item.event;
         let has_dynamic = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
         let has_expression = ev.expression_text().map_or(false, |e| !e.is_empty());
@@ -1670,6 +1673,9 @@ fn compute_below_extent_sp(items: &[LaidOutItem]) -> f64 {
 fn compute_above_extent_sp(items: &[LaidOutItem]) -> f64 {
     let mut max_sp = 0.0_f64;
     for item in items {
+        if !item.voice_items.is_empty() {
+            max_sp = max_sp.max(compute_above_extent_sp(&item.voice_items));
+        }
         let ev = &item.event;
         let has_chord = ev.chord_symbol().map_or(false, |c| !c.is_empty());
         let has_staff_text = ev.staff_text().map_or(false, |t| !t.is_empty());
@@ -5414,7 +5420,24 @@ fn render_octave_lines(
                 .collect();
             let top_y = elem_ys.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             // Bracket sits above the highest element AND at least above the staff top.
-            let bracket_y = top_y.max(y_top) + 0.45 * sp;
+            let starts_over_above_fingering = og.starts_here
+                && above_fingering_stack_top(
+                    &items[*og.indices.first().unwrap()],
+                    *og.indices.first().unwrap(),
+                    adj_stem_ends,
+                    adj_stem_dirs,
+                    y_top,
+                    sp,
+                    fng_pos_default,
+                    font,
+                )
+                .is_some();
+            let label_clearance = if starts_over_above_fingering {
+                0.95 * sp
+            } else {
+                0.45 * sp
+            };
+            let bracket_y = top_y.max(y_top) + label_clearance;
             let tick_len = 0.45 * sp;
             let line_start = if og.starts_here {
                 let suffix = if og.number == 15 { "ma" } else { "va" };
