@@ -1744,59 +1744,98 @@ fn compute_below_extent_sp(items: &[LaidOutItem]) -> f64 {
 }
 
 /// Returns how far above `y_top` the given events' above-staff elements extend, in sp units.
-fn compute_above_extent_sp(items: &[LaidOutItem]) -> f64 {
+fn compute_above_extent_sp(
+    items: &[LaidOutItem],
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> f64 {
     let mut max_sp = 0.0_f64;
-    for item in items {
+    let adj_stem_ends = std::collections::HashMap::new();
+    let adj_stem_dirs = std::collections::HashMap::new();
+
+    for (idx, item) in items.iter().enumerate() {
         if !item.voice_items.is_empty() {
-            max_sp = max_sp.max(compute_above_extent_sp(&item.voice_items));
+            max_sp = max_sp.max(compute_above_extent_sp(&item.voice_items, fng_pos_default, font));
         }
         let ev = &item.event;
-        let has_chord = ev.chord_symbol().map_or(false, |c| !c.is_empty());
-        let has_staff_text = ev.staff_text().map_or(false, |t| !t.is_empty());
-        let has_ending = ev.ending().is_some();
-        let mut item_top = match ev {
-            Event::Note(_) => item.y + 1.0,
-            Event::Chord(_) if !item.chord_ys.is_empty() => {
-                item.chord_ys
-                    .iter()
-                    .copied()
-                    .fold(f64::NEG_INFINITY, f64::max)
-                    + 1.0
-            }
-            _ => 0.0,
-        };
-        if let Some(stem_end) = item.stem_y_end {
-            item_top = item_top.max(stem_end);
+        let y_top = 0.0;
+        let sp = 1.0;
+
+        let mut item_top = above_item_content_top(
+            item,
+            idx,
+            &adj_stem_ends,
+            &adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        );
+        if let Some(trill_top) = active_trill_visual_top_y(
+            items,
+            idx,
+            &adj_stem_ends,
+            &adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        ) {
+            item_top = item_top.max(trill_top);
         }
-        if ev.fingering().is_some() && ev.fingering_position() != "below" {
-            let mark_count = ev
-                .fingering()
-                .map(|f| f.marks().iter().filter(|mark| mark.value != 0).count())
-                .unwrap_or(0);
-            if mark_count > 0 {
-                item_top = item_top.max(item.y + 0.85 + mark_count as f64 * 1.35);
+        if let Some(octave_top) = active_above_octave_line_y(
+            items,
+            idx,
+            &adj_stem_ends,
+            &adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        ) {
+            item_top = item_top.max(octave_top);
+        }
+        if let Some(chord_top) = chord_symbol_top_y(
+            items,
+            idx,
+            &adj_stem_ends,
+            &adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        ) {
+            item_top = item_top.max(chord_top);
+        }
+        if let Some(staff_top) = staff_text_top_y(
+            items,
+            idx,
+            &adj_stem_ends,
+            &adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        ) {
+            item_top = item_top.max(staff_top);
+        }
+        if ev.ending().is_some() {
+            if let Some((start, end)) = active_ending_group_bounds(items, idx) {
+                item_top = item_top.max(ending_bracket_y_for_bounds(
+                    items,
+                    start,
+                    end,
+                    &adj_stem_ends,
+                    &adj_stem_dirs,
+                    y_top,
+                    sp,
+                    fng_pos_default,
+                    font,
+                ));
             }
         }
-        if ev.octave_line_number() > 0 && ev.octave_line_direction().unwrap_or("above") == "above" {
-            item_top += 1.45;
-        }
-        if has_ending {
-            let ending_gap = if ev.octave_line_number() > 0
-                && ev.octave_line_direction().unwrap_or("above") == "above"
-            {
-                2.15
-            } else {
-                0.95
-            };
-            max_sp = max_sp.max((item_top + ending_gap).max(5.0));
-            if has_chord || has_staff_text {
-                max_sp = max_sp.max(item_top + ending_gap + 3.0);
-            }
-        } else if has_staff_text || has_chord {
-            max_sp = max_sp.max(5.5);
-        } else if ev.fingering().is_some() {
-            max_sp = max_sp.max(item_top.max(3.0));
-        } else if item_top > 0.0 {
+
+        if item_top > 0.0 {
             max_sp = max_sp.max(item_top);
         }
     }
@@ -1935,11 +1974,17 @@ pub fn render_system_group(
     let mut staff_y_tops = Vec::with_capacity(num_staves);
 
     for (si, laid_out) in laid_out_staves.iter().enumerate() {
+        let fng_pos = if si < fingering_positions.len() {
+            fingering_positions[si]
+        } else {
+            "above"
+        };
+
         if si > 0 {
             // Expand the gap if below-staff content of the upper staff or above-staff content
             // of the lower staff needs more room than the configured default spacing.
             let below_sp = compute_below_extent_sp(&laid_out_staves[si - 1].items);
-            let above_sp = compute_above_extent_sp(&laid_out.items);
+            let above_sp = compute_above_extent_sp(&laid_out.items, fng_pos, font);
             let required_mm = (below_sp + above_sp + 0.5) * sp_unit;
             let spacing = staff_spacing_mm.max(required_mm);
             y_offset -= spacing;
@@ -1973,12 +2018,6 @@ pub fn render_system_group(
                 );
             }
         }
-        let fng_pos = if si < fingering_positions.len() {
-            fingering_positions[si]
-        } else {
-            "above"
-        };
-
         render_system(
             &mut cmds,
             laid_out,
@@ -4956,6 +4995,33 @@ fn staff_text_top_y(
         base_y = base_y.max(trill_top + 1.2 * sp);
     }
     Some(base_y + text_height_mm(staff_font_size))
+}
+
+fn active_ending_group_bounds(items: &[LaidOutItem], idx: usize) -> Option<(usize, usize)> {
+    if idx >= items.len() {
+        return None;
+    }
+    let label = items[idx].event.ending()?;
+
+    let mut start = idx;
+    while start > 0 {
+        if items[start - 1].event.ending() == Some(label) {
+            start -= 1;
+        } else {
+            break;
+        }
+    }
+
+    let mut end = idx;
+    while end + 1 < items.len() {
+        if items[end + 1].event.ending() == Some(label) {
+            end += 1;
+        } else {
+            break;
+        }
+    }
+
+    Some((start, end))
 }
 
 fn ending_bracket_y_for_bounds(
