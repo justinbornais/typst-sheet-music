@@ -10,7 +10,7 @@ Render sheet music directly inside Typst using SMuFL-aware glyph placement and a
 - Inline annotations: dynamics, hairpins, articulations, fingerings, chord symbols, expression text, staff text, staff markers, and lyrics.
 - Notation features: beams, ties, slurs, tuplets, octave lines, trills, grace notes / acciaccaturas, repeat barlines, endings, and dotted notes.
 - Inline clef changes, inline time-signature changes, manual spacing via repeated spaces, and explicit system breaks.
-- Single-staff, grand-staff, and bracketed multi-staff layout with vertical beat alignment.
+- Single-staff, grand-staff, bracketed, and connected multi-staff layout with vertical beat alignment.
 - Alternate SMuFL font support via `music-font` and `music-font-metadata`.
 - Crisp vector PDF output.
 
@@ -81,14 +81,13 @@ Primary entry point for one or more staves.
 ```typ
 #score(
   staves: (
-    (clef: "treble", music: "c4 d e f | g a b c'"),
-    (clef: "bass", music: "c2 g | c1"),
+    (clef: "treble", brace-start: true, music: "c4 d e f | g a b c'"),
+    (clef: "bass", brace-end: true, music: "c2 g | c1"),
   ),
   key: "C",
   time: "4/4",
   title: "My Piece",
   composer: "Composer Name",
-  staff-group: "grand",
 )
 ```
 
@@ -102,7 +101,6 @@ Primary entry point for one or more staves.
 | `composer` | string | `none` | Composer name |
 | `arranger` | string | `none` | Arranger name |
 | `lyricist` | string | `none` | Lyricist name |
-| `staff-group` | string | `"none"` | Legacy global grouping: explicit `"grand"` or `"bracket"` still works; `"none"`/`"separate"` render staves separately |
 | `staff-size` | length | `1.75mm` | Staff space distance |
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `staff-spacing` | length | `8mm` | Vertical space between staves in a system |
@@ -128,7 +126,30 @@ Staff dictionaries support:
 
 Instrument names reserve space before the staff. Use `&`, `#`, and `=` in names for flat, sharp, and natural symbols.
 
-Per-staff grouping markers override the legacy score-level `staff-group` value. Mark the top staff with `*-start` and the bottom adjacent staff with the matching `*-end`.
+### Staff Grouping
+
+By default, staves are separate: no brace or bracket is drawn, and measure lines do not connect between staves.
+
+Use per-staff start/end fields to group adjacent staves. Mark the top staff with `*-start` and the bottom staff with the matching `*-end`.
+
+```typ
+#score(
+  staves: (
+    (
+      clef: "treble",
+      brace-start: true,
+      music: "c'4 d' e' f'",
+    ),
+    (
+      clef: "bass",
+      brace-end: true,
+      music: "c,4 e, g, c",
+    ),
+  ),
+)
+```
+
+Use `brace-start` / `brace-end` for a grand staff, `bracket-start` / `bracket-end` for a bracketed section, and `barline-group-start` / `barline-group-end` when you only want measure lines connected without a brace or bracket. Groups can overlap when needed, such as a string-section bracket with a two-staff brace inside it.
 
 ### `melody()`
 
@@ -175,10 +196,10 @@ Single-staff convenience wrapper around `score()`.
   composer: "L. van Beethoven",
   key: "D",
   time: "4/4",
-  staff-group: "grand",
   staves: (
     (
       clef: "treble",
+      brace-start: true,
       music: "
         f#4n[3][D] f# g a | a8[D/A] b g4 f#[A] e |
         d[D] d e f# | f#4.[A] e8 e2 |
@@ -188,6 +209,7 @@ Single-staff convenience wrapper around `score()`.
     ),
     (
       clef: "bass",
+      brace-end: true,
       fingering-position: "below",
       music: "
         d1n[1] | a, | d | a, |
@@ -329,10 +351,9 @@ Short example:
 
 ```typ
 #score(
-  staff-group: "grand",
   staves: (
-    (clef: "treble", music: "c4[Am]n[1] dtext[Solo] e4tr f | cresc{g a b c'} | end{1.: d'4 e' f' g'}"),
-    (clef: "bass", music: "c,4 e, g, c bass b, a, g, | grace{c16 d e/} f4 | 3/4 c e g"),
+    (clef: "treble", brace-start: true, music: "c4[Am]n[1] dtext[Solo] e4tr f | cresc{g a b c'} | end{1.: d'4 e' f' g'}"),
+    (clef: "bass", brace-end: true, music: "c,4 e, g, c bass b, a, g, | grace{c16 d e/} f4 | 3/4 c e g"),
   ),
 )
 ```
