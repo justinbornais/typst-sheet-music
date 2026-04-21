@@ -914,8 +914,11 @@ fn svg_from_cmds(
     }
 
     let margin = 1.5;
-    let min_x = bounds.0.min(0.0) - margin;
-    let max_x = bounds.2.max(width_mm) + margin;
+    // Keep the horizontal viewport stable across systems. Content-aware left/right
+    // bounds make systems with labels or brackets extending slightly farther left
+    // get translated by a different amount, which visually shifts staff lines.
+    let min_x = -margin;
+    let max_x = width_mm + margin;
     let min_y = bounds.1 - margin;
     let max_y = bounds.3 + margin;
     let vb_w = (max_x - min_x).max(1.0);
