@@ -83,8 +83,12 @@ pub struct ChordNote {
 pub struct Rest {
     pub duration: i32,
     pub dots: i32,
+    pub dynamic: Option<String>,
+    pub chord_symbol: Option<String>,
+    pub staff_markers: Vec<String>,
     pub staff_text: Option<String>,
     pub expression_text: Option<String>,
+    pub lyrics: Vec<LyricEntry>,
     pub tuplet_beats: f64,
     pub tuplet_number: i32,
     pub tuplet_count: i32,
@@ -346,6 +350,7 @@ impl Event {
     pub fn dynamic_mark(&self) -> Option<&str> {
         match self {
             Event::Note(n) => n.dynamic.as_deref(),
+            Event::Rest(r) => r.dynamic.as_deref(),
             Event::Chord(c) => c.dynamic.as_deref(),
             _ => None,
         }
@@ -491,6 +496,7 @@ impl Event {
     pub fn chord_symbol(&self) -> Option<&str> {
         match self {
             Event::Note(n) => n.chord_symbol.as_deref(),
+            Event::Rest(r) => r.chord_symbol.as_deref(),
             Event::Chord(c) => c.chord_symbol.as_deref(),
             _ => None,
         }
@@ -498,6 +504,7 @@ impl Event {
     pub fn staff_markers(&self) -> &[String] {
         match self {
             Event::Note(n) => &n.staff_markers,
+            Event::Rest(r) => &r.staff_markers,
             Event::Chord(c) => &c.staff_markers,
             _ => &[],
         }
@@ -521,6 +528,7 @@ impl Event {
     pub fn lyrics(&self) -> &[LyricEntry] {
         match self {
             Event::Note(n) => &n.lyrics,
+            Event::Rest(r) => &r.lyrics,
             Event::Chord(c) => &c.lyrics,
             _ => &[],
         }
@@ -581,8 +589,12 @@ impl Rest {
         Rest {
             duration,
             dots: 0,
+            dynamic: None,
+            chord_symbol: None,
+            staff_markers: Vec::new(),
             staff_text: None,
             expression_text: None,
+            lyrics: Vec::new(),
             tuplet_beats: 0.0,
             tuplet_number: 0,
             tuplet_count: 0,

@@ -889,7 +889,17 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
 #melody(
   key: "C",
   time: "4/4",
-  music: "r4text[Solo] c'4 r4exp[senza vib.] d'4 | r2text[Tacet] r2exp[attacca]",
+  music: "r4text[Solo] c'4 r4exp[senza vib.] d'4 | r4v[p]l[rest] r4[C]bm c'4l[sings] d'4",
+)
+
+#v(1cm)
+
+== Test 65c: Spans starting and ending on rests
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "8a{r4text[Rest 8va] c'' r4 c''} | cresc{r4v[p] c' r4 c'v[f]} | decresc{c'4v[ffff] r4exp[dim.] c' r4v[pppp]}",
 )
 
 #v(1cm)

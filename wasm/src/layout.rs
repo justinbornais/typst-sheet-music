@@ -1561,8 +1561,12 @@ mod tests {
         Event::Rest(Rest {
             duration,
             dots: 0,
+            dynamic: None,
+            chord_symbol: None,
+            staff_markers: Vec::new(),
             staff_text: None,
             expression_text: None,
+            lyrics: Vec::new(),
             tuplet_beats: 0.0,
             tuplet_number: 0,
             tuplet_count: 0,

@@ -2966,6 +2966,21 @@ fn render_system(
                     render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
                 }
             }
+            Event::Rest(r) => {
+                if let Some(ref dyn_mark) = r.dynamic {
+                    let dyn_y = dynamic_anchor_y(
+                        items,
+                        &item_xs,
+                        i,
+                        &adj_stem_dirs,
+                        y_top,
+                        y_bottom,
+                        sp,
+                        font,
+                    );
+                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
+                }
+            }
             Event::Chord(c) => {
                 let is_grace = c.grace;
                 let note_scale = if is_grace { GRACE_NOTE_SCALE } else { 1.0 };
@@ -3188,7 +3203,8 @@ fn render_system(
                 // Staff markers
                 render_staff_markers(cmds, x, &n.staff_markers, y_top, above_anchor, sp, font);
             }
-            Event::Rest(_) => {
+            Event::Rest(r) => {
+                let above_anchor = y_top + 0.5 * sp;
                 render_inline_text(
                     cmds,
                     items,
@@ -3196,7 +3212,7 @@ fn render_system(
                     i,
                     x,
                     ev,
-                    y_top + 0.5 * sp,
+                    above_anchor,
                     y_top + item.y * sp,
                     y_top + item.y * sp,
                     y_top,
@@ -3208,6 +3224,7 @@ fn render_system(
                     false,
                     font,
                 );
+                render_staff_markers(cmds, x, &r.staff_markers, y_top, above_anchor, sp, font);
             }
             Event::Chord(c) => {
                 let chord_ys_abs: Vec<f64> =
@@ -4558,6 +4575,11 @@ fn render_inline_text(
             let staff_font_size = 12.0 * (sp / 1.75);
             // At least 1.0 sp above chord/fingering stack
             let mut staff_base_y = (y_top + 2.7 * sp).max(above_stack_top + 1.0 * sp);
+            if ev.octave_line_number() > 0
+                && ev.octave_line_direction().unwrap_or("above") == "above"
+            {
+                staff_base_y = staff_base_y.max(y_top + 4.25 * sp);
+            }
             let mut staff_x = x;
             if let Some((slur_top_y, slur_left_x, slur_right_x)) =
                 above_slur_highest_y_at(items, item_xs, idx, y_top, sp, font)
@@ -4816,6 +4838,12 @@ fn render_hairpins(
     music_start_x: f64,
     total_width: f64,
 ) {
+    fn dynamic_hairpin_padding(dynamic: &str, sp: f64, after_dynamic: bool) -> f64 {
+        let mark_count = dynamic.chars().filter(|ch| dynamic_codepoint(*ch).is_some()).count();
+        let extra = mark_count.saturating_sub(1) as f64 * 0.55 * sp;
+        1.15 * sp + extra + if after_dynamic { 0.18 * sp } else { 0.0 }
+    }
+
     struct HairpinGroup {
         indices: Vec<usize>,
         kind: String,
@@ -4897,15 +4925,23 @@ fn render_hairpins(
             // (simplified - the original Typst code checks first_hairpin_anchor)
         }
 
-        let x_first = item_xs[*hg.indices.first().unwrap()];
-        let x_last = item_xs[*hg.indices.last().unwrap()];
+        let first_idx = *hg.indices.first().unwrap();
+        let last_idx = *hg.indices.last().unwrap();
+        let x_first = item_xs[first_idx];
+        let x_last = item_xs[last_idx];
         let x0 = if continuation {
             music_start_x
+        } else if let Some(dynamic) = items[first_idx].event.dynamic_mark() {
+            x_first + dynamic_hairpin_padding(dynamic, sp, true)
         } else {
             x_first + 0.25 * sp
         };
         let raw_x1 = if hg.ends_here {
-            x_last + 0.95 * sp
+            if let Some(dynamic) = items[last_idx].event.dynamic_mark() {
+                x_last - dynamic_hairpin_padding(dynamic, sp, false)
+            } else {
+                x_last + 0.95 * sp
+            }
         } else {
             total_width * sp - 1.0 * sp
         };
@@ -5717,7 +5753,7 @@ fn render_lyrics(
     // Simple lyric rendering
     for (idx, item) in items.iter().enumerate() {
         let ev = &item.event;
-        if !ev.is_note() && !ev.is_chord() {
+        if !ev.is_anchor() {
             continue;
         }
 
@@ -5755,7 +5791,7 @@ fn render_lyrics(
 
         for (idx, item) in items.iter().enumerate() {
             let ev = &item.event;
-            if !ev.is_note() && !ev.is_chord() {
+            if !ev.is_anchor() {
                 continue;
             }
 

@@ -877,8 +877,12 @@ impl<'a> Parser<'a> {
                 self.last_duration = duration;
                 let mut rest = Rest::new(duration);
                 rest.dots = dots;
+                rest.dynamic = att.dynamic;
+                rest.chord_symbol = att.chord_symbol;
+                rest.staff_markers = att.staff_markers;
                 rest.staff_text = att.staff_text;
                 rest.expression_text = att.expression_text;
+                rest.lyrics = att.lyrics;
                 self.events.push(Event::Rest(rest));
                 continue;
             }
