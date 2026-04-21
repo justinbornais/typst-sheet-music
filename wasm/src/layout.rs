@@ -18,12 +18,15 @@ const ACCIDENTAL_STACK_VERTICAL_GAP: f64 = 0.04;
 const BARLINE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const TIED_GRACE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const SHORT_NOTE_ACCIDENTAL_CLEARANCE: f64 = 0.55;
-const FLAGGED_NOTE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.36;
+const FLAGGED_NOTE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.24;
 const EMPTY_MEASURE_REST_WIDTH: f64 = 1.8;
 const SYSTEM_START_CONTENT_PADDING: f64 = 0.55;
 const GRACE_NOTE_SCALE: f64 = 0.68;
 const GRACE_STEM_MIN_LENGTH: f64 = 3.0;
 const DEFAULT_INLINE_CLEF_SCALE: f64 = 0.8;
+const BREATH_MARK_X_OFFSET: f64 = 1.55;
+const CAESURA_X_OFFSET: f64 = 1.75;
+const RIGHT_STAFF_MARKER_PADDING: f64 = 0.14;
 
 // ─── Utility functions (mirrors utils.typ) ─────────────────────────────
 
@@ -452,7 +455,9 @@ fn pre_accidental_clearance(event: &Event) -> f64 {
 }
 
 fn flagged_note_accidental_extra(event: &Event, next: Option<&Event>) -> f64 {
-    if next.map_or(false, |next| flagged_note_before_longer_accidental(event, next)) {
+    if next.map_or(false, |next| {
+        flagged_note_before_longer_accidental(event, next)
+    }) {
         FLAGGED_NOTE_TO_ACCIDENTAL_CLEARANCE
     } else {
         0.0
@@ -587,6 +592,31 @@ fn grace_body_width(
     head_w.max(rest_w) * GRACE_NOTE_SCALE + inter_note_gap
 }
 
+fn right_staff_marker_trailing_extra(
+    event: &Event,
+    available_space: f64,
+    font: glyph::FontId,
+) -> f64 {
+    let required = event
+        .staff_markers()
+        .iter()
+        .filter_map(|marker| match marker.as_str() {
+            "breath-mark" => Some(
+                BREATH_MARK_X_OFFSET
+                    + glyph::advance_width_for(font, "breathMarkComma")
+                    + RIGHT_STAFF_MARKER_PADDING,
+            ),
+            "caesura" => Some(
+                CAESURA_X_OFFSET
+                    + glyph::advance_width_for(font, "caesura")
+                    + RIGHT_STAFF_MARKER_PADDING,
+            ),
+            _ => None,
+        })
+        .fold(0.0_f64, f64::max);
+    (required - available_space).max(0.0)
+}
+
 pub fn event_width(event: &Event, prev: Option<&Event>, next: Option<&Event>) -> f64 {
     event_width_font(event, prev, next, glyph::FontId::Bravura)
 }
@@ -636,6 +666,7 @@ pub fn event_width_font(
             }
             w + leading_accidental_extra(event, w, next, font)
                 + flagged_note_accidental_extra(event, next)
+                + right_staff_marker_trailing_extra(event, w, font)
         }
     }
 }
@@ -1965,6 +1996,23 @@ mod tests {
 
         assert_eq!(compact_width, EMPTY_MEASURE_REST_WIDTH);
         assert!(compact_width < regular_width);
+    }
+
+    #[test]
+    fn caesura_reserves_room_after_right_side_marker() {
+        let mut with_caesura = note("c", None, 4);
+        if let Event::Note(n) = &mut with_caesura {
+            n.staff_markers.push("caesura".into());
+        }
+        let next = note("d", None, 8);
+        let plain_width = event_width(&note("c", None, 4), None, Some(&next));
+        let caesura_width = event_width(&with_caesura, None, Some(&next));
+
+        assert!(caesura_width > plain_width);
+        assert!(
+            caesura_width
+                >= CAESURA_X_OFFSET + glyph::advance_width_for(glyph::FontId::Bravura, "caesura")
+        );
     }
 
     #[test]

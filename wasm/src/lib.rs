@@ -6,14 +6,16 @@ pub mod renderer;
 pub mod types;
 
 use types::*;
+#[cfg(not(test))]
 use wasm_minimal_protocol::*;
 use glyph::FontId;
 
+#[cfg(not(test))]
 initiate_protocol!();
 
 const MUSIC_START_PADDING_SP: f64 = 2.55;
 
-#[wasm_func]
+#[cfg_attr(not(test), wasm_func)]
 pub fn render_score(input: &[u8]) -> Result<Vec<u8>, String> {
     let params: ScoreInput =
         serde_json::from_slice(input).map_err(|e| format!("Failed to parse input: {}", e))?;

@@ -335,6 +335,16 @@ impl<'a> Parser<'a> {
         (None, p)
     }
 
+    fn attach_staff_marker_to_previous(&mut self, marker: String) -> bool {
+        match self.events.last_mut() {
+            Some(Event::Note(n)) => n.staff_markers.push(marker),
+            Some(Event::Rest(r)) => r.staff_markers.push(marker),
+            Some(Event::Chord(c)) => c.staff_markers.push(marker),
+            _ => return false,
+        }
+        true
+    }
+
     fn parse_note_attachments(&self, mut p: usize) -> (NoteAttachments, usize) {
         let mut att = NoteAttachments::default();
 
@@ -569,6 +579,13 @@ impl<'a> Parser<'a> {
                 if self.pos < self.len() && !self.events.is_empty() {
                     self.events.push(Event::LineBreak);
                 }
+                continue;
+            }
+
+            let (standalone_marker, marker_end) = self.parse_staff_marker(self.pos);
+            if let Some(marker) = standalone_marker {
+                self.attach_staff_marker_to_previous(marker);
+                self.pos = marker_end;
                 continue;
             }
 
@@ -1507,6 +1524,29 @@ mod tests {
                 assert!(!marks[2].bold);
             }
             other => panic!("expected chord, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_standalone_staff_markers_on_previous_event() {
+        let events = parse_music("e'2tr ds e'4 // r4", 4);
+
+        assert_eq!(events.len(), 3);
+        match &events[0] {
+            Event::Note(n) => {
+                assert_eq!(n.name, "e");
+                assert_eq!(n.duration, 2);
+                assert_eq!(n.staff_markers, vec!["dal-segno"]);
+            }
+            other => panic!("expected first note, got {other:?}"),
+        }
+        match &events[1] {
+            Event::Note(n) => {
+                assert_eq!(n.name, "e");
+                assert_eq!(n.duration, 4);
+                assert_eq!(n.staff_markers, vec!["caesura"]);
+            }
+            other => panic!("expected second note, got {other:?}"),
         }
     }
 }

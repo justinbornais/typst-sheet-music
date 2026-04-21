@@ -3201,7 +3201,16 @@ fn render_system(
                 );
 
                 // Staff markers
-                render_staff_markers(cmds, x, &n.staff_markers, y_top, above_anchor, sp, font);
+                render_staff_markers(
+                    cmds,
+                    x,
+                    &n.staff_markers,
+                    n.trill,
+                    y_top,
+                    above_anchor,
+                    sp,
+                    font,
+                );
             }
             Event::Rest(r) => {
                 let above_anchor = y_top + 0.5 * sp;
@@ -3224,7 +3233,16 @@ fn render_system(
                     false,
                     font,
                 );
-                render_staff_markers(cmds, x, &r.staff_markers, y_top, above_anchor, sp, font);
+                render_staff_markers(
+                    cmds,
+                    x,
+                    &r.staff_markers,
+                    r.trill,
+                    y_top,
+                    above_anchor,
+                    sp,
+                    font,
+                );
             }
             Event::Chord(c) => {
                 let chord_ys_abs: Vec<f64> =
@@ -3264,7 +3282,16 @@ fn render_system(
                     adj_stem_ends.contains_key(&i),
                     font,
                 );
-                render_staff_markers(cmds, x, &c.staff_markers, y_top, above_anchor, sp, font);
+                render_staff_markers(
+                    cmds,
+                    x,
+                    &c.staff_markers,
+                    c.trill,
+                    y_top,
+                    above_anchor,
+                    sp,
+                    font,
+                );
             }
             _ => {}
         }
@@ -4633,6 +4660,7 @@ fn render_staff_markers(
     cmds: &mut Vec<DrawCmd>,
     x: f64,
     markers: &[String],
+    has_trill: bool,
     y_top: f64,
     above_anchor: f64,
     sp: f64,
@@ -4668,6 +4696,9 @@ fn render_staff_markers(
 
     // Centered markers
     let mut cur_y = (y_top + 1.9 * sp).max(above_anchor + 0.3 * sp);
+    if has_trill && centered.iter().any(|m| m.as_str() == "dal-segno") {
+        cur_y += 0.7 * sp;
+    }
     for mk in &centered {
         if let Some(cp) = staff_marker_codepoint(mk) {
             emit_glyph(cmds, x, cur_y, mk, cp, sp, font);

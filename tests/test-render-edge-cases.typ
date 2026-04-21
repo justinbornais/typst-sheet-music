@@ -93,7 +93,7 @@ This document provides a series of tests to verify the rendering of edge cases i
   staves: (
     (
       clef: "treble",
-      music: "grace{c#''32 d'' e'' f#''/} g''4bm cresc{a''8 b'' c#''' d'''} | grace{g'16 a' b'/} c''4// decresc{b'8 a' g' f#'} | e'2tr ds e'4coda r4",
+      music: "grace{c#''32 d'' e'' f#''/} g''4bm cresc{a''8 b'' c#''' d'''} | grace{g'16 a' b'/} c''4// decresc{b'8 a' g' f#'} | e'2tr ds e'coda r4",
     ),
   ),
 )
