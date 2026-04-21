@@ -1755,7 +1755,11 @@ fn compute_above_extent_sp(
 
     for (idx, item) in items.iter().enumerate() {
         if !item.voice_items.is_empty() {
-            max_sp = max_sp.max(compute_above_extent_sp(&item.voice_items, fng_pos_default, font));
+            max_sp = max_sp.max(compute_above_extent_sp(
+                &item.voice_items,
+                fng_pos_default,
+                font,
+            ));
         }
         let ev = &item.event;
         let y_top = 0.0;
@@ -4422,10 +4426,8 @@ mod beam_tests {
     fn beam_clearance_uses_outer_chord_notehead() {
         let chord_ys = [-1.0, 0.0, 2.0];
 
-        let up_edge =
-            beam_notehead_edge_y_from_centers(-1.0, &chord_ys, "up", 0.8, -0.8, 1.0);
-        let down_edge =
-            beam_notehead_edge_y_from_centers(2.0, &chord_ys, "down", 0.8, -0.8, 1.0);
+        let up_edge = beam_notehead_edge_y_from_centers(-1.0, &chord_ys, "up", 0.8, -0.8, 1.0);
+        let down_edge = beam_notehead_edge_y_from_centers(2.0, &chord_ys, "down", 0.8, -0.8, 1.0);
 
         assert_eq!(up_edge, 2.8);
         assert_eq!(down_edge, -1.8);
@@ -4464,6 +4466,14 @@ fn fingering_stack_step(sp: f64) -> f64 {
 
 fn text_height_mm(size_pt: f64) -> f64 {
     size_pt * 25.4 / 72.0
+}
+
+fn ending_label_size_pt(sp: f64) -> f64 {
+    7.75 * (sp / 1.75) * 1.15
+}
+
+fn ending_hook_depth_mm(sp: f64) -> f64 {
+    text_height_mm(ending_label_size_pt(sp)).max(1.6 * sp)
 }
 
 fn glyph_top_mm(smufl_name: &str, sp: f64, font: glyph::FontId) -> f64 {
@@ -5037,7 +5047,7 @@ fn ending_bracket_y_for_bounds(
 ) -> f64 {
     let label_text = items[start].event.ending().unwrap_or("");
     let starts_here = items[start].event.ending_start();
-    let ending_label_size = 7.75 * (sp / 1.75) * 1.15;
+    let ending_label_size = ending_label_size_pt(sp);
     let label_height = if starts_here && !label_text.is_empty() {
         text_height_mm(ending_label_size)
     } else {
@@ -6512,10 +6522,12 @@ fn render_endings(
             fng_pos_default,
             font,
         );
-        let hook_depth = 0.65 * sp;
+        let hook_depth = ending_hook_depth_mm(sp);
 
         emit_line(cmds, x0, bracket_y, x1, bracket_y, line_w);
-        emit_line(cmds, x0, bracket_y, x0, bracket_y - hook_depth, line_w);
+        if eg.starts_here {
+            emit_line(cmds, x0, bracket_y, x0, bracket_y - hook_depth, line_w);
+        }
         if eg.ends_here {
             emit_line(cmds, x1, bracket_y, x1, bracket_y - hook_depth, line_w);
         }
@@ -6530,6 +6542,101 @@ fn render_endings(
                 i: false,
                 a: "north-west".into(),
             });
+        }
+    }
+}
+
+#[cfg(test)]
+mod ending_bracket_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn laid_out_item(event: Event, x: f64) -> LaidOutItem {
+        LaidOutItem {
+            event,
+            x,
+            y: 0.0,
+            stem_dir: None,
+            stem_y_end: None,
+            stem_forced: false,
+            voice: None,
+            width: 1.0,
+            chord_ys: Vec::new(),
+            chord_staff_positions: Vec::new(),
+            voice_items: Vec::new(),
+        }
+    }
+
+    fn vertical_depths(cmds: &[DrawCmd]) -> Vec<f64> {
+        cmds.iter()
+            .filter_map(|cmd| match cmd {
+                DrawCmd::Line { x1, y1, x2, y2, .. }
+                    if (x1 - x2).abs() < 1e-9 && (y1 - y2).abs() > 1e-9 =>
+                {
+                    Some((y1 - y2).abs())
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn continued_endings_do_not_draw_a_left_hook() {
+        let mut note = Note::new("c", 4);
+        note.ending = Some("1.".to_string());
+        let items = vec![laid_out_item(Event::Note(note), 10.0)];
+        let item_xs = vec![10.0];
+        let mut cmds = Vec::new();
+
+        render_endings(
+            &mut cmds,
+            &items,
+            &item_xs,
+            &HashMap::new(),
+            &HashMap::new(),
+            0.0,
+            0.0,
+            1.75,
+            20.0,
+            "above",
+            glyph::FontId::Bravura,
+        );
+
+        assert!(vertical_depths(&cmds).is_empty());
+    }
+
+    #[test]
+    fn ending_hooks_are_extended_to_label_height() {
+        let sp = 1.75;
+        let expected = ending_hook_depth_mm(sp);
+
+        let mut note = Note::new("c", 4);
+        note.ending = Some("1.".to_string());
+        note.ending_start = true;
+        note.ending_end = true;
+        let items = vec![laid_out_item(Event::Note(note), 10.0)];
+        let item_xs = vec![10.0];
+        let mut cmds = Vec::new();
+
+        render_endings(
+            &mut cmds,
+            &items,
+            &item_xs,
+            &HashMap::new(),
+            &HashMap::new(),
+            0.0,
+            0.0,
+            sp,
+            20.0,
+            "above",
+            glyph::FontId::Bravura,
+        );
+
+        let hook_depths = vertical_depths(&cmds);
+        assert_eq!(hook_depths.len(), 2);
+        for depth in hook_depths {
+            assert!((depth - expected).abs() < 1e-9);
+            assert!(depth > 0.65 * sp * 2.0);
         }
     }
 }
