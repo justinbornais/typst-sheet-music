@@ -5360,11 +5360,23 @@ fn render_inline_text(
         if !et.is_empty() {
             let exp_font_size = 8.75 * (sp / 1.75);
             let has_dynamic = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
-            let exp_base_y = if has_dynamic {
+            let default_exp_y = if has_dynamic {
                 y_bottom - 3.5 * sp
             } else {
                 y_bottom - 2.0 * sp
             };
+            let content_bottom = below_item_content_bottom(
+                &items[idx],
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                y_bottom,
+                sp,
+                fng_pos_default,
+                font,
+            );
+            let exp_base_y = default_exp_y.min(content_bottom - 0.75 * sp);
             cmds.push(DrawCmd::Text {
                 x,
                 y: exp_base_y,
