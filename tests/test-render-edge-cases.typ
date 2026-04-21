@@ -206,11 +206,10 @@ This document provides a series of tests to verify the rendering of edge cases i
 #score(
   key: "C",
   time: "4/4",
-  width: 150mm,
   staves: (
     (
       clef: "treble",
-      music: "{3,2:c''8 {5,4:d''16 e'' f'' g'' a''} b'8} | v{{7,4:c'''16 b'' a'' g'' f'' e'' d''};{3,2:c'8 e' g'}} | {5,4:<c' e' g'>16 <d' f' a'> <e' g' b'> <f' a' c''> <g' b' d''>}",
+      music: "{3,2:c''8 {5,4:d''16 e'' f'' g'' a''} b'8} | v{{7,4:c'''16 b'' a'' g'' f'' e'' d''};{3,2:c'8 e' g'}} | {5,4:<c' e' g'>16 <d' f' a'> <e' g' b'> <f' a' c''> <g' b' d''>} | v{{2,3:c'8 d' c'}  e'4;g8 g  c4}",
     ),
   ),
 )

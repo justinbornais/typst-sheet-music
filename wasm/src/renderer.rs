@@ -3340,6 +3340,8 @@ fn render_system(
                     above_anchor,
                     note_center_y,
                     note_center_y,
+                    &adj_stem_ends,
+                    &adj_stem_dirs,
                     y_top,
                     y_bottom,
                     sp,
@@ -3374,6 +3376,8 @@ fn render_system(
                     above_anchor,
                     y_top + item.y * sp,
                     y_top + item.y * sp,
+                    &adj_stem_ends,
+                    &adj_stem_dirs,
                     y_top,
                     y_bottom,
                     sp,
@@ -3423,6 +3427,8 @@ fn render_system(
                     above_anchor,
                     top_y,
                     bottom_y,
+                    &adj_stem_ends,
+                    &adj_stem_dirs,
                     y_top,
                     y_bottom,
                     sp,
@@ -3516,11 +3522,13 @@ fn render_system(
         items,
         &item_xs,
         &adj_stem_ends,
+        &adj_stem_dirs,
         y_top,
         y_bottom,
         sp,
         music_start_x,
         total_width,
+        fng_pos,
         font,
     );
 
@@ -4415,6 +4423,14 @@ fn fingering_stack_step(sp: f64) -> f64 {
     1.35 * sp
 }
 
+fn text_height_mm(size_pt: f64) -> f64 {
+    size_pt * 25.4 / 72.0
+}
+
+fn glyph_top_mm(smufl_name: &str, sp: f64, font: glyph::FontId) -> f64 {
+    glyph::bbox_for(font, smufl_name).map_or(1.0 * sp, |b| b.ne_y * sp)
+}
+
 fn fingering_respects_above_default(ev: &Event, fng_pos_default: &str) -> bool {
     ev.fingering().is_some() && ev.fingering_position() != "below" && fng_pos_default != "below"
 }
@@ -4490,6 +4506,57 @@ fn above_fingering_stack_top(
     Some(base_y + mark_count as f64 * fingering_stack_step(sp))
 }
 
+fn above_articulation_top(
+    item: &LaidOutItem,
+    idx: usize,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let articulations = item.event.articulations();
+    if articulations.is_empty() {
+        return None;
+    }
+
+    let stem_dir = adj_stem_dirs
+        .get(&idx)
+        .map(|s| s.as_str())
+        .or(item.stem_dir.as_deref())
+        .unwrap_or("up");
+    let non_fermata_count = articulations
+        .iter()
+        .filter(|art| art.as_str() != "fermata")
+        .count();
+    let has_fermata = articulations.iter().any(|art| art.as_str() == "fermata");
+    if stem_dir != "down" && !has_fermata {
+        return None;
+    }
+
+    let ref_y = match &item.event {
+        Event::Chord(_) if !item.chord_ys.is_empty() && stem_dir == "down" => item
+            .chord_ys
+            .iter()
+            .map(|&vy| y_top + vy * sp)
+            .fold(f64::NEG_INFINITY, f64::max),
+        _ => y_top + item.y * sp,
+    };
+    let mut top = ref_y;
+    if stem_dir == "down" && non_fermata_count > 0 {
+        let last_anchor = ref_y + 0.75 * sp + (non_fermata_count.saturating_sub(1) as f64) * sp;
+        top = top.max(last_anchor + 0.7 * sp);
+    }
+    if has_fermata {
+        let fermata_anchor = if stem_dir == "down" {
+            ref_y + 0.75 * sp + non_fermata_count as f64 * sp
+        } else {
+            (ref_y + 0.75 * sp).max(y_top + 0.5 * sp)
+        };
+        top = top.max(fermata_anchor + glyph_top_mm("fermataAbove", sp, font));
+    }
+    Some(top)
+}
+
 fn above_item_content_top(
     item: &LaidOutItem,
     idx: usize,
@@ -4519,8 +4586,458 @@ fn above_item_content_top(
         font,
     )
     .unwrap_or(stem_top);
+    let articulation_top =
+        above_articulation_top(item, idx, adj_stem_dirs, y_top, sp, font).unwrap_or(stem_top);
 
-    stem_top.max(fingering_top)
+    stem_top.max(fingering_top).max(articulation_top)
+}
+
+fn active_trill_group_bounds(items: &[LaidOutItem], idx: usize) -> Option<(usize, usize)> {
+    if idx >= items.len() {
+        return None;
+    }
+    let ev = &items[idx].event;
+    if !ev.is_anchor() || !ev.trill_line() {
+        return None;
+    }
+
+    let mut start = idx;
+    while start > 0 {
+        let prev = &items[start - 1].event;
+        if prev.is_anchor() && prev.trill_line() {
+            start -= 1;
+        } else {
+            break;
+        }
+    }
+
+    let mut end = idx;
+    while end + 1 < items.len() {
+        let next = &items[end + 1].event;
+        if next.is_anchor() && next.trill_line() {
+            end += 1;
+        } else {
+            break;
+        }
+    }
+
+    Some((start, end))
+}
+
+fn trill_line_y_for_bounds(
+    items: &[LaidOutItem],
+    start: usize,
+    end: usize,
+    y_top: f64,
+    sp: f64,
+) -> f64 {
+    let tr_min_y = y_top + 1.15 * sp;
+    let line_top = (start..=end)
+        .map(|idx| note_visual_top(&items[idx], y_top, sp))
+        .fold(f64::NEG_INFINITY, f64::max);
+    (line_top + 0.75 * sp).max(tr_min_y)
+}
+
+fn active_trill_line_y(
+    items: &[LaidOutItem],
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let (start, end) = active_trill_group_bounds(items, idx)?;
+    let low_top = (start..=end)
+        .map(|item_idx| {
+            above_item_content_top(
+                &items[item_idx],
+                item_idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            )
+        })
+        .fold(f64::NEG_INFINITY, f64::max);
+    Some(trill_line_y_for_bounds(items, start, end, y_top, sp).max(low_top + 0.95 * sp))
+}
+
+fn active_trill_visual_top_y(
+    items: &[LaidOutItem],
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let trill_y = active_trill_line_y(
+        items,
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    )?;
+    let tr_top = glyph_top_mm("ornamentTrill", sp, font);
+    let wiggle_top = glyph_top_mm("wiggleTrill", sp, font) + 0.02 * sp;
+    Some(trill_y + tr_top.max(wiggle_top))
+}
+
+fn active_octave_group_bounds(
+    items: &[LaidOutItem],
+    idx: usize,
+) -> Option<(usize, usize, i32, String, bool, bool)> {
+    if idx >= items.len() {
+        return None;
+    }
+    let ev = &items[idx].event;
+    if !ev.is_anchor() || ev.octave_line_number() <= 0 {
+        return None;
+    }
+
+    let number = ev.octave_line_number();
+    let direction = ev.octave_line_direction().unwrap_or("above").to_string();
+
+    let mut start = idx;
+    while start > 0 {
+        if items[start].event.octave_line_start() {
+            break;
+        }
+        let prev = &items[start - 1].event;
+        if prev.is_anchor()
+            && prev.octave_line_number() == number
+            && prev.octave_line_direction().unwrap_or("above") == direction
+        {
+            start -= 1;
+        } else {
+            break;
+        }
+    }
+
+    let mut end = idx;
+    while end + 1 < items.len() {
+        let next = &items[end + 1].event;
+        if next.is_anchor()
+            && next.octave_line_number() == number
+            && next.octave_line_direction().unwrap_or("above") == direction
+            && !next.octave_line_start()
+        {
+            end += 1;
+        } else {
+            break;
+        }
+    }
+
+    Some((
+        start,
+        end,
+        number,
+        direction,
+        items[start].event.octave_line_start(),
+        items[end].event.octave_line_end(),
+    ))
+}
+
+fn octave_line_above_y_for_bounds(
+    items: &[LaidOutItem],
+    start: usize,
+    end: usize,
+    starts_here: bool,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> f64 {
+    let mut top_y = (start..=end)
+        .map(|idx| {
+            above_item_content_top(
+                &items[idx],
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            )
+        })
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    for idx in start..=end {
+        if let Some(trill_top) = active_trill_visual_top_y(
+            items,
+            idx,
+            adj_stem_ends,
+            adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        ) {
+            top_y = top_y.max(trill_top + 0.95 * sp);
+        }
+    }
+
+    let starts_over_above_fingering = starts_here
+        && above_fingering_stack_top(
+            &items[start],
+            start,
+            adj_stem_ends,
+            adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        )
+        .is_some();
+    let label_clearance = if starts_over_above_fingering {
+        0.95 * sp
+    } else {
+        0.45 * sp
+    };
+
+    top_y.max(y_top) + label_clearance
+}
+
+fn active_above_octave_line_y(
+    items: &[LaidOutItem],
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let (start, end, _number, direction, starts_here, _ends_here) =
+        active_octave_group_bounds(items, idx)?;
+    if direction != "above" {
+        return None;
+    }
+    Some(octave_line_above_y_for_bounds(
+        items,
+        start,
+        end,
+        starts_here,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    ))
+}
+
+fn chord_symbol_top_y(
+    items: &[LaidOutItem],
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let ev = &items[idx].event;
+    let cs = ev.chord_symbol()?;
+    if cs.is_empty() {
+        return None;
+    }
+    let low_top = above_item_content_top(
+        &items[idx],
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    );
+    let mut base_y = (y_top + 2.5 * sp).max(low_top + 1.35 * sp);
+    if let Some(trill_top) = active_trill_visual_top_y(
+        items,
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    ) {
+        base_y = base_y.max(trill_top + 1.15 * sp);
+    }
+    if let Some(octave_y) = active_above_octave_line_y(
+        items,
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    ) {
+        base_y = base_y.max(octave_y + 1.25 * sp);
+    }
+    Some(base_y + text_height_mm(10.0))
+}
+
+fn staff_text_top_y(
+    items: &[LaidOutItem],
+    idx: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> Option<f64> {
+    let ev = &items[idx].event;
+    let st = ev.staff_text()?;
+    if st.is_empty() {
+        return None;
+    }
+    let staff_font_size = 12.0 * (sp / 1.75);
+    let mut base_y = (y_top + 2.7 * sp).max(
+        above_item_content_top(
+            &items[idx],
+            idx,
+            adj_stem_ends,
+            adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        ) + 1.0 * sp,
+    );
+    if let Some(chord_top) = chord_symbol_top_y(
+        items,
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    ) {
+        base_y = base_y.max(chord_top + 0.95 * sp);
+    }
+    if let Some(octave_y) = active_above_octave_line_y(
+        items,
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    ) {
+        base_y = base_y.max(octave_y + 1.3 * sp);
+    }
+    if let Some(trill_top) = active_trill_visual_top_y(
+        items,
+        idx,
+        adj_stem_ends,
+        adj_stem_dirs,
+        y_top,
+        sp,
+        fng_pos_default,
+        font,
+    ) {
+        base_y = base_y.max(trill_top + 1.2 * sp);
+    }
+    Some(base_y + text_height_mm(staff_font_size))
+}
+
+fn ending_bracket_y_for_bounds(
+    items: &[LaidOutItem],
+    start: usize,
+    end: usize,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
+    sp: f64,
+    fng_pos_default: &str,
+    font: glyph::FontId,
+) -> f64 {
+    let label_text = items[start].event.ending().unwrap_or("");
+    let starts_here = items[start].event.ending_start();
+    let ending_label_size = 7.75 * (sp / 1.75) * 1.15;
+    let label_height = if starts_here && !label_text.is_empty() {
+        text_height_mm(ending_label_size)
+    } else {
+        0.0
+    };
+    let content_top = (start..=end)
+        .map(|idx| {
+            let base_top = above_item_content_top(
+                &items[idx],
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            );
+            let trill_top = active_trill_visual_top_y(
+                items,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            )
+            .unwrap_or(base_top);
+            let octave_top = active_above_octave_line_y(
+                items,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            )
+            .unwrap_or(trill_top);
+            let chord_top = chord_symbol_top_y(
+                items,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            )
+            .unwrap_or(octave_top);
+            staff_text_top_y(
+                items,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            )
+            .unwrap_or(chord_top)
+        })
+        .fold(y_top, f64::max);
+    let line_clearance = 0.75 * sp;
+    let label_clearance = label_height + 0.45 * sp;
+    (y_top + 3.5 * sp).max(content_top + line_clearance.max(label_clearance))
 }
 
 fn fingering_respects_below_default(ev: &Event, fng_pos_default: &str) -> bool {
@@ -4642,6 +5159,8 @@ fn render_inline_text(
     above_anchor_y: f64,
     note_y: f64,
     below_ref_y: f64,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
     y_top: f64,
     y_bottom: f64,
     sp: f64,
@@ -4734,17 +5253,34 @@ fn render_inline_text(
         }
     }
 
-    // When this note is inside a volta/ending bracket, push the placement floor above
-    // the bracket line so chord symbols and staff text don't collide with the bracket
-    // frame or its label ("1.", "2.", etc.).  The bracket line lives at y_top + 3.5 sp.
-    if ev.ending().is_some() {
-        above_stack_top = above_stack_top.max(y_top + 3.5 * sp);
-    }
-
     // Chord symbol — must clear the fingering stack with a visible gap.
     if let Some(cs) = ev.chord_symbol() {
         if !cs.is_empty() {
-            let chord_base_y = (y_top + 2.5 * sp).max(above_stack_top + 1.5 * sp);
+            let mut chord_base_y = (y_top + 2.5 * sp).max(above_stack_top + 1.35 * sp);
+            if let Some(trill_top) = active_trill_visual_top_y(
+                items,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            ) {
+                chord_base_y = chord_base_y.max(trill_top + 1.15 * sp);
+            }
+            if let Some(octave_y) = active_above_octave_line_y(
+                items,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            ) {
+                chord_base_y = chord_base_y.max(octave_y + 1.25 * sp);
+            }
             cmds.push(DrawCmd::Text {
                 x,
                 y: chord_base_y,
@@ -4755,7 +5291,7 @@ fn render_inline_text(
                 a: "south".into(),
             });
             // Chord text is ~10pt ≈ 3.5mm ≈ 2 sp — advance stack by that
-            above_stack_top = above_stack_top.max(chord_base_y + 2.0 * sp);
+            above_stack_top = above_stack_top.max(chord_base_y + text_height_mm(10.0));
         }
     }
 
@@ -4765,10 +5301,33 @@ fn render_inline_text(
             let staff_font_size = 12.0 * (sp / 1.75);
             // At least 1.0 sp above chord/fingering stack
             let mut staff_base_y = (y_top + 2.7 * sp).max(above_stack_top + 1.0 * sp);
-            if ev.octave_line_number() > 0
+            if let Some(octave_y) = active_above_octave_line_y(
+                items,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            ) {
+                staff_base_y = staff_base_y.max(octave_y + 1.3 * sp);
+            } else if ev.octave_line_number() > 0
                 && ev.octave_line_direction().unwrap_or("above") == "above"
             {
                 staff_base_y = staff_base_y.max(y_top + 4.25 * sp);
+            }
+            if let Some(trill_top) = active_trill_visual_top_y(
+                items,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            ) {
+                staff_base_y = staff_base_y.max(trill_top + 1.2 * sp);
             }
             let mut staff_x = x;
             if let Some((slur_top_y, slur_left_x, slur_right_x)) =
@@ -5358,12 +5917,14 @@ fn render_trills(
     cmds: &mut Vec<DrawCmd>,
     items: &[LaidOutItem],
     item_xs: &[f64],
-    _adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
     y_top: f64,
     _y_bottom: f64,
     sp: f64,
     music_start_x: f64,
     total_width: f64,
+    fng_pos_default: &str,
     font: glyph::FontId,
 ) {
     let trill_cp = 0xE566u32;
@@ -5377,8 +5938,20 @@ fn render_trills(
         if !ev.trill() || ev.trill_line() {
             continue;
         }
-        let visual_top = note_visual_top(item, y_top, sp);
-        let trill_y = (visual_top + 0.75 * sp).max(tr_min_y);
+        let trill_y = active_trill_line_y(
+            items,
+            idx,
+            adj_stem_ends,
+            adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        )
+        .unwrap_or_else(|| {
+            let visual_top = note_visual_top(item, y_top, sp);
+            (visual_top + 0.75 * sp).max(tr_min_y)
+        });
         emit_glyph(
             cmds,
             item_xs[idx] - 0.55 * tr_width,
@@ -5435,8 +6008,17 @@ fn render_trills(
             .iter()
             .map(|&idx| note_visual_top(&items[idx], y_top, sp))
             .fold(f64::NEG_INFINITY, f64::max);
-        let trill_y = (line_top + 0.75 * sp).max(tr_min_y);
-
+        let trill_y = active_trill_line_y(
+            items,
+            *tg.indices.first().unwrap(),
+            adj_stem_ends,
+            adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        )
+        .unwrap_or((line_top + 0.75 * sp).max(tr_min_y));
         if tg.starts_here {
             let symbol_x = item_xs[*tg.indices.first().unwrap()] - 0.55 * tr_width;
             emit_glyph(cmds, symbol_x, trill_y, "ornamentTrill", trill_cp, sp, font);
@@ -5562,42 +6144,18 @@ fn render_octave_lines(
         };
 
         if og.direction == "above" {
-            let elem_ys: Vec<f64> = og
-                .indices
-                .iter()
-                .map(|&idx| {
-                    above_item_content_top(
-                        &items[idx],
-                        idx,
-                        adj_stem_ends,
-                        adj_stem_dirs,
-                        y_top,
-                        sp,
-                        fng_pos_default,
-                        font,
-                    )
-                })
-                .collect();
-            let top_y = elem_ys.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-            // Bracket sits above the highest element AND at least above the staff top.
-            let starts_over_above_fingering = og.starts_here
-                && above_fingering_stack_top(
-                    &items[*og.indices.first().unwrap()],
-                    *og.indices.first().unwrap(),
-                    adj_stem_ends,
-                    adj_stem_dirs,
-                    y_top,
-                    sp,
-                    fng_pos_default,
-                    font,
-                )
-                .is_some();
-            let label_clearance = if starts_over_above_fingering {
-                0.95 * sp
-            } else {
-                0.45 * sp
-            };
-            let bracket_y = top_y.max(y_top) + label_clearance;
+            let bracket_y = octave_line_above_y_for_bounds(
+                items,
+                *og.indices.first().unwrap(),
+                *og.indices.last().unwrap(),
+                og.starts_here,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                sp,
+                fng_pos_default,
+                font,
+            );
             let tick_len = 0.45 * sp;
             let line_start = if og.starts_here {
                 let suffix = if og.number == 15 { "ma" } else { "va" };
@@ -5865,33 +6423,17 @@ fn render_endings(
             final_barline_x
         };
 
-        let content_top = eg
-            .indices
-            .iter()
-            .copied()
-            .map(|idx| {
-                above_item_content_top(
-                    &items[idx],
-                    idx,
-                    adj_stem_ends,
-                    adj_stem_dirs,
-                    y_top,
-                    sp,
-                    fng_pos_default,
-                    font,
-                )
-            })
-            .fold(y_top, f64::max);
-        let has_above_octave_line = eg.indices.iter().copied().any(|idx| {
-            items[idx].event.octave_line_number() > 0
-                && items[idx].event.octave_line_direction().unwrap_or("above") == "above"
-        });
-        let content_gap = if has_above_octave_line {
-            2.15 * sp
-        } else {
-            0.95 * sp
-        };
-        let bracket_y = (y_top + 3.5 * sp).max(content_top + content_gap);
+        let bracket_y = ending_bracket_y_for_bounds(
+            items,
+            first,
+            last,
+            adj_stem_ends,
+            adj_stem_dirs,
+            y_top,
+            sp,
+            fng_pos_default,
+            font,
+        );
         let hook_depth = 0.65 * sp;
 
         emit_line(cmds, x0, bracket_y, x1, bracket_y, line_w);
