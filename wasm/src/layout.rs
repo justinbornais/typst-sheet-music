@@ -1370,6 +1370,12 @@ fn beat_ikey(beat: f64) -> i64 {
     (beat * 1_000_000.0).round() as i64
 }
 
+#[inline]
+fn measure_beat_ikey(measure_idx: i64, beat: f64) -> i64 {
+    const MEASURE_KEY_STRIDE: i64 = 1_000_000_000;
+    measure_idx * MEASURE_KEY_STRIDE + beat_ikey(beat)
+}
+
 pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaff> {
     if laid_out_staves.len() <= 1 {
         return laid_out_staves.to_vec();
@@ -1381,12 +1387,23 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
     //    columns that occur before the next rhythmic event on any staff.
     let mut beat_boundary_widths: HashMap<i64, usize> = HashMap::new();
     for laid_out in laid_out_staves {
+        let mut measure_idx = 0_i64;
         let mut beat = 0.0;
         let mut boundary_count = 0usize;
+        let mut has_measure_content = false;
         let items = &laid_out.items;
         for (ii, item) in items.iter().enumerate() {
             let ev = &item.event;
-            let key = beat_ikey(beat);
+            let boundary_measure_idx = if ev.is_barline() && has_measure_content {
+                measure_idx + 1
+            } else {
+                measure_idx
+            };
+            let key = if ev.is_barline() {
+                measure_beat_ikey(boundary_measure_idx, 0.0)
+            } else {
+                measure_beat_ikey(measure_idx, beat)
+            };
             if is_pre_barline_boundary(items, ii) {
                 continue;
             } else if is_grace_event(ev) || is_boundary_event(ev) {
@@ -1394,6 +1411,11 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
                 let current = *beat_boundary_widths.get(&key).unwrap_or(&0);
                 if boundary_count > current {
                     beat_boundary_widths.insert(key, boundary_count);
+                }
+                if ev.is_barline() && has_measure_content {
+                    measure_idx += 1;
+                    beat = 0.0;
+                    has_measure_content = false;
                 }
             } else if is_rhythmic_event(ev) {
                 let current = *beat_boundary_widths.get(&key).unwrap_or(&0);
@@ -1403,9 +1425,10 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
                 boundary_count = 0;
 
                 beat += event_advance_beats(ev);
+                has_measure_content = true;
             }
         }
-        let final_key = beat_ikey(beat);
+        let final_key = measure_beat_ikey(measure_idx, beat);
         let current = *beat_boundary_widths.get(&final_key).unwrap_or(&0);
         if boundary_count > current {
             beat_boundary_widths.insert(final_key, boundary_count);
@@ -1419,30 +1442,63 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
     for laid_out in laid_out_staves {
         let items = &laid_out.items;
         let mut keys = Vec::with_capacity(items.len());
+        let mut measure_idx = 0_i64;
         let mut beat = 0.0;
         let mut boundary_phase = 0usize;
+        let mut has_measure_content = false;
         for (ii, item) in items.iter().enumerate() {
             let ev = &item.event;
             let rb = (beat * 1_000_000.0_f64).round() / 1_000_000.0;
-            let boundary_width = *beat_boundary_widths.get(&beat_ikey(beat)).unwrap_or(&0);
+            let boundary_measure_idx = if ev.is_barline() && has_measure_content {
+                measure_idx + 1
+            } else {
+                measure_idx
+            };
+            let boundary_key = if ev.is_barline() {
+                measure_beat_ikey(boundary_measure_idx, 0.0)
+            } else {
+                measure_beat_ikey(measure_idx, beat)
+            };
+            let boundary_width = *beat_boundary_widths.get(&boundary_key).unwrap_or(&0);
 
             if is_pre_barline_boundary(items, ii) {
-                keys.push(beat_ikey(rb - barline_epsilon));
+                let pre_barline_measure_idx = if has_measure_content {
+                    measure_idx + 1
+                } else {
+                    measure_idx
+                };
+                keys.push(measure_beat_ikey(pre_barline_measure_idx, -barline_epsilon));
             } else if is_grace_event(ev) || is_boundary_event(ev) {
-                keys.push(beat_ikey(rb + boundary_phase as f64 * barline_epsilon));
+                keys.push(boundary_key + boundary_phase as i64);
                 boundary_phase += 1;
+                if ev.is_barline() && has_measure_content {
+                    measure_idx += 1;
+                    beat = 0.0;
+                    has_measure_content = false;
+                }
             } else if is_rhythmic_event(ev) {
-                keys.push(beat_ikey(rb + boundary_width as f64 * barline_epsilon));
+                keys.push(measure_beat_ikey(
+                    measure_idx,
+                    rb + boundary_width as f64 * barline_epsilon,
+                ));
 
                 beat += event_advance_beats(ev);
+                has_measure_content = true;
                 boundary_phase = 0;
             } else {
-                keys.push(beat_ikey(rb + boundary_width as f64 * barline_epsilon));
+                keys.push(measure_beat_ikey(
+                    measure_idx,
+                    rb + boundary_width as f64 * barline_epsilon,
+                ));
             }
         }
-        let terminal_bw = *beat_boundary_widths.get(&beat_ikey(beat)).unwrap_or(&0);
+        let terminal_key = measure_beat_ikey(measure_idx, beat);
+        let terminal_bw = *beat_boundary_widths.get(&terminal_key).unwrap_or(&0);
         let rb = (beat * 1_000_000.0).round() / 1_000_000.0;
-        staff_terminal_keys.push(beat_ikey(rb + terminal_bw as f64 * barline_epsilon));
+        staff_terminal_keys.push(measure_beat_ikey(
+            measure_idx,
+            rb + terminal_bw as f64 * barline_epsilon,
+        ));
         staves_beat_keys.push(keys);
     }
 
@@ -2048,5 +2104,40 @@ mod tests {
         let systems = compute_system_breaks(&events, Some(first_measure_width * 2.0), None);
 
         assert_eq!(systems.len(), 1);
+    }
+
+    #[test]
+    fn multi_staff_alignment_resets_at_measure_boundaries() {
+        let upper = layout_staff(
+            &[
+                note("c", None, 2),
+                barline(),
+                note("d", None, DURATION_BREVE),
+            ],
+            Some("treble"),
+            None,
+            false,
+            &[],
+        );
+        let lower = layout_staff(
+            &[
+                note("c", None, 1),
+                barline(),
+                note("d", None, DURATION_BREVE),
+            ],
+            Some("bass"),
+            None,
+            false,
+            &[],
+        );
+
+        let aligned = align_staves_by_beat(&[upper, lower]);
+        let upper_barline_x = aligned[0].items[1].x;
+        let lower_barline_x = aligned[1].items[1].x;
+        let upper_second_measure_x = aligned[0].items[2].x;
+        let lower_second_measure_x = aligned[1].items[2].x;
+
+        assert!((upper_barline_x - lower_barline_x).abs() < 0.000001);
+        assert!((upper_second_measure_x - lower_second_measure_x).abs() < 0.000001);
     }
 }

@@ -110,11 +110,11 @@ This document provides a series of tests to verify the rendering of edge cases i
   staves: (
     (
       clef: "treble",
-      music: "8a{<f'' a'' c'''>4n[1 3 5] <e&'' g'' b&''> <d'' f'' a''>} | v{c'''2 b&''4;f''4 r f''} | <b&'' d''' f'''>2.",
+      music: "8a{<f'' a'' c'''>4n[1 3 5] <e&'' g'' b&''> <d'' f'' a''>} | v{c,2 b&,,4;f,,4 r f,,} | <b& d' f'>2.",
     ),
     (
       clef: "alto",
-      music: "v{f'4 g' a';<b& d' f'>2.} | c'4text[inner] d' e' | <e& g b&>2.",
+      music: "v{f'4 g' a';<b& d' f'>2.} | c'4text[inner] d,, e' | <e& g b&>2.",
     ),
     (
       clef: "bass",
