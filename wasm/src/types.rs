@@ -642,6 +642,8 @@ pub struct StaffInput {
     pub label: Option<String>,
     pub instrument_name: Option<String>,
     pub instrument_name_cont: Option<String>,
+    #[serde(default)]
+    pub instrument_name_shared: bool,
     pub fingering_position: Option<String>,
 }
 

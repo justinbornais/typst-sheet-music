@@ -194,6 +194,11 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
             &params
                 .staves
                 .iter()
+                .map(|s| s.instrument_name_shared)
+                .collect::<Vec<_>>(),
+            &params
+                .staves
+                .iter()
                 .map(|s| s.fingering_position.as_deref().unwrap_or("above"))
                 .collect::<Vec<_>>(),
             &params.music_font,

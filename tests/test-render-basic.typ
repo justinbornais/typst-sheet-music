@@ -1022,3 +1022,27 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
     ),
   ),
 )
+
+#v(1cm)
+
+== Test 73: Shared instrument name across grand staff
+
+#score(
+  key: "C",
+  time: "4/4",
+  staff-group: "grand",
+  measures-per-line: 1,
+  staves: (
+    (
+      clef: "treble",
+      instrument-name: "Piano",
+      instrument-name-cont: "Pno.",
+      music: "c'4 e' g' c'' | d' f' a' d''",
+    ),
+    (
+      clef: "bass",
+      instrument-name-shared: true,
+      music: "c,2 g, | d,2 a,",
+    ),
+  ),
+)

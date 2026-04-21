@@ -58,6 +58,7 @@
 ///     - label: optional staff label
 ///     - instrument-name: optional full name shown on the first system
 ///     - instrument-name-cont: optional abbreviated name shown on later systems
+///     - instrument-name-shared: true to center the previous staff's name across both staves
 /// - key: key signature string ("C", "G", "D", "Bb", "f#", etc.)
 /// - time: time signature string ("4/4", "3/4", "6/8", "C"/"common", "C|"/"cut")
 /// - title: piece title
@@ -122,6 +123,7 @@
         label: s.at("label", default: none),
         instrument_name: s.at("instrument-name", default: none),
         instrument_name_cont: s.at("instrument-name-cont", default: none),
+        instrument_name_shared: s.at("instrument-name-shared", default: false),
         fingering_position: s.at("fingering-position", default: "above"),
       )),
       key: key,

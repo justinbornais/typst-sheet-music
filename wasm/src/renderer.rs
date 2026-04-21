@@ -1738,6 +1738,7 @@ pub fn render_system_group(
     lyricist: Option<&str>,
     show_time: bool,
     instrument_names: &[Option<&str>],
+    instrument_name_shared: &[bool],
     fingering_positions: &[&str],
     music_font: &str,
 ) -> SystemOutput {
@@ -1854,15 +1855,30 @@ pub fn render_system_group(
 
         let y_top = y_offset;
         staff_y_tops.push(y_top);
-        if let Some(Some(name)) = instrument_names.get(si) {
-            render_instrument_name(
-                &mut cmds,
-                name,
-                instrument_indent,
-                instrument_group_extra,
-                y_top,
-                sp_unit,
-            );
+        if instrument_name_shared.get(si).copied().unwrap_or(false) && si > 0 {
+            if let Some(Some(name)) = instrument_names.get(si - 1) {
+                let prev_top = staff_y_tops[si - 1];
+                let group_center_y = (prev_top + (y_top - staff_height_mm)) / 2.0;
+                render_instrument_name_centered(
+                    &mut cmds,
+                    name,
+                    instrument_indent,
+                    instrument_group_extra,
+                    group_center_y,
+                    sp_unit,
+                );
+            }
+        } else if !instrument_name_shared.get(si + 1).copied().unwrap_or(false) {
+            if let Some(Some(name)) = instrument_names.get(si) {
+                render_instrument_name(
+                    &mut cmds,
+                    name,
+                    instrument_indent,
+                    instrument_group_extra,
+                    y_top,
+                    sp_unit,
+                );
+            }
         }
         let fng_pos = if si < fingering_positions.len() {
             fingering_positions[si]
@@ -2194,6 +2210,24 @@ fn render_instrument_name(
     y_top: f64,
     sp: f64,
 ) {
+    render_instrument_name_centered(
+        cmds,
+        name,
+        indent_sp,
+        group_extra_sp,
+        y_top - 2.0 * sp,
+        sp,
+    );
+}
+
+fn render_instrument_name_centered(
+    cmds: &mut Vec<DrawCmd>,
+    name: &str,
+    indent_sp: f64,
+    group_extra_sp: f64,
+    center_y: f64,
+    sp: f64,
+) {
     if indent_sp <= 0.0 {
         return;
     }
@@ -2202,7 +2236,6 @@ fn render_instrument_name(
         return;
     }
     let line_gap = 1.35 * sp;
-    let center_y = y_top - 2.0 * sp;
     let first_y = center_y + (lines.len().saturating_sub(1) as f64) * line_gap / 2.0;
     let x = (indent_sp - group_extra_sp) * sp - 0.65 * sp;
     for (idx, line) in lines.iter().enumerate() {
