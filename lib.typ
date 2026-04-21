@@ -56,6 +56,8 @@
 ///     - clef: "treble", "bass", "alto", "tenor", "treble-8a", etc.
 ///     - music: music string (see syntax reference)
 ///     - label: optional staff label
+///     - instrument-name: optional full name shown on the first system
+///     - instrument-name-cont: optional abbreviated name shown on later systems
 /// - key: key signature string ("C", "G", "D", "Bb", "f#", etc.)
 /// - time: time signature string ("4/4", "3/4", "6/8", "C"/"common", "C|"/"cut")
 /// - title: piece title
@@ -118,6 +120,8 @@
         clef: s.at("clef", default: none),
         music: s.at("music", default: ""),
         label: s.at("label", default: none),
+        instrument_name: s.at("instrument-name", default: none),
+        instrument_name_cont: s.at("instrument-name-cont", default: none),
         fingering_position: s.at("fingering-position", default: "above"),
       )),
       key: key,
@@ -172,9 +176,11 @@
   music-font-metadata: none,
   width: auto,
   measures-per-line: none,
+  instrument-name: none,
+  instrument-name-cont: none,
 ) = {
   score(
-    staves: ((clef: clef, music: music),),
+    staves: ((clef: clef, music: music, instrument-name: instrument-name, instrument-name-cont: instrument-name-cont),),
     key: key,
     time: time,
     title: title,

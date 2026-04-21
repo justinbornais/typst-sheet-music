@@ -640,6 +640,8 @@ pub struct StaffInput {
     pub clef: Option<String>,
     pub music: String,
     pub label: Option<String>,
+    pub instrument_name: Option<String>,
+    pub instrument_name_cont: Option<String>,
     pub fingering_position: Option<String>,
 }
 

@@ -1737,6 +1737,7 @@ pub fn render_system_group(
     arranger: Option<&str>,
     lyricist: Option<&str>,
     show_time: bool,
+    instrument_names: &[Option<&str>],
     fingering_positions: &[&str],
     music_font: &str,
 ) -> SystemOutput {
@@ -1750,8 +1751,10 @@ pub fn render_system_group(
     let use_spanning_barlines = num_staves > 1 && staff_group != "separate";
 
     // Compute shared prefix data
+    let instrument_group_extra = instrument_group_symbol_sp(staff_group);
+    let instrument_indent = instrument_indent_sp(instrument_names, staff_group);
     let (shared_time_x, shared_music_start_x) =
-        compute_shared_prefix(laid_out_staves, key, time, sp_unit, show_time);
+        compute_shared_prefix(laid_out_staves, key, time, sp_unit, show_time, instrument_indent);
 
     // Render header text
     let mut header_height = 0.0;
@@ -1851,6 +1854,16 @@ pub fn render_system_group(
 
         let y_top = y_offset;
         staff_y_tops.push(y_top);
+        if let Some(Some(name)) = instrument_names.get(si) {
+            render_instrument_name(
+                &mut cmds,
+                name,
+                instrument_indent,
+                instrument_group_extra,
+                y_top,
+                sp_unit,
+            );
+        }
         let fng_pos = if si < fingering_positions.len() {
             fingering_positions[si]
         } else {
@@ -1871,6 +1884,7 @@ pub fn render_system_group(
             fng_pos,
             y_top,
             font,
+            instrument_indent,
         );
 
         y_offset -= staff_height_mm;
@@ -1892,7 +1906,7 @@ pub fn render_system_group(
                 let fsize = 4.0 * sp_unit * scale;
                 let brace_w = glyph::advance_width_for(font, "brace") * sp_unit * scale;
                 cmds.push(DrawCmd::Glyph {
-                    x: -brace_w - 0.3 * sp_unit,
+                    x: instrument_indent * sp_unit - brace_w - 0.3 * sp_unit,
                     y: last_y_bottom,
                     c: brace_cp,
                     s: fsize,
@@ -1902,7 +1916,7 @@ pub fn render_system_group(
         } else if staff_group == "bracket" {
             let thick = 0.3 * sp_unit;
             let serif = 0.6 * sp_unit;
-            let bx = -0.5 * sp_unit;
+            let bx = instrument_indent * sp_unit - 0.5 * sp_unit;
             emit_line(&mut cmds, bx, first_y_top, bx, last_y_bottom, thick);
             emit_line(&mut cmds, bx, first_y_top, bx + serif, first_y_top, thick);
             emit_line(
@@ -1940,9 +1954,9 @@ pub fn render_system_group(
             // Opening barline (left edge)
             emit_line(
                 &mut cmds,
-                ed.thin_barline_thickness / 2.0 * sp_unit,
+                instrument_indent * sp_unit + ed.thin_barline_thickness / 2.0 * sp_unit,
                 first_y_top,
-                ed.thin_barline_thickness / 2.0 * sp_unit,
+                instrument_indent * sp_unit + ed.thin_barline_thickness / 2.0 * sp_unit,
                 last_y_bottom,
                 ed.thin_barline_thickness * sp_unit,
             );
@@ -2044,6 +2058,7 @@ fn compute_shared_prefix(
     time: &Option<TimeInfo>,
     sp: f64,
     show_time: bool,
+    instrument_indent_sp: f64,
 ) -> (f64, f64) {
     let mut max_time_x: f64 = 0.0;
     let mut max_music_start: f64 = 0.0;
@@ -2067,7 +2082,7 @@ fn compute_shared_prefix(
         } else {
             0.0
         };
-        let prefix_x = 0.5 * sp;
+        let prefix_x = instrument_indent_sp * sp + 0.5 * sp;
         let local_time_x = prefix_x + clef_w + key_w;
         if show {
             max_time_x = max_time_x.max(local_time_x);
@@ -2093,6 +2108,114 @@ fn compute_total_width(
         .map(|s| s.total_width)
         .fold(0.0_f64, f64::max);
     music_start_x / sp + max_tw + 1.0
+}
+
+fn normalize_instrument_name(name: &str) -> String {
+    name.replace('&', "\u{266d}")
+        .replace('#', "\u{266f}")
+        .replace('=', "\u{266e}")
+}
+
+fn instrument_name_lines(name: &str) -> Vec<String> {
+    let normalized = normalize_instrument_name(name);
+    let trimmed = normalized.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    if trimmed.chars().count() <= 12 {
+        return vec![trimmed.to_string()];
+    }
+    if let Some(idx) = trimmed.find(" in ") {
+        return vec![
+            trimmed[..idx].trim().to_string(),
+            trimmed[idx + 1..].trim().to_string(),
+        ];
+    }
+    let words: Vec<&str> = trimmed.split_whitespace().collect();
+    if words.len() <= 1 {
+        return vec![trimmed.to_string()];
+    }
+    let half = (trimmed.chars().count() + 1) / 2;
+    let mut first = String::new();
+    let mut second = String::new();
+    for word in words {
+        if first.chars().count() < half {
+            if !first.is_empty() {
+                first.push(' ');
+            }
+            first.push_str(word);
+        } else {
+            if !second.is_empty() {
+                second.push(' ');
+            }
+            second.push_str(word);
+        }
+    }
+    if second.is_empty() {
+        vec![first]
+    } else {
+        vec![first, second]
+    }
+}
+
+fn instrument_name_width_sp(name: &str) -> f64 {
+    instrument_name_lines(name)
+        .iter()
+        .map(|line| line.chars().count() as f64 * 0.56 + 0.4)
+        .fold(0.0_f64, f64::max)
+}
+
+fn instrument_group_symbol_sp(staff_group: &str) -> f64 {
+    match staff_group {
+        "grand" => 2.1,
+        "bracket" => 1.4,
+        _ => 0.0,
+    }
+}
+
+fn instrument_indent_sp(names: &[Option<&str>], staff_group: &str) -> f64 {
+    let max_name_width = names
+        .iter()
+        .filter_map(|name| *name)
+        .map(instrument_name_width_sp)
+        .fold(0.0_f64, f64::max);
+    if max_name_width > 0.0 {
+        max_name_width + instrument_group_symbol_sp(staff_group) + 1.4
+    } else {
+        0.0
+    }
+}
+
+fn render_instrument_name(
+    cmds: &mut Vec<DrawCmd>,
+    name: &str,
+    indent_sp: f64,
+    group_extra_sp: f64,
+    y_top: f64,
+    sp: f64,
+) {
+    if indent_sp <= 0.0 {
+        return;
+    }
+    let lines = instrument_name_lines(name);
+    if lines.is_empty() {
+        return;
+    }
+    let line_gap = 1.35 * sp;
+    let center_y = y_top - 2.0 * sp;
+    let first_y = center_y + (lines.len().saturating_sub(1) as f64) * line_gap / 2.0;
+    let x = (indent_sp - group_extra_sp) * sp - 0.65 * sp;
+    for (idx, line) in lines.iter().enumerate() {
+        cmds.push(DrawCmd::Text {
+            x,
+            y: first_y - idx as f64 * line_gap,
+            v: line.clone(),
+            s: 9.0,
+            w: "regular".into(),
+            i: false,
+            a: "east".into(),
+        });
+    }
 }
 
 // ─── Single staff rendering ───────────────────────────────────────────
@@ -2177,6 +2300,7 @@ fn render_system(
     fng_pos: &str,
     y_top_offset: f64,
     font: glyph::FontId,
+    instrument_indent_sp: f64,
 ) {
     let clef_name = laid_out.clef.as_deref();
     let opening_time = laid_out.time.as_ref().or(time.as_ref());
@@ -2189,7 +2313,8 @@ fn render_system(
     let y_bottom = y_top - 4.0 * sp;
 
     // Compute prefix
-    let mut cx = 0.5 * sp;
+    let staff_left_x = instrument_indent_sp * sp;
+    let mut cx = staff_left_x + 0.5 * sp;
     let ed = glyph::engraving_defaults(font);
     let mut clef_w = 0.0;
     if let Some(c) = clef_name {
@@ -2246,7 +2371,7 @@ fn render_system(
         let y = y_top - i as f64 * sp;
         emit_line(
             cmds,
-            0.0,
+            staff_left_x,
             y,
             total_width * sp,
             y,
@@ -2258,16 +2383,16 @@ fn render_system(
     if !skip_barlines {
         emit_line(
             cmds,
-            ed.thin_barline_thickness / 2.0 * sp,
+            staff_left_x + ed.thin_barline_thickness / 2.0 * sp,
             y_top,
-            ed.thin_barline_thickness / 2.0 * sp,
+            staff_left_x + ed.thin_barline_thickness / 2.0 * sp,
             y_bottom,
             ed.thin_barline_thickness * sp,
         );
     }
 
     // Draw clef
-    cx = 0.5 * sp;
+    cx = staff_left_x + 0.5 * sp;
     if let Some(c) = clef_name {
         let origin_offset = clef_origin_offset(c);
         let origin_y = y_top - origin_offset * sp;

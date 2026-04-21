@@ -49,10 +49,14 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
     let show_time = ts.is_some();
     let prefix_first = prefix_width_sp(first_clef, &params.key, show_time, &ts, font);
     let prefix_cont = prefix_width_sp(first_clef, &params.key, false, &ts, font);
+    let instrument_indent_first = instrument_indent_sp(params, true, &params.staff_group);
+    let instrument_indent_cont = instrument_indent_sp(params, false, &params.staff_group);
 
     let avail_width_mm = params.width_mm;
-    let first_avail = avail_width_mm.map(|w| w / sp_unit - prefix_first - 1.0);
-    let cont_avail = avail_width_mm.map(|w| w / sp_unit - prefix_cont - 1.0);
+    let first_avail =
+        avail_width_mm.map(|w| w / sp_unit - prefix_first - instrument_indent_first - 1.0);
+    let cont_avail =
+        avail_width_mm.map(|w| w / sp_unit - prefix_cont - instrument_indent_cont - 1.0);
 
     // Compute system breaks for staff 0
     let staff0_systems = if layout::has_line_breaks(first_events) {
@@ -179,6 +183,17 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
             &params
                 .staves
                 .iter()
+                .map(|s| {
+                    if is_first {
+                        s.instrument_name.as_deref()
+                    } else {
+                        s.instrument_name_cont.as_deref()
+                    }
+                })
+                .collect::<Vec<_>>(),
+            &params
+                .staves
+                .iter()
                 .map(|s| s.fingering_position.as_deref().unwrap_or("above"))
                 .collect::<Vec<_>>(),
             &params.music_font,
@@ -188,6 +203,89 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
 
     ScoreOutput {
         systems: output_systems,
+    }
+}
+
+fn normalize_instrument_name(name: &str) -> String {
+    name.replace('&', "\u{266d}")
+        .replace('#', "\u{266f}")
+        .replace('=', "\u{266e}")
+}
+
+fn instrument_name_lines(name: &str) -> Vec<String> {
+    let normalized = normalize_instrument_name(name);
+    let trimmed = normalized.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    if trimmed.chars().count() <= 12 {
+        return vec![trimmed.to_string()];
+    }
+    if let Some(idx) = trimmed.find(" in ") {
+        return vec![
+            trimmed[..idx].trim().to_string(),
+            trimmed[idx + 1..].trim().to_string(),
+        ];
+    }
+    let words: Vec<&str> = trimmed.split_whitespace().collect();
+    if words.len() <= 1 {
+        return vec![trimmed.to_string()];
+    }
+    let half = (trimmed.chars().count() + 1) / 2;
+    let mut first = String::new();
+    let mut second = String::new();
+    for word in words {
+        if first.chars().count() < half {
+            if !first.is_empty() {
+                first.push(' ');
+            }
+            first.push_str(word);
+        } else {
+            if !second.is_empty() {
+                second.push(' ');
+            }
+            second.push_str(word);
+        }
+    }
+    if second.is_empty() {
+        vec![first]
+    } else {
+        vec![first, second]
+    }
+}
+
+fn instrument_name_width_sp(name: &str) -> f64 {
+    instrument_name_lines(name)
+        .iter()
+        .map(|line| line.chars().count() as f64 * 0.56 + 0.4)
+        .fold(0.0_f64, f64::max)
+}
+
+fn instrument_group_symbol_sp(staff_group: &str) -> f64 {
+    match staff_group {
+        "grand" => 2.1,
+        "bracket" => 1.4,
+        _ => 0.0,
+    }
+}
+
+fn instrument_indent_sp(params: &ScoreInput, first_system: bool, staff_group: &str) -> f64 {
+    let max_name_width = params
+        .staves
+        .iter()
+        .filter_map(|s| {
+            if first_system {
+                s.instrument_name.as_deref()
+            } else {
+                s.instrument_name_cont.as_deref()
+            }
+        })
+        .map(instrument_name_width_sp)
+        .fold(0.0_f64, f64::max);
+    if max_name_width > 0.0 {
+        max_name_width + instrument_group_symbol_sp(staff_group) + 1.4
+    } else {
+        0.0
     }
 }
 

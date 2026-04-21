@@ -984,3 +984,41 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
     )
   )
 )
+
+#v(1cm)
+
+== Test 71: Melody instrument names
+
+#melody(
+  key: "B&",
+  time: "4/4",
+  measures-per-line: 1,
+  instrument-name: "Trumpet in B&",
+  instrument-name-cont: "Tpt. B&",
+  music: "c'4 d' e' f' | g' a' b&' c'' | c'' b&' a' g'",
+)
+
+#v(1cm)
+
+== Test 72: Score instrument names align across staves
+
+#score(
+  key: "D",
+  time: "4/4",
+  staff-group: "grand",
+  measures-per-line: 1,
+  staves: (
+    (
+      clef: "treble",
+      instrument-name: "Clarinet in A",
+      instrument-name-cont: "Cl. A",
+      music: "f#'4 g' a' b' | c#'' d'' e'' f#'' | g'' f#'' e'' d''",
+    ),
+    (
+      clef: "bass",
+      instrument-name: "Cello",
+      instrument-name-cont: "Vc.",
+      music: "d,2 a, | b,2 f# | g,2 d",
+    ),
+  ),
+)
