@@ -4801,9 +4801,9 @@ fn octave_line_above_y_for_bounds(
         )
         .is_some();
     let label_clearance = if starts_over_above_fingering {
-        0.95 * sp
+        1.15 * sp
     } else {
-        0.45 * sp
+        0.7 * sp
     };
 
     top_y.max(y_top) + label_clearance
