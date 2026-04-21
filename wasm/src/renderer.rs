@@ -1583,6 +1583,74 @@ fn grace_slash_beam_extension(duration: i32) -> f64 {
     (beam_count(duration).saturating_sub(1) as f64) * 0.95
 }
 
+fn beam_stem_tip_y(item: &LaidOutItem, stem_dir: &str) -> f64 {
+    match &item.event {
+        Event::Chord(_) if !item.chord_ys.is_empty() => {
+            if stem_dir == "up" {
+                item.chord_ys
+                    .iter()
+                    .copied()
+                    .fold(f64::NEG_INFINITY, f64::max)
+            } else {
+                item.chord_ys.iter().copied().fold(f64::INFINITY, f64::min)
+            }
+        }
+        _ => item.y,
+    }
+}
+
+fn beam_notehead_edge_y(
+    item: &LaidOutItem,
+    stem_dir: &str,
+    notehead_top: f64,
+    notehead_bottom: f64,
+    scale: f64,
+) -> f64 {
+    beam_notehead_edge_y_from_centers(
+        item.y,
+        &item.chord_ys,
+        stem_dir,
+        notehead_top,
+        notehead_bottom,
+        scale,
+    )
+}
+
+fn beam_notehead_edge_y_from_centers(
+    fallback_y: f64,
+    chord_ys: &[f64],
+    stem_dir: &str,
+    notehead_top: f64,
+    notehead_bottom: f64,
+    scale: f64,
+) -> f64 {
+    if !chord_ys.is_empty() {
+        if stem_dir == "up" {
+            chord_ys.iter().copied().fold(f64::NEG_INFINITY, f64::max) + notehead_top * scale
+        } else {
+            chord_ys.iter().copied().fold(f64::INFINITY, f64::min) + notehead_bottom * scale
+        }
+    } else if stem_dir == "up" {
+        fallback_y + notehead_top * scale
+    } else {
+        fallback_y + notehead_bottom * scale
+    }
+}
+
+fn chord_beam_clearance_bonus(item: &LaidOutItem, scale: f64) -> f64 {
+    if item.chord_ys.len() < 2 {
+        return 0.0;
+    }
+    let top = item
+        .chord_ys
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let bottom = item.chord_ys.iter().copied().fold(f64::INFINITY, f64::min);
+    let span = top - bottom;
+    ((span - 2.5).max(0.0) * 0.08).min(0.45) * scale
+}
+
 fn min_dur_for_level(level: i32) -> i32 {
     match level {
         1 => 8,
@@ -2643,16 +2711,18 @@ fn render_system(
 
         let first = &items[*group.first().unwrap()];
         let last = &items[*group.last().unwrap()];
+        let first_tip_y = beam_stem_tip_y(first, stem_dir);
+        let last_tip_y = beam_stem_tip_y(last, stem_dir);
         let mut sy0 = pitch::compute_stem_end_y(
-            first.y,
-            (-2.0 * first.y).round() as i32,
+            first_tip_y,
+            (-2.0 * first_tip_y).round() as i32,
             stem_dir,
             beam_scale,
             stem_min_length,
         );
         let mut syn = pitch::compute_stem_end_y(
-            last.y,
-            (-2.0 * last.y).round() as i32,
+            last_tip_y,
+            (-2.0 * last_tip_y).round() as i32,
             stem_dir,
             beam_scale,
             stem_min_length,
@@ -2680,11 +2750,9 @@ fn render_system(
                     + (beam_levels - 1) as f64 * beam_step_staff
                     + ed.beam_thickness * beam_scale
             };
-            let note_edge = if stem_dir == "up" {
-                item.y + black_top * beam_scale
-            } else {
-                item.y + black_bottom * beam_scale
-            };
+            let note_edge =
+                beam_notehead_edge_y(item, stem_dir, black_top, black_bottom, beam_scale);
+            let min_clearance = min_clearance + chord_beam_clearance_bonus(item, beam_scale);
             let actual_clearance = if stem_dir == "up" {
                 nearest_edge - note_edge
             } else {
@@ -4301,6 +4369,19 @@ mod beam_tests {
         assert_eq!(secondary[0], notes[0].stem_x);
         assert!(secondary[2] > notes[0].stem_x);
         assert!(secondary[0] < secondary[2]);
+    }
+
+    #[test]
+    fn beam_clearance_uses_outer_chord_notehead() {
+        let chord_ys = [-1.0, 0.0, 2.0];
+
+        let up_edge =
+            beam_notehead_edge_y_from_centers(-1.0, &chord_ys, "up", 0.8, -0.8, 1.0);
+        let down_edge =
+            beam_notehead_edge_y_from_centers(2.0, &chord_ys, "down", 0.8, -0.8, 1.0);
+
+        assert_eq!(up_edge, 2.8);
+        assert_eq!(down_edge, -1.8);
     }
 }
 
