@@ -2281,8 +2281,11 @@ fn instrument_indent_sp(names: &[Option<&str>], ranges: &[StaffGroupRange]) -> f
         .filter_map(|name| *name)
         .map(instrument_name_width_sp)
         .fold(0.0_f64, f64::max);
+    let group_symbol_width = instrument_group_symbol_sp(ranges);
     if max_name_width > 0.0 {
-        max_name_width + instrument_group_symbol_sp(ranges) + 1.4
+        max_name_width + group_symbol_width + 1.4
+    } else if group_symbol_width > 0.0 {
+        group_symbol_width
     } else {
         0.0
     }
