@@ -347,7 +347,6 @@ This document provides a series of tests to verify the rendering of edge cases i
 #score(
   key: "E",
   time: "4/4",
-  width: 155mm,
   staff-group: "separate",
   staves: (
     (

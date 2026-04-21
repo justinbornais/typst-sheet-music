@@ -19,6 +19,7 @@ const BARLINE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const TIED_GRACE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.75;
 const SHORT_NOTE_ACCIDENTAL_CLEARANCE: f64 = 0.55;
 const FLAGGED_NOTE_TO_ACCIDENTAL_CLEARANCE: f64 = 0.24;
+const MIN_NOTEHEAD_PAIR_CLEARANCE: f64 = 1.1;
 const EMPTY_MEASURE_REST_WIDTH: f64 = 1.8;
 const SYSTEM_START_CONTENT_PADDING: f64 = 0.55;
 const GRACE_NOTE_SCALE: f64 = 0.68;
@@ -446,6 +447,26 @@ fn event_right_collision_extent(event: &Event, font: glyph::FontId) -> f64 {
     }
 }
 
+fn minimum_note_pair_spacing(event: &Event, next: Option<&Event>, font: glyph::FontId) -> f64 {
+    let next = match next {
+        Some(next) => next,
+        None => return 0.0,
+    };
+    if !event_is_note_cluster(event) || !event_is_note_cluster(next) {
+        return 0.0;
+    }
+    if event.duration() < 32 && next.duration() < 32 {
+        return 0.0;
+    }
+
+    let event_scale = if event.grace() { GRACE_NOTE_SCALE } else { 1.0 };
+    let next_scale = if next.grace() { GRACE_NOTE_SCALE } else { 1.0 };
+
+    event_right_collision_extent(event, font) * event_scale
+        + notehead_half_width(next, font) * next_scale
+        + MIN_NOTEHEAD_PAIR_CLEARANCE * event_scale.max(next_scale)
+}
+
 fn pre_accidental_clearance(event: &Event) -> f64 {
     let mut clearance = 0.0;
     if event.grace() && event.tie() {
@@ -664,6 +685,7 @@ pub fn event_width_font(
             if plain_note_pair(event, next) {
                 w *= PLAIN_NOTE_SPACING_MULTIPLIER;
             }
+            w = w.max(minimum_note_pair_spacing(event, next, font));
             w + leading_accidental_extra(event, w, next, font)
                 + flagged_note_accidental_extra(event, next)
                 + right_staff_marker_trailing_extra(event, w, font)
@@ -1987,6 +2009,35 @@ mod tests {
     }
 
     #[test]
+    fn very_short_notes_keep_minimum_head_clearance() {
+        let e64 = note("e", None, 64);
+        let d64 = note("d", None, 64);
+
+        let width = event_width(&e64, None, Some(&d64));
+        let minimum = notehead_half_width(&e64, glyph::FontId::Bravura)
+            + notehead_half_width(&d64, glyph::FontId::Bravura)
+            + MIN_NOTEHEAD_PAIR_CLEARANCE;
+        let compact_duration_width = DEFAULT_NOTE_SPACING_BASE
+            * duration_spacing_factor(64.0, 0)
+            * PLAIN_NOTE_SPACING_MULTIPLIER;
+
+        assert_eq!(width, minimum);
+        assert!(width > compact_duration_width);
+    }
+
+    #[test]
+    fn very_short_notes_with_accidentals_expand_past_minimum_spacing() {
+        let e64 = note("e", None, 64);
+        let e_sharp64 = note("e", Some("sharp"), 64);
+        let f64 = note("f", None, 64);
+
+        let plain_width = event_width(&e64, None, Some(&f64));
+        let accidental_width = event_width(&e64, None, Some(&e_sharp64));
+
+        assert!(accidental_width > plain_width);
+    }
+
+    #[test]
     fn dense_chord_accidentals_alternate_outer_notes_first() {
         let positions = [0, 1, 2];
         let accidentals = [Some("flat"), Some("flat"), Some("flat")];
@@ -2140,4 +2191,5 @@ mod tests {
         assert!((upper_barline_x - lower_barline_x).abs() < 0.000001);
         assert!((upper_second_measure_x - lower_second_measure_x).abs() < 0.000001);
     }
+
 }

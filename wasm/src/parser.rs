@@ -439,6 +439,10 @@ impl<'a> Parser<'a> {
 
         // Chord symbol, staff text, expression text, fingering, lyrics
         loop {
+            while p < self.len() && is_whitespace_char(self.input[p]) {
+                p += 1;
+            }
+
             if self.peek(p) == Some(b'l') {
                 let (entry, next_p) = self.parse_lyric(p);
                 if let Some(e) = entry {
@@ -1524,6 +1528,34 @@ mod tests {
                 assert!(!marks[2].bold);
             }
             other => panic!("expected chord, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_spaced_text_attachments_without_leaking_music_tokens() {
+        let chord_events = parse_music("<e g# b>breve text[breve spacer stress] sbreve", 4);
+
+        assert_eq!(chord_events.len(), 2);
+        match &chord_events[0] {
+            Event::Chord(c) => {
+                assert_eq!(c.duration, DURATION_BREVE);
+                assert_eq!(c.staff_text.as_deref(), Some("breve spacer stress"));
+            }
+            other => panic!("expected chord, got {other:?}"),
+        }
+        match &chord_events[1] {
+            Event::Spacer(s) => assert_eq!(s.duration, DURATION_BREVE),
+            other => panic!("expected spacer, got {other:?}"),
+        }
+
+        let rest_events = parse_music("rmaxima exp[huge silent duration]", 4);
+        assert_eq!(rest_events.len(), 1);
+        match &rest_events[0] {
+            Event::Rest(r) => {
+                assert_eq!(r.duration, DURATION_MAXIMA);
+                assert_eq!(r.expression_text.as_deref(), Some("huge silent duration"));
+            }
+            other => panic!("expected rest, got {other:?}"),
         }
     }
 
