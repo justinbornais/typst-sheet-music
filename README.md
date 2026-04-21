@@ -118,7 +118,12 @@ Staff dictionaries support:
 |-------|------|---------|-------------|
 | `clef` | string | `none` | Any supported clef, including octave-clef variants and `"percussion"` |
 | `music` | string | `""` | Music string |
+| `instrument-name` | string | `none` | Full name for the first system |
+| `instrument-name-cont` | string | `none` | Continued-system name, often abbreviated |
+| `instrument-name-shared` | bool | `false` | Share the previous staff's name, centered across both staves |
 | `fingering-position` | string | `"above"` | Default fingering position: `"above"` or `"below"` |
+
+Instrument names reserve space before the staff. Use `&`, `#`, and `=` in names for flat, sharp, and natural symbols.
 
 ### `melody()`
 
@@ -141,6 +146,8 @@ Single-staff convenience wrapper around `score()`.
 | `key` | string | `"C"` | Key signature |
 | `time` | string | `none` | Time signature |
 | `clef` | string | `none` | Clef |
+| `instrument-name` | string | `none` | Full name for the first system |
+| `instrument-name-cont` | string | `none` | Continued-system name, often abbreviated |
 | `title` | string | `none` | Title |
 | `composer` | string | `none` | Composer |
 | `staff-size` | length | `1.75mm` | Staff space |
