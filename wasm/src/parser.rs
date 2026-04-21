@@ -872,10 +872,13 @@ impl<'a> Parser<'a> {
             if ch == b'r' {
                 self.pos += 1;
                 let (duration, dots, p) = self.parse_duration_dots(self.pos, self.last_duration);
+                let (att, p) = self.parse_note_attachments(p);
                 self.pos = p;
                 self.last_duration = duration;
                 let mut rest = Rest::new(duration);
                 rest.dots = dots;
+                rest.staff_text = att.staff_text;
+                rest.expression_text = att.expression_text;
                 self.events.push(Event::Rest(rest));
                 continue;
             }

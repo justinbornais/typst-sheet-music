@@ -83,6 +83,8 @@ pub struct ChordNote {
 pub struct Rest {
     pub duration: i32,
     pub dots: i32,
+    pub staff_text: Option<String>,
+    pub expression_text: Option<String>,
     pub tuplet_beats: f64,
     pub tuplet_number: i32,
     pub tuplet_count: i32,
@@ -503,6 +505,7 @@ impl Event {
     pub fn staff_text(&self) -> Option<&str> {
         match self {
             Event::Note(n) => n.staff_text.as_deref(),
+            Event::Rest(r) => r.staff_text.as_deref(),
             Event::Chord(c) => c.staff_text.as_deref(),
             _ => None,
         }
@@ -510,6 +513,7 @@ impl Event {
     pub fn expression_text(&self) -> Option<&str> {
         match self {
             Event::Note(n) => n.expression_text.as_deref(),
+            Event::Rest(r) => r.expression_text.as_deref(),
             Event::Chord(c) => c.expression_text.as_deref(),
             _ => None,
         }
@@ -577,6 +581,8 @@ impl Rest {
         Rest {
             duration,
             dots: 0,
+            staff_text: None,
+            expression_text: None,
             tuplet_beats: 0.0,
             tuplet_number: 0,
             tuplet_count: 0,

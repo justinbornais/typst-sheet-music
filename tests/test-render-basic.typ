@@ -884,6 +884,16 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
 
 #v(1cm)
 
+== Test 65b: Text annotations on rests
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "r4text[Solo] c'4 r4exp[senza vib.] d'4 | r2text[Tacet] r2exp[attacca]",
+)
+
+#v(1cm)
+
 == Test 66: Manual spacing with repeated spaces
 
 #score(

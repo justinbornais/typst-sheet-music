@@ -1561,6 +1561,8 @@ mod tests {
         Event::Rest(Rest {
             duration,
             dots: 0,
+            staff_text: None,
+            expression_text: None,
             tuplet_beats: 0.0,
             tuplet_number: 0,
             tuplet_count: 0,

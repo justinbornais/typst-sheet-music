@@ -3150,7 +3150,7 @@ fn render_system(
             _ => {}
         }
 
-        // Fingering, chord symbol, staff text, expression text for notes and chords
+        // Fingering, chord symbol, staff text, expression text for notes, rests, and chords
         match ev {
             Event::Note(n) => {
                 let note_center_y = y_top + item.y * sp;
@@ -3187,6 +3187,27 @@ fn render_system(
 
                 // Staff markers
                 render_staff_markers(cmds, x, &n.staff_markers, y_top, above_anchor, sp, font);
+            }
+            Event::Rest(_) => {
+                render_inline_text(
+                    cmds,
+                    items,
+                    &item_xs,
+                    i,
+                    x,
+                    ev,
+                    y_top + 0.5 * sp,
+                    y_top + item.y * sp,
+                    y_top + item.y * sp,
+                    y_top,
+                    y_bottom,
+                    sp,
+                    fng_pos,
+                    "up",
+                    None,
+                    false,
+                    font,
+                );
             }
             Event::Chord(c) => {
                 let chord_ys_abs: Vec<f64> =
