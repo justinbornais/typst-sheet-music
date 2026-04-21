@@ -663,6 +663,32 @@ pub struct StaffInput {
     #[serde(default)]
     pub instrument_name_shared: bool,
     pub fingering_position: Option<String>,
+    #[serde(default)]
+    pub barline_group_start: bool,
+    #[serde(default)]
+    pub barline_group_end: bool,
+    #[serde(default)]
+    pub bracket_start: bool,
+    #[serde(default)]
+    pub bracket_end: bool,
+    #[serde(default)]
+    pub brace_start: bool,
+    #[serde(default)]
+    pub brace_end: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StaffGroupKind {
+    Barline,
+    Bracket,
+    Brace,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StaffGroupRange {
+    pub start: usize,
+    pub end: usize,
+    pub kind: StaffGroupKind,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -5,10 +5,10 @@ pub mod pitch;
 pub mod renderer;
 pub mod types;
 
+use glyph::FontId;
 use types::*;
 #[cfg(not(test))]
 use wasm_minimal_protocol::*;
-use glyph::FontId;
 
 #[cfg(not(test))]
 initiate_protocol!();
@@ -39,6 +39,7 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
             parser::parse_music(&s.music, base_oct)
         })
         .collect();
+    let staff_group_ranges = build_staff_group_ranges(params);
 
     // Build systems
     let first_events = if staves_events.is_empty() {
@@ -51,8 +52,8 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
     let show_time = ts.is_some();
     let prefix_first = prefix_width_sp(first_clef, &params.key, show_time, &ts, font);
     let prefix_cont = prefix_width_sp(first_clef, &params.key, false, &ts, font);
-    let instrument_indent_first = instrument_indent_sp(params, true, &params.staff_group);
-    let instrument_indent_cont = instrument_indent_sp(params, false, &params.staff_group);
+    let instrument_indent_first = instrument_indent_sp(params, true, &staff_group_ranges);
+    let instrument_indent_cont = instrument_indent_sp(params, false, &staff_group_ranges);
 
     let avail_width_mm = params.width_mm;
     let first_avail =
@@ -156,6 +157,7 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
             avail_width_mm,
             params.staff_spacing_mm,
             &params.staff_group,
+            &staff_group_ranges,
             if is_first {
                 params.title.as_deref()
             } else {
@@ -268,15 +270,138 @@ fn instrument_name_width_sp(name: &str) -> f64 {
         .fold(0.0_f64, f64::max)
 }
 
-fn instrument_group_symbol_sp(staff_group: &str) -> f64 {
+fn legacy_staff_group_kind(staff_group: &str) -> Option<StaffGroupKind> {
     match staff_group {
-        "grand" => 2.1,
-        "bracket" => 1.4,
-        _ => 0.0,
+        "grand" => Some(StaffGroupKind::Brace),
+        "bracket" => Some(StaffGroupKind::Bracket),
+        "barline" | "barlines" | "connected" => Some(StaffGroupKind::Barline),
+        _ => None,
     }
 }
 
-fn instrument_indent_sp(params: &ScoreInput, first_system: bool, staff_group: &str) -> f64 {
+fn has_per_staff_grouping(params: &ScoreInput) -> bool {
+    params.staves.iter().any(|staff| {
+        staff.barline_group_start
+            || staff.barline_group_end
+            || staff.bracket_start
+            || staff.bracket_end
+            || staff.brace_start
+            || staff.brace_end
+    })
+}
+
+fn collect_staff_group_ranges<FStart, FEnd>(
+    staves: &[StaffInput],
+    kind: StaffGroupKind,
+    starts: FStart,
+    ends: FEnd,
+) -> Vec<StaffGroupRange>
+where
+    FStart: Fn(&StaffInput) -> bool,
+    FEnd: Fn(&StaffInput) -> bool,
+{
+    let mut ranges = Vec::new();
+    let mut active_start: Option<usize> = None;
+    for (idx, staff) in staves.iter().enumerate() {
+        if starts(staff) {
+            active_start = Some(idx);
+        }
+        if ends(staff) {
+            if let Some(start) = active_start.take() {
+                if idx > start {
+                    ranges.push(StaffGroupRange {
+                        start,
+                        end: idx,
+                        kind: kind.clone(),
+                    });
+                }
+            }
+        }
+    }
+    ranges
+}
+
+fn build_staff_group_ranges(params: &ScoreInput) -> Vec<StaffGroupRange> {
+    let staff_count = params.staves.len();
+    if staff_count < 2 {
+        return Vec::new();
+    }
+
+    if has_per_staff_grouping(params) {
+        let mut ranges = Vec::new();
+        ranges.extend(collect_staff_group_ranges(
+            &params.staves,
+            StaffGroupKind::Barline,
+            |s| s.barline_group_start,
+            |s| s.barline_group_end,
+        ));
+        ranges.extend(collect_staff_group_ranges(
+            &params.staves,
+            StaffGroupKind::Bracket,
+            |s| s.bracket_start,
+            |s| s.bracket_end,
+        ));
+        ranges.extend(collect_staff_group_ranges(
+            &params.staves,
+            StaffGroupKind::Brace,
+            |s| s.brace_start,
+            |s| s.brace_end,
+        ));
+        return ranges;
+    }
+
+    legacy_staff_group_kind(&params.staff_group)
+        .map(|kind| {
+            vec![StaffGroupRange {
+                start: 0,
+                end: staff_count - 1,
+                kind,
+            }]
+        })
+        .unwrap_or_default()
+}
+
+fn instrument_group_symbol_sp_for_ranges(ranges: &[StaffGroupRange]) -> f64 {
+    if has_overlapping_brace_and_bracket(ranges) {
+        return 3.0;
+    }
+
+    ranges
+        .iter()
+        .map(|range| match range.kind {
+            StaffGroupKind::Brace => 2.1,
+            StaffGroupKind::Bracket => 1.4,
+            StaffGroupKind::Barline => 0.0,
+        })
+        .fold(0.0_f64, f64::max)
+}
+
+fn group_ranges_overlap(a: &StaffGroupRange, b: &StaffGroupRange) -> bool {
+    a.start <= b.end && b.start <= a.end
+}
+
+fn overlaps_group_kind(
+    range: &StaffGroupRange,
+    ranges: &[StaffGroupRange],
+    kind: StaffGroupKind,
+) -> bool {
+    ranges
+        .iter()
+        .any(|other| other.kind == kind && group_ranges_overlap(range, other))
+}
+
+fn has_overlapping_brace_and_bracket(ranges: &[StaffGroupRange]) -> bool {
+    ranges.iter().any(|range| {
+        range.kind == StaffGroupKind::Brace
+            && overlaps_group_kind(range, ranges, StaffGroupKind::Bracket)
+    })
+}
+
+fn instrument_indent_sp(
+    params: &ScoreInput,
+    first_system: bool,
+    group_ranges: &[StaffGroupRange],
+) -> f64 {
     let max_name_width = params
         .staves
         .iter()
@@ -290,7 +415,7 @@ fn instrument_indent_sp(params: &ScoreInput, first_system: bool, staff_group: &s
         .map(instrument_name_width_sp)
         .fold(0.0_f64, f64::max);
     if max_name_width > 0.0 {
-        max_name_width + instrument_group_symbol_sp(staff_group) + 1.4
+        max_name_width + instrument_group_symbol_sp_for_ranges(group_ranges) + 1.4
     } else {
         0.0
     }
@@ -326,7 +451,13 @@ fn parse_time_sig(ts: Option<&str>) -> Option<TimeInfo> {
     }
 }
 
-fn prefix_width_sp(clef: Option<&str>, key: &str, show_time: bool, ts: &Option<TimeInfo>, font: FontId) -> f64 {
+fn prefix_width_sp(
+    clef: Option<&str>,
+    key: &str,
+    show_time: bool,
+    ts: &Option<TimeInfo>,
+    font: FontId,
+) -> f64 {
     let mut pf = 0.5; // left margin
     if let Some(c) = clef {
         pf += layout::clef_advance_sp_font(c, 1.0, font);
@@ -334,7 +465,8 @@ fn prefix_width_sp(clef: Option<&str>, key: &str, show_time: bool, ts: &Option<T
     pf += layout::key_sig_advance_sp_font(key, 1.0, font);
     if show_time {
         if let Some(t) = ts {
-            pf += layout::time_sig_advance_sp_font(t.upper, t.lower, t.symbol.as_deref(), 1.0, font);
+            pf +=
+                layout::time_sig_advance_sp_font(t.upper, t.lower, t.symbol.as_deref(), 1.0, font);
         }
     }
     pf += MUSIC_START_PADDING_SP; // music-start padding
@@ -515,6 +647,45 @@ mod tests {
         })
     }
 
+    fn staff() -> StaffInput {
+        StaffInput {
+            clef: Some("treble".into()),
+            music: "c4 | d4".into(),
+            label: None,
+            instrument_name: None,
+            instrument_name_cont: None,
+            instrument_name_shared: false,
+            fingering_position: None,
+            barline_group_start: false,
+            barline_group_end: false,
+            bracket_start: false,
+            bracket_end: false,
+            brace_start: false,
+            brace_end: false,
+        }
+    }
+
+    fn score_input(staves: Vec<StaffInput>, staff_group: &str) -> ScoreInput {
+        ScoreInput {
+            staves,
+            key: "C".into(),
+            time: Some("4/4".into()),
+            title: None,
+            subtitle: None,
+            composer: None,
+            arranger: None,
+            lyricist: None,
+            staff_group: staff_group.into(),
+            staff_size_mm: 1.75,
+            width_mm: Some(120.0),
+            staff_spacing_mm: 8.0,
+            system_spacing_mm: 12.0,
+            measures_per_line: None,
+            measure_numbers: "none".into(),
+            music_font: "Leland".into(),
+        }
+    }
+
     #[test]
     fn inline_clef_changes_carry_to_following_system() {
         let systems = vec![
@@ -551,5 +722,38 @@ mod tests {
             Some((3, 4))
         );
         assert!(!prepared[1].show_time_prefix);
+    }
+
+    #[test]
+    fn legacy_staff_group_is_used_only_for_explicit_group_values() {
+        let separate = score_input(vec![staff(), staff()], "none");
+        assert!(build_staff_group_ranges(&separate).is_empty());
+
+        let grand = score_input(vec![staff(), staff()], "grand");
+        assert_eq!(
+            build_staff_group_ranges(&grand),
+            vec![StaffGroupRange {
+                start: 0,
+                end: 1,
+                kind: StaffGroupKind::Brace,
+            }]
+        );
+    }
+
+    #[test]
+    fn per_staff_grouping_overrides_legacy_staff_group() {
+        let mut staves = vec![staff(), staff(), staff(), staff()];
+        staves[1].bracket_start = true;
+        staves[3].bracket_end = true;
+        let input = score_input(staves, "grand");
+
+        assert_eq!(
+            build_staff_group_ranges(&input),
+            vec![StaffGroupRange {
+                start: 1,
+                end: 3,
+                kind: StaffGroupKind::Bracket,
+            }]
+        );
     }
 }

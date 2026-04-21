@@ -175,7 +175,7 @@ pub fn advance_width(glyph_name: &str) -> f64 {
 
 #[inline]
 pub fn advance_width_for(font: FontId, glyph_name: &str) -> f64 {
-    match font {
+    let width = match font {
         FontId::Bravura => advance_width_bravura(glyph_name),
         FontId::Leipzig => advance_width_leipzig(glyph_name),
         FontId::Leland => advance_width_leland(glyph_name),
@@ -187,6 +187,19 @@ pub fn advance_width_for(font: FontId, glyph_name: &str) -> f64 {
         FontId::FinaleJazz => advance_width_finalejazz(glyph_name),
         FontId::FinaleLegacy => advance_width_finalelegacy(glyph_name),
         FontId::FinaleMaestro => advance_width_finalemaestro(glyph_name),
+    };
+    if width == 0.0 {
+        advance_width_common(glyph_name)
+    } else {
+        width
+    }
+}
+
+fn advance_width_common(g: &str) -> f64 {
+    match g {
+        "bracket" => 2.232,
+        "bracketTop" | "bracketBottom" => 1.876,
+        _ => 0.0,
     }
 }
 
@@ -806,7 +819,7 @@ pub fn bbox(glyph_name: &str) -> Option<BBox> {
 
 #[inline]
 pub fn bbox_for(font: FontId, glyph_name: &str) -> Option<BBox> {
-    match font {
+    let bbox = match font {
         FontId::Bravura => bbox_bravura(glyph_name),
         FontId::Leipzig => bbox_leipzig(glyph_name),
         FontId::Leland => bbox_leland(glyph_name),
@@ -818,6 +831,17 @@ pub fn bbox_for(font: FontId, glyph_name: &str) -> Option<BBox> {
         FontId::FinaleJazz => bbox_finalejazz(glyph_name),
         FontId::FinaleLegacy => bbox_finalelegacy(glyph_name),
         FontId::FinaleMaestro => bbox_finalemaestro(glyph_name),
+    };
+    bbox.or_else(|| bbox_common(glyph_name))
+}
+
+fn bbox_common(g: &str) -> Option<BBox> {
+    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    match g {
+        "bracket" => b(0.0, -1.272, 1.876, 5.284),
+        "bracketTop" => b(0.0, 0.0, 1.876, 1.18),
+        "bracketBottom" => b(0.0, -1.18, 1.876, 0.0),
+        _ => None,
     }
 }
 

@@ -59,6 +59,9 @@
 ///     - instrument-name: optional full name shown on the first system
 ///     - instrument-name-cont: optional abbreviated name shown on later systems
 ///     - instrument-name-shared: true to center the previous staff's name across both staves
+///     - barline-group-start/end: connect measure lines across this adjacent staff range
+///     - bracket-start/end: connect adjacent staves with a straight bracket
+///     - brace-start/end: connect adjacent staves with a grand-staff brace
 /// - key: key signature string ("C", "G", "D", "Bb", "f#", etc.)
 /// - time: time signature string ("4/4", "3/4", "6/8", "C"/"common", "C|"/"cut")
 /// - title: piece title
@@ -125,6 +128,12 @@
         instrument_name_cont: s.at("instrument-name-cont", default: none),
         instrument_name_shared: s.at("instrument-name-shared", default: false),
         fingering_position: s.at("fingering-position", default: "above"),
+        barline_group_start: s.at("barline-group-start", default: s.at("connect-start", default: false)),
+        barline_group_end: s.at("barline-group-end", default: s.at("connect-end", default: false)),
+        bracket_start: s.at("bracket-start", default: false),
+        bracket_end: s.at("bracket-end", default: false),
+        brace_start: s.at("brace-start", default: false),
+        brace_end: s.at("brace-end", default: false),
       )),
       key: key,
       time: time,

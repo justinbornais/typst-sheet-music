@@ -102,7 +102,7 @@ Primary entry point for one or more staves.
 | `composer` | string | `none` | Composer name |
 | `arranger` | string | `none` | Arranger name |
 | `lyricist` | string | `none` | Lyricist name |
-| `staff-group` | string | `"none"` | `"none"`, `"grand"`, `"bracket"`, or `"separate"` |
+| `staff-group` | string | `"none"` | Legacy global grouping: explicit `"grand"` or `"bracket"` still works; `"none"`/`"separate"` render staves separately |
 | `staff-size` | length | `1.75mm` | Staff space distance |
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `staff-spacing` | length | `8mm` | Vertical space between staves in a system |
@@ -122,8 +122,13 @@ Staff dictionaries support:
 | `instrument-name-cont` | string | `none` | Continued-system name, often abbreviated |
 | `instrument-name-shared` | bool | `false` | Share the previous staff's name, centered across both staves |
 | `fingering-position` | string | `"above"` | Default fingering position: `"above"` or `"below"` |
+| `barline-group-start` / `barline-group-end` | bool | `false` | Connect measure lines across adjacent staves without drawing a brace or bracket |
+| `bracket-start` / `bracket-end` | bool | `false` | Draw a straight bracket and connected measure lines across adjacent staves |
+| `brace-start` / `brace-end` | bool | `false` | Draw a grand-staff brace and connected measure lines across adjacent staves |
 
 Instrument names reserve space before the staff. Use `&`, `#`, and `=` in names for flat, sharp, and natural symbols.
+
+Per-staff grouping markers override the legacy score-level `staff-group` value. Mark the top staff with `*-start` and the bottom adjacent staff with the matching `*-end`.
 
 ### `melody()`
 

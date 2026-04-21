@@ -713,6 +713,9 @@ fn smufl_name_for_codepoint(codepoint: u32) -> Option<&'static str> {
         0xE047 => Some("segno"),
         0xE048 => Some("coda"),
         0xE000 => Some("brace"),
+        0xE002 => Some("bracket"),
+        0xE003 => Some("bracketTop"),
+        0xE004 => Some("bracketBottom"),
         _ => None,
     }
 }
@@ -1739,7 +1742,8 @@ pub fn render_system_group(
     sp_unit: f64,
     avail_width_mm: Option<f64>,
     staff_spacing_mm: f64,
-    staff_group: &str,
+    _staff_group: &str,
+    staff_group_ranges: &[StaffGroupRange],
     title: Option<&str>,
     subtitle: Option<&str>,
     composer: Option<&str>,
@@ -1758,13 +1762,25 @@ pub fn render_system_group(
     let mut cmds = Vec::with_capacity(estimated_cmds);
     let num_staves = laid_out_staves.len();
     let staff_height_mm = 4.0 * sp_unit;
-    let use_spanning_barlines = num_staves > 1 && staff_group != "separate";
+    let skip_barlines_by_staff: Vec<bool> = (0..num_staves)
+        .map(|si| {
+            staff_group_ranges
+                .iter()
+                .any(|range| range.start <= si && si <= range.end)
+        })
+        .collect();
 
     // Compute shared prefix data
-    let instrument_group_extra = instrument_group_symbol_sp(staff_group);
-    let instrument_indent = instrument_indent_sp(instrument_names, staff_group);
-    let (shared_time_x, shared_music_start_x) =
-        compute_shared_prefix(laid_out_staves, key, time, sp_unit, show_time, instrument_indent);
+    let instrument_group_extra = instrument_group_symbol_sp(staff_group_ranges);
+    let instrument_indent = instrument_indent_sp(instrument_names, staff_group_ranges);
+    let (shared_time_x, shared_music_start_x) = compute_shared_prefix(
+        laid_out_staves,
+        key,
+        time,
+        sp_unit,
+        show_time,
+        instrument_indent,
+    );
 
     // Render header text
     let mut header_height = 0.0;
@@ -1905,7 +1921,7 @@ pub fn render_system_group(
             show_time && si == 0,
             Some(shared_time_x),
             Some(shared_music_start_x),
-            use_spanning_barlines, // all staves skip barlines when spanning
+            skip_barlines_by_staff.get(si).copied().unwrap_or(false),
             fng_pos,
             y_top,
             font,
@@ -1916,100 +1932,134 @@ pub fn render_system_group(
         total_height += staff_height_mm;
     }
 
-    // Draw multi-staff elements
+    // Draw per-staff range grouping symbols and connected barlines.
     if num_staves > 1 {
-        let first_y_top = -header_height;
-        let last_y_bottom = y_offset + staff_height_mm - 4.0 * sp_unit;
+        let total_w = compute_total_width(
+            laid_out_staves,
+            sp_unit,
+            avail_width_mm,
+            shared_music_start_x,
+        );
 
-        // Brace or bracket
-        if staff_group == "grand" {
-            let brace_cp = 0xE000u32;
-            let span = first_y_top - last_y_bottom;
-            if span > 0.0 {
-                let nominal_h = 4.0 * sp_unit;
-                let scale = span / nominal_h;
-                let fsize = 4.0 * sp_unit * scale;
-                let brace_w = glyph::advance_width_for(font, "brace") * sp_unit * scale;
-                cmds.push(DrawCmd::Glyph {
-                    x: instrument_indent * sp_unit - brace_w - 0.3 * sp_unit,
-                    y: last_y_bottom,
-                    c: brace_cp,
-                    s: fsize,
-                    a: "south-west".into(),
-                });
+        for range in staff_group_ranges {
+            if range.start >= num_staves || range.end >= num_staves || range.start >= range.end {
+                continue;
             }
-        } else if staff_group == "bracket" {
-            let thick = 0.3 * sp_unit;
-            let serif = 0.6 * sp_unit;
-            let bx = instrument_indent * sp_unit - 0.5 * sp_unit;
-            emit_line(&mut cmds, bx, first_y_top, bx, last_y_bottom, thick);
-            emit_line(&mut cmds, bx, first_y_top, bx + serif, first_y_top, thick);
-            emit_line(
-                &mut cmds,
-                bx,
-                last_y_bottom,
-                bx + serif,
-                last_y_bottom,
-                thick,
-            );
-        }
 
-        if use_spanning_barlines {
-            // Spanning barlines — opening, all internal measure barlines, and final,
-            // all spanning the full height from the first staff top to the last staff bottom.
-            let staff0 = &laid_out_staves[0];
-            let s0_total_w = staff0.total_width;
+            let group_y_top = staff_y_tops[range.start];
+            let group_y_bottom = staff_y_tops[range.end] - 4.0 * sp_unit;
+            let group_staff_y_tops = &staff_y_tops[range.start..=range.end];
+
+            match range.kind {
+                StaffGroupKind::Brace => {
+                    let brace_cp = 0xE000u32;
+                    let span = group_y_top - group_y_bottom;
+                    if span > 0.0 {
+                        let nominal_h = 4.0 * sp_unit;
+                        let scale = span / nominal_h;
+                        let fsize = 4.0 * sp_unit * scale;
+                        let brace_w = glyph::advance_width_for(font, "brace") * sp_unit * scale;
+                        let right_edge = if overlaps_group_kind(
+                            range,
+                            staff_group_ranges,
+                            StaffGroupKind::Bracket,
+                        ) {
+                            instrument_indent * sp_unit - 1.25 * sp_unit
+                        } else {
+                            instrument_indent * sp_unit - 0.3 * sp_unit
+                        };
+                        cmds.push(DrawCmd::Glyph {
+                            x: right_edge - brace_w,
+                            y: group_y_bottom,
+                            c: brace_cp,
+                            s: fsize,
+                            a: "south-west".into(),
+                        });
+                    }
+                }
+                StaffGroupKind::Bracket => {
+                    let top_cp = 0xE003u32;
+                    let bottom_cp = 0xE004u32;
+                    let bracket_size = 4.0 * sp_unit;
+                    let bottom_h = glyph::bbox_for(font, "bracketBottom")
+                        .map(|b| b.ne_y - b.sw_y)
+                        .unwrap_or(1.18)
+                        * sp_unit;
+                    let bx = instrument_indent * sp_unit - 0.72 * sp_unit;
+                    let stem_x = bx + 0.08 * sp_unit;
+                    let thick = 0.42 * sp_unit;
+                    let terminal_overlap = -0.32 * sp_unit;
+                    let terminal_x = stem_x - thick / 2.0;
+                    let top_terminal_clearance = 0.22 * sp_unit;
+                    let bottom_terminal_clearance = 0.05 * sp_unit;
+
+                    emit_line(
+                        &mut cmds,
+                        stem_x,
+                        group_y_top - terminal_overlap,
+                        stem_x,
+                        group_y_bottom + terminal_overlap,
+                        thick,
+                    );
+                    cmds.push(DrawCmd::Glyph {
+                        x: terminal_x,
+                        y: group_y_top + top_terminal_clearance,
+                        c: top_cp,
+                        s: bracket_size,
+                        a: "south-west".into(),
+                    });
+                    cmds.push(DrawCmd::Glyph {
+                        x: terminal_x,
+                        y: group_y_bottom - bottom_h - bottom_terminal_clearance,
+                        c: bottom_cp,
+                        s: bracket_size,
+                        a: "south-west".into(),
+                    });
+                }
+                StaffGroupKind::Barline => {}
+            }
+
+            let ref_staff = &laid_out_staves[range.start];
+            let ref_total_w = ref_staff.total_width;
             let avail_music_w = if let Some(w) = avail_width_mm {
                 w / sp_unit - shared_music_start_x / sp_unit - 1.0
             } else {
-                s0_total_w + 2.0
+                ref_total_w + 2.0
             };
-            let scale_x = if s0_total_w > 0.0 {
-                avail_music_w / s0_total_w
+            let scale_x = if ref_total_w > 0.0 {
+                avail_music_w / ref_total_w
             } else {
                 1.0
             };
-            let total_w = compute_total_width(
-                laid_out_staves,
-                sp_unit,
-                avail_width_mm,
-                shared_music_start_x,
-            );
 
-            // Opening barline (left edge)
             emit_line(
                 &mut cmds,
                 instrument_indent * sp_unit + ed.thin_barline_thickness / 2.0 * sp_unit,
-                first_y_top,
+                group_y_top,
                 instrument_indent * sp_unit + ed.thin_barline_thickness / 2.0 * sp_unit,
-                last_y_bottom,
+                group_y_bottom,
                 ed.thin_barline_thickness * sp_unit,
             );
 
-            // Internal measure barlines and final barline.
-            // Key rule: if the last item in staff0 IS a barline, that barline is the
-            // system-closing barline (skip it in the internal loop, render it as final).
-            // If the last item is NOT a barline (music ends mid-measure), render ALL
-            // barlines as internal ones and append a synthetic final barline.
-            let items = &staff0.items;
+            let items = &ref_staff.items;
             let last_item_is_barline = items.last().map_or(false, |i| i.event.is_barline());
             let last_barline_idx: Option<usize> = if last_item_is_barline {
                 items.iter().rposition(|it| it.event.is_barline())
             } else {
-                None // all barlines are internal; final will be synthesised
+                None
             };
             for (idx, item) in items.iter().enumerate() {
                 if let Event::Barline(b) = &item.event {
                     if Some(idx) == last_barline_idx {
                         continue;
-                    } // handled below as final
+                    }
                     let bx = shared_music_start_x + item.x * scale_x * sp_unit + 0.5 * sp_unit;
                     render_spanning_barline(
                         &mut cmds,
                         bx,
-                        first_y_top,
-                        last_y_bottom,
-                        &staff_y_tops,
+                        group_y_top,
+                        group_y_bottom,
+                        group_staff_y_tops,
                         &b.style,
                         sp_unit,
                         font,
@@ -2017,7 +2067,6 @@ pub fn render_system_group(
                 }
             }
 
-            // Final barline
             let raw_final_style = if last_item_is_barline {
                 items
                     .last()
@@ -2030,7 +2079,7 @@ pub fn render_system_group(
                     })
                     .unwrap_or("final")
             } else {
-                "final" // music ends with a note — emit standard final barline
+                "final"
             };
             let final_style = if raw_final_style == "repeat-both" {
                 "repeat-end"
@@ -2045,9 +2094,9 @@ pub fn render_system_group(
             render_spanning_barline(
                 &mut cmds,
                 final_x,
-                first_y_top,
-                last_y_bottom,
-                &staff_y_tops,
+                group_y_top,
+                group_y_bottom,
+                group_staff_y_tops,
                 final_style,
                 sp_unit,
                 font,
@@ -2190,22 +2239,50 @@ fn instrument_name_width_sp(name: &str) -> f64 {
         .fold(0.0_f64, f64::max)
 }
 
-fn instrument_group_symbol_sp(staff_group: &str) -> f64 {
-    match staff_group {
-        "grand" => 2.1,
-        "bracket" => 1.4,
-        _ => 0.0,
+fn instrument_group_symbol_sp(ranges: &[StaffGroupRange]) -> f64 {
+    if has_overlapping_brace_and_bracket(ranges) {
+        return 3.0;
     }
+
+    ranges
+        .iter()
+        .map(|range| match range.kind {
+            StaffGroupKind::Brace => 2.1,
+            StaffGroupKind::Bracket => 1.4,
+            StaffGroupKind::Barline => 0.0,
+        })
+        .fold(0.0_f64, f64::max)
 }
 
-fn instrument_indent_sp(names: &[Option<&str>], staff_group: &str) -> f64 {
+fn group_ranges_overlap(a: &StaffGroupRange, b: &StaffGroupRange) -> bool {
+    a.start <= b.end && b.start <= a.end
+}
+
+fn overlaps_group_kind(
+    range: &StaffGroupRange,
+    ranges: &[StaffGroupRange],
+    kind: StaffGroupKind,
+) -> bool {
+    ranges
+        .iter()
+        .any(|other| other.kind == kind && group_ranges_overlap(range, other))
+}
+
+fn has_overlapping_brace_and_bracket(ranges: &[StaffGroupRange]) -> bool {
+    ranges.iter().any(|range| {
+        range.kind == StaffGroupKind::Brace
+            && overlaps_group_kind(range, ranges, StaffGroupKind::Bracket)
+    })
+}
+
+fn instrument_indent_sp(names: &[Option<&str>], ranges: &[StaffGroupRange]) -> f64 {
     let max_name_width = names
         .iter()
         .filter_map(|name| *name)
         .map(instrument_name_width_sp)
         .fold(0.0_f64, f64::max);
     if max_name_width > 0.0 {
-        max_name_width + instrument_group_symbol_sp(staff_group) + 1.4
+        max_name_width + instrument_group_symbol_sp(ranges) + 1.4
     } else {
         0.0
     }
@@ -2219,14 +2296,7 @@ fn render_instrument_name(
     y_top: f64,
     sp: f64,
 ) {
-    render_instrument_name_centered(
-        cmds,
-        name,
-        indent_sp,
-        group_extra_sp,
-        y_top - 2.0 * sp,
-        sp,
-    );
+    render_instrument_name_centered(cmds, name, indent_sp, group_extra_sp, y_top - 2.0 * sp, sp);
 }
 
 fn render_instrument_name_centered(
@@ -4879,7 +4949,10 @@ fn render_hairpins(
     total_width: f64,
 ) {
     fn dynamic_hairpin_padding(dynamic: &str, sp: f64, after_dynamic: bool) -> f64 {
-        let mark_count = dynamic.chars().filter(|ch| dynamic_codepoint(*ch).is_some()).count();
+        let mark_count = dynamic
+            .chars()
+            .filter(|ch| dynamic_codepoint(*ch).is_some())
+            .count();
         let extra = mark_count.saturating_sub(1) as f64 * 0.55 * sp;
         1.15 * sp + extra + if after_dynamic { 0.18 * sp } else { 0.0 }
     }
