@@ -3853,6 +3853,7 @@ fn render_system(
         music_start_x,
         total_width,
         fng_pos,
+        font,
         default_color,
     );
 }
@@ -6969,21 +6970,23 @@ fn render_lyrics(
     cmds: &mut Vec<DrawCmd>,
     items: &[LaidOutItem],
     item_xs: &[f64],
-    _adj_stem_ends: &std::collections::HashMap<usize, f64>,
-    _adj_stem_dirs: &std::collections::HashMap<usize, String>,
-    _y_top: f64,
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
+    adj_stem_dirs: &std::collections::HashMap<usize, String>,
+    y_top: f64,
     y_bottom: f64,
     sp: f64,
     lyric_prefix_states: &[Option<String>],
     _music_start_x: f64,
     _total_width: f64,
-    _fng_pos: &str,
+    fng_pos: &str,
+    font: glyph::FontId,
     default_color: Option<&str>,
 ) {
     let lyric_font_size = 9.25 * (sp / 1.75);
     let lyric_line_step = 1.75 * sp;
     let lyric_text_gap = 0.28 * sp;
     let lyric_extender_trim = 0.18 * sp;
+    let lyric_clearance = 0.55 * sp;
 
     // Count lyric lines
     let lyric_line_count = items.iter().fold(lyric_prefix_states.len(), |count, item| {
@@ -6993,7 +6996,7 @@ fn render_lyrics(
         return;
     }
 
-    let lyric_top_y = (y_bottom - 3.1 * sp).min(y_bottom - 0.85 * sp);
+    let default_lyric_top_y = (y_bottom - 3.1 * sp).min(y_bottom - 0.85 * sp);
 
     // Simple lyric rendering
     for (idx, item) in items.iter().enumerate() {
@@ -7005,6 +7008,56 @@ fn render_lyrics(
         let lyrics = ev.lyrics();
         let x = item_xs[idx];
         let lyric_color = resolved_color(ev.lyrics_color(), ev.overall_color(), default_color);
+        let mut lyric_top_y = default_lyric_top_y.min(
+            below_item_content_bottom(
+                item,
+                idx,
+                adj_stem_ends,
+                adj_stem_dirs,
+                y_top,
+                y_bottom,
+                sp,
+                fng_pos,
+                font,
+            ) - lyric_clearance,
+        );
+        if let Some(dynamic) = ev.dynamic_mark() {
+            if !dynamic.is_empty() {
+                let dynamic_y =
+                    dynamic_anchor_y(items, item_xs, idx, adj_stem_dirs, y_top, y_bottom, sp, font);
+                let dynamic_height = if dynamic.chars().all(|ch| dynamic_codepoint(ch).is_some()) {
+                    2.35 * sp
+                } else {
+                    text_height_mm(8.0)
+                };
+                lyric_top_y = lyric_top_y.min(dynamic_y - dynamic_height - lyric_clearance);
+            }
+        }
+        if let Some(et) = ev.expression_text() {
+            if !et.is_empty() {
+                let exp_font_size = 8.75 * (sp / 1.75);
+                let has_dynamic = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
+                let default_exp_y = if has_dynamic {
+                    y_bottom - 3.5 * sp
+                } else {
+                    y_bottom - 2.0 * sp
+                };
+                let content_bottom = below_item_content_bottom(
+                    item,
+                    idx,
+                    adj_stem_ends,
+                    adj_stem_dirs,
+                    y_top,
+                    y_bottom,
+                    sp,
+                    fng_pos,
+                    font,
+                );
+                let exp_base_y = default_exp_y.min(content_bottom - 0.75 * sp);
+                lyric_top_y =
+                    lyric_top_y.min(exp_base_y - text_height_mm(exp_font_size) - lyric_clearance);
+            }
+        }
 
         for (li, entry) in lyrics.iter().enumerate() {
             if entry.carry {
@@ -7031,11 +7084,11 @@ fn render_lyrics(
 
     // Hyphens and extenders between lyrics
     for li in 0..lyric_line_count {
-        let top_y = lyric_top_y - li as f64 * lyric_line_step;
         let mut _prev_text_x: Option<f64> = None;
         let mut prev_continuation: Option<String> = None;
         let mut prev_right_x: Option<f64> = None;
         let mut prev_color: Option<String> = None;
+        let mut prev_top_y: Option<f64> = None;
 
         for (idx, item) in items.iter().enumerate() {
             let ev = &item.event;
@@ -7048,6 +7101,56 @@ fn render_lyrics(
             let entry = lyrics.get(li);
             let lyric_color = resolved_color(ev.lyrics_color(), ev.overall_color(), default_color)
                 .map(str::to_string);
+            let mut top_y = default_lyric_top_y.min(
+                below_item_content_bottom(
+                    item,
+                    idx,
+                    adj_stem_ends,
+                    adj_stem_dirs,
+                    y_top,
+                    y_bottom,
+                    sp,
+                    fng_pos,
+                    font,
+                ) - lyric_clearance,
+            );
+            if let Some(dynamic) = ev.dynamic_mark() {
+                if !dynamic.is_empty() {
+                    let dynamic_y =
+                        dynamic_anchor_y(items, item_xs, idx, adj_stem_dirs, y_top, y_bottom, sp, font);
+                    let dynamic_height = if dynamic.chars().all(|ch| dynamic_codepoint(ch).is_some()) {
+                        2.35 * sp
+                    } else {
+                        text_height_mm(8.0)
+                    };
+                    top_y = top_y.min(dynamic_y - dynamic_height - lyric_clearance);
+                }
+            }
+            if let Some(et) = ev.expression_text() {
+                if !et.is_empty() {
+                    let exp_font_size = 8.75 * (sp / 1.75);
+                    let has_dynamic = ev.dynamic_mark().map_or(false, |d| !d.is_empty());
+                    let default_exp_y = if has_dynamic {
+                        y_bottom - 3.5 * sp
+                    } else {
+                        y_bottom - 2.0 * sp
+                    };
+                    let content_bottom = below_item_content_bottom(
+                        item,
+                        idx,
+                        adj_stem_ends,
+                        adj_stem_dirs,
+                        y_top,
+                        y_bottom,
+                        sp,
+                        fng_pos,
+                        font,
+                    );
+                    let exp_base_y = default_exp_y.min(content_bottom - 0.75 * sp);
+                    top_y = top_y.min(exp_base_y - text_height_mm(exp_font_size) - lyric_clearance);
+                }
+            }
+            top_y -= li as f64 * lyric_line_step;
 
             if let Some(entry) = entry {
                 if entry.carry {
@@ -7058,11 +7161,12 @@ fn render_lyrics(
                         // Draw continuation from previous
                         if let Some(ref cont) = prev_continuation {
                             if let Some(px) = prev_right_x {
+                                let bridge_top_y = prev_top_y.map_or(top_y, |py| py.min(top_y));
                                 if cont == "hyphen" {
                                     let mid_x = (px + x) / 2.0;
                                     cmds.push(DrawCmd::Text {
                                         x: mid_x,
-                                        y: top_y,
+                                        y: bridge_top_y,
                                         v: "-".into(),
                                         s: lyric_font_size,
                                         w: "regular".into(),
@@ -7079,7 +7183,7 @@ fn render_lyrics(
                                     let ext_start = px + lyric_extender_trim;
                                     let ext_end = x - next_half_w - 0.4 * sp - lyric_extender_trim;
                                     if ext_end > ext_start {
-                                        let ext_y = top_y - 1.45 * sp;
+                                        let ext_y = bridge_top_y - 1.45 * sp;
                                         emit_line_colored(
                                             cmds,
                                             ext_start,
@@ -7096,6 +7200,7 @@ fn render_lyrics(
                         _prev_text_x = Some(x);
                         prev_color = lyric_color.clone();
                         prev_continuation = Some(entry.continuation.clone());
+                        prev_top_y = Some(top_y);
                         // Estimate text right edge — use a larger per-character width so the
                         // extender line starts clearly after wide characters like 'W' or 'y'.
                         prev_right_x = Some(x + text.len() as f64 * 0.45 * sp + lyric_text_gap);
