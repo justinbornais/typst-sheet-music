@@ -307,11 +307,31 @@ Examples of accepted inputs:
   - Staff markers: `bm` (breath mark), `//` (caesura), `ds`, `coda`
 
 - **Color controls**
-  - Global score / melody default: `#score(color: "#0f766e", ...)`, `#melody(color: "#b91c1c", ...)`
-  - Per-staff default: `(clef: "treble", color: "#1d4ed8", music: "...")`
-  - Selection wrapper: `color{#dc2626:d4 e f g | e( d) c2}`
-  - Element-local override: `c4color{#ef4444}`, `c4~color{#2563eb} c4`, `c4(color{#16a34a} d)`, `<c ecolor{#db2777} g>4`
+  - Global score / melody default: `#score(color: "sky blue", ...)`, `#melody(color: "red", ...)`, or raw hex like `#score(color: "#0f766e", ...)`
+  - Per-staff default: `(clef: "treble", color: "blue", music: "...")`
+  - Selection wrapper: `color{red:d4 e f g | e( d) c2}` or `color{#dc2626:d4 e f g | e( d) c2}`
+  - Element-local override: `c4color{red}`, `c4~color{blue} c4`, `c4(color{green} d)`, `<c ecolor{purple} g>4`
   - Selection color affects musical content inside the wrapper but intentionally does not recolor staff lines or measure lines.
+  - Built-in color presets:
+
+    | Name | Hex |
+    |------|-----|
+    | `red` | `#ff0000` |
+    | `orange` | `#ffa500` |
+    | `yellow` | `#ffcf00` |
+    | `green` | `#00ff00` |
+    | `blue` | `#0000ff` |
+    | `sky blue` / `sky-blue` / `sky_blue` | `#4e9fe5` |
+    | `purple` | `#9d0055` |
+    | `gold` | `#d4af37` |
+    | `white` | `#ffffff` |
+    | `black` | `#000000` |
+    | `silver` | `#c0c0c0` |
+    | `platinum` | `#e5e4e2` |
+    | `bronze` | `#cd7f32` |
+    | `copper` | `#b87333` |
+    | `charcoal` | `#36454f` |
+    | `navy` | `#0a2a66` |
 
 - **Spans and ornaments**
   - Hairpins: `cresc{c e g c}`, `decresc{c' b a g}`
