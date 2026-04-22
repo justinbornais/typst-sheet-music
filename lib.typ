@@ -7,6 +7,31 @@
 
 #let scorify-wasm = plugin("scorify_wasm.wasm")
 
+#let normalize-color(value) = {
+  if value == none {
+    none
+  } else if type(value) == str {
+    value
+  } else {
+    let css = repr(rgb(value))
+    if css.starts-with("rgb(\"") and css.ends-with("\")") {
+      css.slice(5, css.len() - 2)
+    } else {
+      css
+    }
+  }
+}
+
+#let typst-color(value) = {
+  if value == none {
+    none
+  } else if type(value) == str {
+    rgb(value)
+  } else {
+    value
+  }
+}
+
 // Header (standard Typst content, outside the SVG systems)
 
 #let render-header(
@@ -15,14 +40,24 @@
   composer: none,
   arranger: none,
   lyricist: none,
+  color: none,
 ) = {
   if title == none and composer == none { return }
+  let fill = typst-color(color)
   block(width: 100%, {
     if title != none {
-      align(center, text(size: 18pt, weight: "bold", title))
+      if fill != none {
+        align(center, text(size: 18pt, weight: "bold", fill: fill, title))
+      } else {
+        align(center, text(size: 18pt, weight: "bold", title))
+      }
     }
     if subtitle != none {
-      align(center, text(size: 12pt, style: "italic", subtitle))
+      if fill != none {
+        align(center, text(size: 12pt, style: "italic", fill: fill, subtitle))
+      } else {
+        align(center, text(size: 12pt, style: "italic", subtitle))
+      }
     }
     v(2pt)
     if composer != none or arranger != none or lyricist != none {
@@ -30,15 +65,27 @@
         columns: (1fr, 1fr),
         {
           if lyricist != none {
-            align(left, text(size: 10pt, "Text: " + lyricist))
+            if fill != none {
+              align(left, text(size: 10pt, fill: fill, "Text: " + lyricist))
+            } else {
+              align(left, text(size: 10pt, "Text: " + lyricist))
+            }
           }
         },
         {
           if composer != none {
-            align(right, text(size: 10pt, composer))
+            if fill != none {
+              align(right, text(size: 10pt, fill: fill, composer))
+            } else {
+              align(right, text(size: 10pt, composer))
+            }
           }
           if arranger != none {
-            align(right, text(size: 9pt, style: "italic", "arr. " + arranger))
+            if fill != none {
+              align(right, text(size: 9pt, style: "italic", fill: fill, "arr. " + arranger))
+            } else {
+              align(right, text(size: 9pt, style: "italic", "arr. " + arranger))
+            }
           }
         },
       )
@@ -95,6 +142,7 @@
   system-spacing: 12mm,
   staff-spacing: 8mm,
   lyric-line-spacing: none,
+  color: none,
   music-font: "Leland",
   music-font-metadata: none,
   width: auto,
@@ -116,6 +164,7 @@
     composer: composer,
     arranger: arranger,
     lyricist: lyricist,
+    color: color,
   )
 
   let render-inner(avail-width-mm) = {
@@ -128,6 +177,7 @@
         instrument_name_cont: s.at("instrument-name-cont", default: none),
         instrument_name_shared: s.at("instrument-name-shared", default: false),
         fingering_position: s.at("fingering-position", default: "above"),
+        color: normalize-color(s.at("color", default: none)),
         barline_group_start: s.at("barline-group-start", default: s.at("connect-start", default: false)),
         barline_group_end: s.at("barline-group-end", default: s.at("connect-end", default: false)),
         bracket_start: s.at("bracket-start", default: false),
@@ -150,6 +200,7 @@
       measures_per_line: measures-per-line,
       measure_numbers: measure-numbers,
       music_font: music-font,
+      color: normalize-color(color),
     )
 
     let result-bytes = scorify-wasm.render_score(bytes(json.encode(input)))
@@ -183,6 +234,7 @@
   staff-size: 1.75mm,
   system-spacing: 12mm,
   lyric-line-spacing: none,
+  color: none,
   music-font: "Leland",
   music-font-metadata: none,
   width: auto,
@@ -199,6 +251,7 @@
     staff-size: staff-size,
     system-spacing: system-spacing,
     lyric-line-spacing: lyric-line-spacing,
+    color: color,
     music-font: music-font,
     music-font-metadata: music-font-metadata,
     width: width,

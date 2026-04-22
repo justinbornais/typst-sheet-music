@@ -205,6 +205,12 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
                 .iter()
                 .map(|s| s.fingering_position.as_deref().unwrap_or("above"))
                 .collect::<Vec<_>>(),
+            params.color.as_deref(),
+            &params
+                .staves
+                .iter()
+                .map(|s| s.color.as_deref())
+                .collect::<Vec<_>>(),
             &params.music_font,
         );
         output_systems.push(sys_output);

@@ -14,6 +14,38 @@ fn is_word_char(ch: u8) -> bool {
     is_lower(ch) || is_digit(ch) || ch == b'-'
 }
 
+#[derive(Clone, Copy)]
+enum EventColorTarget {
+    Overall,
+    Tie,
+    Slur,
+    Beam,
+    Articulations,
+    Dynamic,
+    ChordSymbol,
+    StaffText,
+    ExpressionText,
+    Fingering,
+    Lyrics,
+    Trill,
+    StaffMarkers,
+}
+
+#[derive(Clone, Copy)]
+enum LastColorTarget {
+    Event(EventColorTarget),
+    Barline,
+    Clef,
+    TimeSig,
+    Spacer,
+}
+
+struct ColorSpan {
+    start_idx: usize,
+    color: String,
+    open_order: i32,
+}
+
 struct Parser<'a> {
     input: &'a [u8],
     pos: usize,
@@ -46,6 +78,9 @@ struct Parser<'a> {
     ending_start_idx: Option<usize>,
     ending_label: Option<String>,
     ending_open_order: Option<i32>,
+    // Selection color state
+    color_spans: Vec<ColorSpan>,
+    last_color_target: Option<LastColorTarget>,
 }
 
 impl<'a> Parser<'a> {
@@ -76,6 +111,8 @@ impl<'a> Parser<'a> {
             ending_start_idx: None,
             ending_label: None,
             ending_open_order: None,
+            color_spans: Vec::new(),
+            last_color_target: None,
         }
     }
 
@@ -218,6 +255,232 @@ impl<'a> Parser<'a> {
         None
     }
 
+    fn parse_color_call(&self, p: usize) -> Option<(String, Option<usize>, usize)> {
+        if self.peek(p) != Some(b'{') {
+            return None;
+        }
+
+        let mut cursor = p + 1;
+        let mut color = String::new();
+        while cursor < self.len() {
+            match self.input[cursor] {
+                b':' => {
+                    let value = color.trim().to_string();
+                    return Some((value, Some(cursor + 1), cursor + 1));
+                }
+                b'}' => {
+                    let value = color.trim().to_string();
+                    return Some((value, None, cursor + 1));
+                }
+                ch => {
+                    color.push(ch as char);
+                    cursor += 1;
+                }
+            }
+        }
+
+        None
+    }
+
+    fn set_if_missing(slot: &mut Option<String>, color: &str) {
+        if slot.is_none() {
+            *slot = Some(color.to_string());
+        }
+    }
+
+    fn apply_color_to_colors(
+        colors: &mut ElementColors,
+        target: EventColorTarget,
+        color: &str,
+    ) {
+        match target {
+            EventColorTarget::Overall => Self::set_if_missing(&mut colors.overall, color),
+            EventColorTarget::Tie => Self::set_if_missing(&mut colors.tie, color),
+            EventColorTarget::Slur => Self::set_if_missing(&mut colors.slur, color),
+            EventColorTarget::Beam => Self::set_if_missing(&mut colors.beam, color),
+            EventColorTarget::Articulations => {
+                Self::set_if_missing(&mut colors.articulations, color)
+            }
+            EventColorTarget::Dynamic => Self::set_if_missing(&mut colors.dynamic, color),
+            EventColorTarget::ChordSymbol => {
+                Self::set_if_missing(&mut colors.chord_symbol, color)
+            }
+            EventColorTarget::StaffText => Self::set_if_missing(&mut colors.staff_text, color),
+            EventColorTarget::ExpressionText => {
+                Self::set_if_missing(&mut colors.expression_text, color)
+            }
+            EventColorTarget::Fingering => Self::set_if_missing(&mut colors.fingering, color),
+            EventColorTarget::Lyrics => Self::set_if_missing(&mut colors.lyrics, color),
+            EventColorTarget::Trill => Self::set_if_missing(&mut colors.trill, color),
+            EventColorTarget::StaffMarkers => {
+                Self::set_if_missing(&mut colors.staff_markers, color)
+            }
+        }
+    }
+
+    fn apply_color_to_last_target(&mut self, color: &str) {
+        let Some(target) = self.last_color_target else {
+            return;
+        };
+
+        let Some(last_event) = self.events.last_mut() else {
+            return;
+        };
+
+        match (target, last_event) {
+            (LastColorTarget::Event(kind), Event::Note(n)) => {
+                Self::apply_color_to_colors(&mut n.colors, kind, color);
+            }
+            (LastColorTarget::Event(kind), Event::Rest(r)) => {
+                Self::apply_color_to_colors(&mut r.colors, kind, color);
+            }
+            (LastColorTarget::Event(kind), Event::Chord(c)) => {
+                Self::apply_color_to_colors(&mut c.colors, kind, color);
+            }
+            (LastColorTarget::Barline, Event::Barline(b)) => {
+                Self::set_if_missing(&mut b.color, color);
+            }
+            (LastColorTarget::Clef, Event::Clef(clef)) => {
+                Self::set_if_missing(&mut clef.color, color);
+            }
+            (LastColorTarget::TimeSig, Event::TimeSig(time_sig)) => {
+                Self::set_if_missing(&mut time_sig.color, color);
+            }
+            (LastColorTarget::Spacer, Event::Spacer(spacer)) => {
+                Self::set_if_missing(&mut spacer.color, color);
+            }
+            _ => {}
+        }
+    }
+
+    fn apply_selection_color(&mut self, color: &str, start: usize) {
+        for event in self.events.iter_mut().skip(start) {
+            match event {
+                Event::Note(n) => {
+                    Self::set_if_missing(&mut n.colors.overall, color);
+                    if n.tie {
+                        Self::set_if_missing(&mut n.colors.tie, color);
+                    }
+                    if n.slur_start || n.slur_end {
+                        Self::set_if_missing(&mut n.colors.slur, color);
+                    }
+                    if n.beam_start || n.beam_end {
+                        Self::set_if_missing(&mut n.colors.beam, color);
+                    }
+                    if !n.articulations.is_empty() {
+                        Self::set_if_missing(&mut n.colors.articulations, color);
+                    }
+                    if n.dynamic.is_some() {
+                        Self::set_if_missing(&mut n.colors.dynamic, color);
+                    }
+                    if n.chord_symbol.is_some() {
+                        Self::set_if_missing(&mut n.colors.chord_symbol, color);
+                    }
+                    if n.staff_text.is_some() {
+                        Self::set_if_missing(&mut n.colors.staff_text, color);
+                    }
+                    if n.expression_text.is_some() {
+                        Self::set_if_missing(&mut n.colors.expression_text, color);
+                    }
+                    if n.fingering.is_some() {
+                        Self::set_if_missing(&mut n.colors.fingering, color);
+                    }
+                    if !n.lyrics.is_empty() {
+                        Self::set_if_missing(&mut n.colors.lyrics, color);
+                    }
+                    if n.trill || n.trill_line {
+                        Self::set_if_missing(&mut n.colors.trill, color);
+                    }
+                    if !n.staff_markers.is_empty() {
+                        Self::set_if_missing(&mut n.colors.staff_markers, color);
+                    }
+                    if n.octave_line_number != 0 {
+                        Self::set_if_missing(&mut n.colors.octave_line, color);
+                    }
+                }
+                Event::Rest(r) => {
+                    Self::set_if_missing(&mut r.colors.overall, color);
+                    if r.dynamic.is_some() {
+                        Self::set_if_missing(&mut r.colors.dynamic, color);
+                    }
+                    if r.chord_symbol.is_some() {
+                        Self::set_if_missing(&mut r.colors.chord_symbol, color);
+                    }
+                    if r.staff_text.is_some() {
+                        Self::set_if_missing(&mut r.colors.staff_text, color);
+                    }
+                    if r.expression_text.is_some() {
+                        Self::set_if_missing(&mut r.colors.expression_text, color);
+                    }
+                    if !r.lyrics.is_empty() {
+                        Self::set_if_missing(&mut r.colors.lyrics, color);
+                    }
+                    if r.trill || r.trill_line {
+                        Self::set_if_missing(&mut r.colors.trill, color);
+                    }
+                    if !r.staff_markers.is_empty() {
+                        Self::set_if_missing(&mut r.colors.staff_markers, color);
+                    }
+                    if r.octave_line_number != 0 {
+                        Self::set_if_missing(&mut r.colors.octave_line, color);
+                    }
+                }
+                Event::Chord(c) => {
+                    Self::set_if_missing(&mut c.colors.overall, color);
+                    if c.tie {
+                        Self::set_if_missing(&mut c.colors.tie, color);
+                    }
+                    if c.slur_start || c.slur_end {
+                        Self::set_if_missing(&mut c.colors.slur, color);
+                    }
+                    if c.beam_start || c.beam_end {
+                        Self::set_if_missing(&mut c.colors.beam, color);
+                    }
+                    if !c.articulations.is_empty() {
+                        Self::set_if_missing(&mut c.colors.articulations, color);
+                    }
+                    if c.dynamic.is_some() {
+                        Self::set_if_missing(&mut c.colors.dynamic, color);
+                    }
+                    if c.chord_symbol.is_some() {
+                        Self::set_if_missing(&mut c.colors.chord_symbol, color);
+                    }
+                    if c.staff_text.is_some() {
+                        Self::set_if_missing(&mut c.colors.staff_text, color);
+                    }
+                    if c.expression_text.is_some() {
+                        Self::set_if_missing(&mut c.colors.expression_text, color);
+                    }
+                    if c.fingering.is_some() {
+                        Self::set_if_missing(&mut c.colors.fingering, color);
+                    }
+                    if !c.lyrics.is_empty() {
+                        Self::set_if_missing(&mut c.colors.lyrics, color);
+                    }
+                    if c.trill || c.trill_line {
+                        Self::set_if_missing(&mut c.colors.trill, color);
+                    }
+                    if !c.staff_markers.is_empty() {
+                        Self::set_if_missing(&mut c.colors.staff_markers, color);
+                    }
+                    if c.octave_line_number != 0 {
+                        Self::set_if_missing(&mut c.colors.octave_line, color);
+                    }
+                }
+                Event::Clef(clef) => Self::set_if_missing(&mut clef.color, color),
+                Event::TimeSig(time_sig) => Self::set_if_missing(&mut time_sig.color, color),
+                Event::Spacer(spacer) => Self::set_if_missing(&mut spacer.color, color),
+                Event::Barline(_) | Event::Gap(_) | Event::KeySig(_) | Event::VoiceGroup(_) | Event::LineBreak => {}
+            }
+        }
+    }
+
+    fn close_color_span(&mut self) {
+        if let Some(span) = self.color_spans.pop() {
+            self.apply_selection_color(&span.color, span.start_idx);
+        }
+    }
+
     fn is_fingering_start(&self, p: usize) -> bool {
         self.peek(p) == Some(b'n')
             && p + 1 < self.len()
@@ -235,22 +498,87 @@ impl<'a> Parser<'a> {
         value_text
             .parse::<i32>()
             .ok()
-            .map(|value| FingeringMark { value, bold })
+            .map(|value| FingeringMark {
+                value,
+                bold,
+                color: None,
+            })
+    }
+
+    fn split_fingering_parts(value: &str) -> Vec<&str> {
+        let mut parts = Vec::new();
+        let mut start = None;
+        let mut depth = 0i32;
+
+        for (idx, ch) in value.char_indices() {
+            match ch {
+                '{' => {
+                    if start.is_none() {
+                        start = Some(idx);
+                    }
+                    depth += 1;
+                }
+                '}' => {
+                    depth -= 1;
+                }
+                c if c.is_whitespace() && depth == 0 => {
+                    if let Some(s) = start.take() {
+                        if s < idx {
+                            parts.push(&value[s..idx]);
+                        }
+                    }
+                }
+                _ => {
+                    if start.is_none() {
+                        start = Some(idx);
+                    }
+                }
+            }
+        }
+
+        if let Some(s) = start {
+            if s < value.len() {
+                parts.push(&value[s..]);
+            }
+        }
+
+        parts
+    }
+
+    fn parse_colored_fingering_part(part: &str) -> Option<FingeringMark> {
+        if !part.starts_with("color{") || !part.ends_with('}') {
+            return None;
+        }
+
+        let inner = &part[6..part.len() - 1];
+        let colon = inner.find(':')?;
+        let color = &inner[..colon];
+        let value = &inner[colon + 1..];
+        let mut mark = Self::parse_fingering_part(value)?;
+        mark.color = Some(color.to_string());
+        Some(mark)
+    }
+
+    fn parse_fingering_mark(part: &str) -> Option<FingeringMark> {
+        Self::parse_colored_fingering_part(part).or_else(|| Self::parse_fingering_part(part))
     }
 
     fn parse_fingering(&self, p: usize) -> (Option<Fingering>, String, usize) {
         let below = p + 1 < self.len() && self.input[p + 1] == b'_';
         let start = p + if below { 3 } else { 2 };
         let (value, next_pos) = self.read_bracketed_text(start);
-        let parts: Vec<&str> = value.split_whitespace().collect();
+        let parts = Self::split_fingering_parts(&value);
         let fingering = if !parts.is_empty() {
             let marks: Vec<FingeringMark> = parts
                 .iter()
-                .filter_map(|part| Self::parse_fingering_part(part))
+                .filter_map(|part| Self::parse_fingering_mark(part))
                 .collect();
+            let has_custom_marks = marks
+                .iter()
+                .any(|mark| mark.bold || mark.color.is_some());
             if marks.is_empty() {
                 None
-            } else if marks.iter().any(|mark| mark.bold) {
+            } else if has_custom_marks {
                 Some(Fingering::Marked(marks))
             } else if marks.len() == 1 {
                 Some(Fingering::Single(marks[0].value))
@@ -342,6 +670,7 @@ impl<'a> Parser<'a> {
             Some(Event::Chord(c)) => c.staff_markers.push(marker),
             _ => return false,
         }
+        self.last_color_target = Some(LastColorTarget::Event(EventColorTarget::StaffMarkers));
         true
     }
 
@@ -351,6 +680,7 @@ impl<'a> Parser<'a> {
         // Tie before articulations
         if self.peek(p) == Some(b'~') {
             att.tie = true;
+            att.last_color_target = EventColorTarget::Tie;
             p += 1;
         }
 
@@ -359,18 +689,22 @@ impl<'a> Parser<'a> {
             match self.peek(p) {
                 Some(b'>') => {
                     att.articulations.push("accent".into());
+                    att.last_color_target = EventColorTarget::Articulations;
                     p += 1;
                 }
                 Some(b'*') => {
                     att.articulations.push("staccato".into());
+                    att.last_color_target = EventColorTarget::Articulations;
                     p += 1;
                 }
                 Some(b'-') => {
                     att.articulations.push("tenuto".into());
+                    att.last_color_target = EventColorTarget::Articulations;
                     p += 1;
                 }
                 Some(b'_') => {
                     att.articulations.push("fermata".into());
+                    att.last_color_target = EventColorTarget::Articulations;
                     p += 1;
                 }
                 _ => break,
@@ -382,6 +716,7 @@ impl<'a> Parser<'a> {
             let (value, next_pos) = self.read_bracketed_text(p + 2);
             if !value.is_empty() {
                 att.dynamic = Some(value);
+                att.last_color_target = EventColorTarget::Dynamic;
             }
             p = next_pos;
         }
@@ -389,12 +724,14 @@ impl<'a> Parser<'a> {
         // Tie after articulations/dynamic
         if !att.tie && self.peek(p) == Some(b'~') {
             att.tie = true;
+            att.last_color_target = EventColorTarget::Tie;
             p += 1;
         }
 
         // Trill
         if self.peek(p) == Some(b't') && p + 1 < self.len() && self.input[p + 1] == b'r' {
             att.trill = true;
+            att.last_color_target = EventColorTarget::Trill;
             p += 2;
         }
 
@@ -403,6 +740,7 @@ impl<'a> Parser<'a> {
             let (marker, next_p) = self.parse_staff_marker(p);
             if let Some(m) = marker {
                 att.staff_markers.push(m);
+                att.last_color_target = EventColorTarget::StaffMarkers;
                 p = next_p;
             } else {
                 break;
@@ -412,10 +750,12 @@ impl<'a> Parser<'a> {
         // Slur start/end
         if self.peek(p) == Some(b'(') {
             att.slur_start = true;
+            att.last_color_target = EventColorTarget::Slur;
             p += 1;
         }
         if self.peek(p) == Some(b')') {
             att.slur_end = true;
+            att.last_color_target = EventColorTarget::Slur;
             p += 1;
         }
 
@@ -429,11 +769,13 @@ impl<'a> Parser<'a> {
             let is_chord_bracket = nxt.map_or(false, |c| c >= b'A' && c <= b'G');
             if !is_chord_bracket {
                 att.beam_start = true;
+                att.last_color_target = EventColorTarget::Beam;
                 p += 1;
             }
         }
         if self.peek(p) == Some(b']') {
             att.beam_end = true;
+            att.last_color_target = EventColorTarget::Beam;
             p += 1;
         }
 
@@ -447,25 +789,30 @@ impl<'a> Parser<'a> {
                 let (entry, next_p) = self.parse_lyric(p);
                 if let Some(e) = entry {
                     att.lyrics.push(e);
+                    att.last_color_target = EventColorTarget::Lyrics;
                 }
                 p = next_p;
             } else if p + 5 <= self.len() && &self.input[p..p + 5] == b"text[" {
                 let (v, next_p) = self.parse_tagged_text(p, "text");
                 att.staff_text = v;
+                att.last_color_target = EventColorTarget::StaffText;
                 p = next_p;
             } else if p + 4 <= self.len() && &self.input[p..p + 4] == b"exp[" {
                 let (v, next_p) = self.parse_tagged_text(p, "exp");
                 att.expression_text = v;
+                att.last_color_target = EventColorTarget::ExpressionText;
                 p = next_p;
             } else if self.is_fingering_start(p) {
                 let (fng, fng_pos, next_p) = self.parse_fingering(p);
                 att.fingering = fng;
                 att.fingering_position = fng_pos;
+                att.last_color_target = EventColorTarget::Fingering;
                 p = next_p;
             } else if self.peek(p) == Some(b'[') {
                 let (value, next_p) = self.read_bracketed_text(p + 1);
                 if !value.is_empty() {
                     att.chord_symbol = Some(value);
+                    att.last_color_target = EventColorTarget::ChordSymbol;
                 }
                 p = next_p;
             } else {
@@ -507,6 +854,7 @@ impl<'a> Parser<'a> {
                 ending: None,
                 ending_start: false,
                 ending_end: false,
+                color: None,
             })),
             "cut" | "C|" => Some(Event::TimeSig(TimeSig {
                 upper: 2,
@@ -515,6 +863,7 @@ impl<'a> Parser<'a> {
                 ending: None,
                 ending_start: false,
                 ending_end: false,
+                color: None,
             })),
             _ if token.contains('/') => {
                 let parts: Vec<&str> = token.split('/').collect();
@@ -527,6 +876,7 @@ impl<'a> Parser<'a> {
                             ending: None,
                             ending_start: false,
                             ending_end: false,
+                            color: None,
                         }))
                     } else {
                         None
@@ -600,20 +950,25 @@ impl<'a> Parser<'a> {
                     if self.peek(self.pos + 2) == Some(b':') {
                         self.events
                             .push(Event::Barline(Barline::new("repeat-start")));
+                        self.last_color_target = Some(LastColorTarget::Barline);
                         self.pos += 3;
                     } else {
                         self.events.push(Event::Barline(Barline::new("double")));
+                        self.last_color_target = Some(LastColorTarget::Barline);
                         self.pos += 2;
                     }
                 } else if next == Some(b':') {
                     self.events
                         .push(Event::Barline(Barline::new("repeat-start")));
+                    self.last_color_target = Some(LastColorTarget::Barline);
                     self.pos += 2;
                 } else if next == Some(b'.') {
                     self.events.push(Event::Barline(Barline::new("final")));
+                    self.last_color_target = Some(LastColorTarget::Barline);
                     self.pos += 2;
                 } else {
                     self.events.push(Event::Barline(Barline::new("single")));
+                    self.last_color_target = Some(LastColorTarget::Barline);
                     self.pos += 1;
                 }
                 continue;
@@ -628,16 +983,20 @@ impl<'a> Parser<'a> {
                     {
                         self.events
                             .push(Event::Barline(Barline::new("repeat-both")));
+                        self.last_color_target = Some(LastColorTarget::Barline);
                         self.pos += 4;
                     } else if self.peek(self.pos + 2) == Some(b':') {
                         self.events
                             .push(Event::Barline(Barline::new("repeat-both")));
+                        self.last_color_target = Some(LastColorTarget::Barline);
                         self.pos += 3;
                     } else if self.peek(self.pos + 2) == Some(b'|') {
                         self.events.push(Event::Barline(Barline::new("repeat-end")));
+                        self.last_color_target = Some(LastColorTarget::Barline);
                         self.pos += 3;
                     } else {
                         self.events.push(Event::Barline(Barline::new("repeat-end")));
+                        self.last_color_target = Some(LastColorTarget::Barline);
                         self.pos += 2;
                     }
                 } else {
@@ -661,10 +1020,23 @@ impl<'a> Parser<'a> {
                         self.pos += 1;
                         let (accidental, octave, p2) = self.parse_note_pitch(self.pos);
                         self.pos = p2;
+                        let mut color = None;
+                        if self.pos + 5 < self.len()
+                            && &self.input[self.pos..self.pos + 5] == b"color"
+                        {
+                            if let Some((value, None, next_pos)) = self.parse_color_call(self.pos + 5)
+                            {
+                                if !value.is_empty() {
+                                    color = Some(value);
+                                }
+                                self.pos = next_pos;
+                            }
+                        }
                         chord_notes.push(ChordNote {
                             name: cname,
                             accidental,
                             octave,
+                            color,
                         });
                     } else {
                         self.pos += 1;
@@ -718,7 +1090,9 @@ impl<'a> Parser<'a> {
                         octave_line_direction: None,
                         octave_line_start: false,
                         octave_line_end: false,
+                        colors: ElementColors::default(),
                     }));
+                    self.last_color_target = Some(LastColorTarget::Event(att.last_color_target));
                 }
                 continue;
             }
@@ -810,9 +1184,31 @@ impl<'a> Parser<'a> {
                     continue;
                 }
 
+                if token == "color" {
+                    if let Some((value, span_body_start, next_pos)) = self.parse_color_call(word_end)
+                    {
+                        if let Some(body_start) = span_body_start {
+                            self.curly_open_serial += 1;
+                            self.color_spans.push(ColorSpan {
+                                start_idx: self.events.len(),
+                                color: value,
+                                open_order: self.curly_open_serial,
+                            });
+                            self.pos = body_start;
+                        } else {
+                            if !value.is_empty() {
+                                self.apply_color_to_last_target(&value);
+                            }
+                            self.pos = next_pos;
+                        }
+                        continue;
+                    }
+                }
+
                 // Time signature token
                 if let Some(ts) = self.parse_time_token(token) {
                     self.events.push(ts);
+                    self.last_color_target = Some(LastColorTarget::TimeSig);
                     self.pos = word_end;
                     continue;
                 }
@@ -824,7 +1220,9 @@ impl<'a> Parser<'a> {
                         ending: None,
                         ending_start: false,
                         ending_end: false,
+                        color: None,
                     }));
+                    self.last_color_target = Some(LastColorTarget::Clef);
                     self.current_base_octave = clef_default_base_octave(token);
                     self.pos = word_end;
                     continue;
@@ -853,6 +1251,7 @@ impl<'a> Parser<'a> {
                         || next == Some(b'\r')
                     {
                         self.events.push(ts);
+                        self.last_color_target = Some(LastColorTarget::TimeSig);
                         self.pos = end_pos;
                         continue;
                     }
@@ -886,6 +1285,7 @@ impl<'a> Parser<'a> {
                 note.expression_text = data.att.expression_text;
                 note.lyrics = data.att.lyrics;
                 self.events.push(Event::Note(note));
+                self.last_color_target = Some(LastColorTarget::Event(data.att.last_color_target));
                 continue;
             }
 
@@ -905,6 +1305,7 @@ impl<'a> Parser<'a> {
                 rest.expression_text = att.expression_text;
                 rest.lyrics = att.lyrics;
                 self.events.push(Event::Rest(rest));
+                self.last_color_target = Some(LastColorTarget::Event(att.last_color_target));
                 continue;
             }
 
@@ -920,7 +1321,9 @@ impl<'a> Parser<'a> {
                     ending: None,
                     ending_start: false,
                     ending_end: false,
+                    color: None,
                 }));
+                self.last_color_target = Some(LastColorTarget::Spacer);
                 continue;
             }
 
@@ -928,6 +1331,7 @@ impl<'a> Parser<'a> {
             if ch == b'(' {
                 if let Some(Event::Note(n)) = self.events.last_mut() {
                     n.slur_start = true;
+                    self.last_color_target = Some(LastColorTarget::Event(EventColorTarget::Slur));
                 }
                 self.pos += 1;
                 continue;
@@ -935,6 +1339,7 @@ impl<'a> Parser<'a> {
             if ch == b')' {
                 if let Some(Event::Note(n)) = self.events.last_mut() {
                     n.slur_end = true;
+                    self.last_color_target = Some(LastColorTarget::Event(EventColorTarget::Slur));
                 }
                 self.pos += 1;
                 continue;
@@ -1015,7 +1420,9 @@ impl<'a> Parser<'a> {
                                 ending: None,
                                 ending_start: false,
                                 ending_end: false,
+                                color: None,
                             }));
+                            self.last_color_target = Some(LastColorTarget::TimeSig);
                             self.pos = q;
                             continue;
                         }
@@ -1094,6 +1501,11 @@ impl<'a> Parser<'a> {
                         close_kind = "grace";
                     }
                 }
+                if let Some(span) = self.color_spans.last() {
+                    if span.open_order > latest_order {
+                        close_kind = "color";
+                    }
+                }
 
                 match close_kind {
                     "tuplet" => self.close_tuplet(),
@@ -1102,6 +1514,7 @@ impl<'a> Parser<'a> {
                     "hairpin" => self.close_hairpin(),
                     "trill" => self.close_trill(),
                     "grace" => self.close_grace(),
+                    "color" => self.close_color_span(),
                     _ => {}
                 }
                 self.pos += 1;
@@ -1116,6 +1529,9 @@ impl<'a> Parser<'a> {
         self.close_hairpin();
         self.close_trill();
         self.close_ending();
+        while !self.color_spans.is_empty() {
+            self.close_color_span();
+        }
     }
 
     fn close_tuplet(&mut self) {
@@ -1397,6 +1813,7 @@ struct NoteAttachments {
     fingering: Option<Fingering>,
     fingering_position: String,
     lyrics: Vec<LyricEntry>,
+    last_color_target: EventColorTarget,
 }
 
 impl Default for NoteAttachments {
@@ -1417,6 +1834,7 @@ impl Default for NoteAttachments {
             fingering: None,
             fingering_position: "above".to_string(),
             lyrics: Vec::new(),
+            last_color_target: EventColorTarget::Overall,
         }
     }
 }

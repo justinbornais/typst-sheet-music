@@ -49,12 +49,16 @@ pub struct Note {
     pub octave_line_direction: Option<String>,
     pub octave_line_start: bool,
     pub octave_line_end: bool,
+    #[serde(default)]
+    pub colors: ElementColors,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FingeringMark {
     pub value: i32,
     pub bold: bool,
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,11 +76,32 @@ pub struct LyricEntry {
     pub continuation: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ElementColors {
+    pub overall: Option<String>,
+    pub tie: Option<String>,
+    pub slur: Option<String>,
+    pub beam: Option<String>,
+    pub articulations: Option<String>,
+    pub dynamic: Option<String>,
+    pub chord_symbol: Option<String>,
+    pub staff_text: Option<String>,
+    pub expression_text: Option<String>,
+    pub fingering: Option<String>,
+    pub lyrics: Option<String>,
+    pub trill: Option<String>,
+    pub staff_markers: Option<String>,
+    pub octave_line: Option<String>,
+    pub noteheads: Vec<Option<String>>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChordNote {
     pub name: String,
     pub accidental: Option<String>,
     pub octave: i32,
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,6 +135,8 @@ pub struct Rest {
     pub ending: Option<String>,
     pub ending_start: bool,
     pub ending_end: bool,
+    #[serde(default)]
+    pub colors: ElementColors,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,6 +179,8 @@ pub struct Chord {
     pub octave_line_direction: Option<String>,
     pub octave_line_start: bool,
     pub octave_line_end: bool,
+    #[serde(default)]
+    pub colors: ElementColors,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -160,6 +189,8 @@ pub struct Barline {
     pub ending: Option<String>,
     pub ending_start: bool,
     pub ending_end: bool,
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -168,6 +199,8 @@ pub struct ClefChange {
     pub ending: Option<String>,
     pub ending_start: bool,
     pub ending_end: bool,
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,6 +211,8 @@ pub struct TimeSig {
     pub ending: Option<String>,
     pub ending_start: bool,
     pub ending_end: bool,
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,6 +233,8 @@ pub struct Spacer {
     pub ending: Option<String>,
     pub ending_start: bool,
     pub ending_end: bool,
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -347,11 +384,59 @@ impl Event {
             _ => &[],
         }
     }
+    pub fn overall_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.overall.as_deref(),
+            Event::Rest(r) => r.colors.overall.as_deref(),
+            Event::Chord(c) => c.colors.overall.as_deref(),
+            Event::Barline(b) => b.color.as_deref(),
+            Event::Clef(cl) => cl.color.as_deref(),
+            Event::TimeSig(t) => t.color.as_deref(),
+            Event::Spacer(s) => s.color.as_deref(),
+            _ => None,
+        }
+    }
+    pub fn tie_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.tie.as_deref(),
+            Event::Chord(c) => c.colors.tie.as_deref(),
+            _ => None,
+        }
+    }
+    pub fn slur_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.slur.as_deref(),
+            Event::Chord(c) => c.colors.slur.as_deref(),
+            _ => None,
+        }
+    }
+    pub fn beam_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.beam.as_deref(),
+            Event::Chord(c) => c.colors.beam.as_deref(),
+            _ => None,
+        }
+    }
+    pub fn articulation_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.articulations.as_deref(),
+            Event::Chord(c) => c.colors.articulations.as_deref(),
+            _ => None,
+        }
+    }
     pub fn dynamic_mark(&self) -> Option<&str> {
         match self {
             Event::Note(n) => n.dynamic.as_deref(),
             Event::Rest(r) => r.dynamic.as_deref(),
             Event::Chord(c) => c.dynamic.as_deref(),
+            _ => None,
+        }
+    }
+    pub fn dynamic_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.dynamic.as_deref(),
+            Event::Rest(r) => r.colors.dynamic.as_deref(),
+            Event::Chord(c) => c.colors.dynamic.as_deref(),
             _ => None,
         }
     }
@@ -409,6 +494,14 @@ impl Event {
             Event::Rest(r) => r.trill_end,
             Event::Chord(c) => c.trill_end,
             _ => false,
+        }
+    }
+    pub fn trill_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.trill.as_deref(),
+            Event::Rest(r) => r.colors.trill.as_deref(),
+            Event::Chord(c) => c.colors.trill.as_deref(),
+            _ => None,
         }
     }
     pub fn ending(&self) -> Option<&str> {
@@ -479,6 +572,14 @@ impl Event {
             _ => false,
         }
     }
+    pub fn octave_line_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.octave_line.as_deref(),
+            Event::Rest(r) => r.colors.octave_line.as_deref(),
+            Event::Chord(c) => c.colors.octave_line.as_deref(),
+            _ => None,
+        }
+    }
     pub fn fingering(&self) -> Option<&Fingering> {
         match self {
             Event::Note(n) => n.fingering.as_ref(),
@@ -501,6 +602,14 @@ impl Event {
             _ => None,
         }
     }
+    pub fn chord_symbol_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.chord_symbol.as_deref(),
+            Event::Rest(r) => r.colors.chord_symbol.as_deref(),
+            Event::Chord(c) => c.colors.chord_symbol.as_deref(),
+            _ => None,
+        }
+    }
     pub fn staff_markers(&self) -> &[String] {
         match self {
             Event::Note(n) => &n.staff_markers,
@@ -509,11 +618,27 @@ impl Event {
             _ => &[],
         }
     }
+    pub fn staff_markers_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.staff_markers.as_deref(),
+            Event::Rest(r) => r.colors.staff_markers.as_deref(),
+            Event::Chord(c) => c.colors.staff_markers.as_deref(),
+            _ => None,
+        }
+    }
     pub fn staff_text(&self) -> Option<&str> {
         match self {
             Event::Note(n) => n.staff_text.as_deref(),
             Event::Rest(r) => r.staff_text.as_deref(),
             Event::Chord(c) => c.staff_text.as_deref(),
+            _ => None,
+        }
+    }
+    pub fn staff_text_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.staff_text.as_deref(),
+            Event::Rest(r) => r.colors.staff_text.as_deref(),
+            Event::Chord(c) => c.colors.staff_text.as_deref(),
             _ => None,
         }
     }
@@ -525,12 +650,35 @@ impl Event {
             _ => None,
         }
     }
+    pub fn expression_text_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.expression_text.as_deref(),
+            Event::Rest(r) => r.colors.expression_text.as_deref(),
+            Event::Chord(c) => c.colors.expression_text.as_deref(),
+            _ => None,
+        }
+    }
     pub fn lyrics(&self) -> &[LyricEntry] {
         match self {
             Event::Note(n) => &n.lyrics,
             Event::Rest(r) => &r.lyrics,
             Event::Chord(c) => &c.lyrics,
             _ => &[],
+        }
+    }
+    pub fn lyrics_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.lyrics.as_deref(),
+            Event::Rest(r) => r.colors.lyrics.as_deref(),
+            Event::Chord(c) => c.colors.lyrics.as_deref(),
+            _ => None,
+        }
+    }
+    pub fn fingering_color(&self) -> Option<&str> {
+        match self {
+            Event::Note(n) => n.colors.fingering.as_deref(),
+            Event::Chord(c) => c.colors.fingering.as_deref(),
+            _ => None,
         }
     }
 }
@@ -580,6 +728,7 @@ impl Note {
             octave_line_direction: None,
             octave_line_start: false,
             octave_line_end: false,
+            colors: ElementColors::default(),
         }
     }
 }
@@ -616,6 +765,7 @@ impl Rest {
             ending: None,
             ending_start: false,
             ending_end: false,
+            colors: ElementColors::default(),
         }
     }
 }
@@ -627,6 +777,7 @@ impl Barline {
             ending: None,
             ending_start: false,
             ending_end: false,
+            color: None,
         }
     }
 }
@@ -651,6 +802,7 @@ pub struct ScoreInput {
     pub measures_per_line: Option<i32>,
     pub measure_numbers: String,
     pub music_font: String,
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -675,6 +827,7 @@ pub struct StaffInput {
     pub brace_start: bool,
     #[serde(default)]
     pub brace_end: bool,
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -719,6 +872,8 @@ pub enum DrawCmd {
         x2: f64,
         y2: f64,
         w: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
     },
 
     /// Music glyph: place at (x,y), codepoint c, font size s (mm), anchor a
@@ -729,6 +884,8 @@ pub enum DrawCmd {
         c: u32,
         s: f64,
         a: Cow<'static, str>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
     },
 
     /// Multi-codepoint music text: render string v with the music font at size s (mm)
@@ -740,6 +897,8 @@ pub enum DrawCmd {
         v: String,
         s: f64,
         a: Cow<'static, str>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
     },
 
     /// Text: place at (x,y), string v, size s (pt), weight w, italic i, anchor a
@@ -752,20 +911,36 @@ pub enum DrawCmd {
         w: Cow<'static, str>,
         i: bool,
         a: Cow<'static, str>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
     },
 
     /// Filled polygon (beams): flat array of x,y pairs
     #[serde(rename = "P")]
-    Polygon { pts: Vec<f64> },
+    Polygon {
+        pts: Vec<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
+    },
 
     /// Filled bezier shape (slurs, ties): two cubic beziers forming a closed region
     /// [x1,y1, c1x,c1y, c2x,c2y, x2,y2, c3x,c3y, c4x,c4y]
     #[serde(rename = "B")]
-    BezierFill { pts: Vec<f64> },
+    BezierFill {
+        pts: Vec<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
+    },
 
     /// Filled circle: center (x,y), radius r
     #[serde(rename = "C")]
-    Circle { x: f64, y: f64, r: f64 },
+    Circle {
+        x: f64,
+        y: f64,
+        r: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
+    },
 
     /// Content batch separator — tells the Typst frontend to flush accumulated
     /// glyph/text items using the batch placement system for performance.
@@ -825,10 +1000,15 @@ impl Fingering {
             Fingering::Single(v) => vec![FingeringMark {
                 value: *v,
                 bold: false,
+                color: None,
             }],
             Fingering::Multiple(vs) => vs
                 .iter()
-                .map(|&value| FingeringMark { value, bold: false })
+                .map(|&value| FingeringMark {
+                    value,
+                    bold: false,
+                    color: None,
+                })
                 .collect(),
             Fingering::Marked(ms) => ms.clone(),
         }

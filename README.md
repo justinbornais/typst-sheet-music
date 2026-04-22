@@ -9,6 +9,7 @@ Render sheet music directly inside Typst using SMuFL-aware glyph placement and a
 - Rhythms from maxima, longa, and breve through standard shorter note values.
 - Inline annotations: dynamics, hairpins, articulations, fingerings, chord symbols, expression text, staff text, staff markers, and lyrics.
 - Notation features: beams, ties, slurs, tuplets, octave lines, trills, grace notes / acciaccaturas, repeat barlines, endings, and dotted notes.
+- Global, per-staff, selection, and element-local color overrides for musical content.
 - Inline clef changes, inline time-signature changes, manual spacing via repeated spaces, and explicit system breaks.
 - Single-staff, grand-staff, bracketed, and connected multi-staff layout with vertical beat alignment.
 - Alternate SMuFL font support via `music-font` and `music-font-metadata`.
@@ -101,6 +102,7 @@ Primary entry point for one or more staves.
 | `composer` | string | `none` | Composer name |
 | `arranger` | string | `none` | Arranger name |
 | `lyricist` | string | `none` | Lyricist name |
+| `color` | string | `none` | Default SVG color for the whole score, for example `"#b91c1c"` |
 | `staff-size` | length | `1.75mm` | Staff space distance |
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `staff-spacing` | length | `8mm` | Vertical space between staves in a system |
@@ -120,6 +122,7 @@ Staff dictionaries support:
 | `instrument-name-cont` | string | `none` | Continued-system name, often abbreviated |
 | `instrument-name-shared` | bool | `false` | Share the previous staff's name, centered across both staves |
 | `fingering-position` | string | `"above"` | Default fingering position: `"above"` or `"below"` |
+| `color` | string | `none` | Default SVG color for everything on this staff |
 | `barline-group-start` / `barline-group-end` | bool | `false` | Connect measure lines across adjacent staves without drawing a brace or bracket |
 | `bracket-start` / `bracket-end` | bool | `false` | Draw a straight bracket and connected measure lines across adjacent staves |
 | `brace-start` / `brace-end` | bool | `false` | Draw a grand-staff brace and connected measure lines across adjacent staves |
@@ -176,6 +179,7 @@ Single-staff convenience wrapper around `score()`.
 | `instrument-name-cont` | string | `none` | Continued-system name, often abbreviated |
 | `title` | string | `none` | Title |
 | `composer` | string | `none` | Composer |
+| `color` | string | `none` | Default SVG color for the melody staff |
 | `staff-size` | length | `1.75mm` | Staff space |
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `lyric-line-spacing` | length | `none` | Override stacked lyric line spacing |
@@ -301,6 +305,13 @@ Examples of accepted inputs:
   - Fingerings: `n[3]`, `n_[2]`, `n[1 *3* 5]`
   - Chord symbols: `[C]`, `[Am7]`, `[D/F#]`
   - Staff markers: `bm` (breath mark), `//` (caesura), `ds`, `coda`
+
+- **Color controls**
+  - Global score / melody default: `#score(color: "#0f766e", ...)`, `#melody(color: "#b91c1c", ...)`
+  - Per-staff default: `(clef: "treble", color: "#1d4ed8", music: "...")`
+  - Selection wrapper: `color{#dc2626:d4 e f g | e( d) c2}`
+  - Element-local override: `c4color{#ef4444}`, `c4~color{#2563eb} c4`, `c4(color{#16a34a} d)`, `<c ecolor{#db2777} g>4`
+  - Selection color affects musical content inside the wrapper but intentionally does not recolor staff lines or measure lines.
 
 - **Spans and ornaments**
   - Hairpins: `cresc{c e g c}`, `decresc{c' b a g}`

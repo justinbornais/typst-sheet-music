@@ -227,11 +227,20 @@ fn staff_marker_codepoint(kind: &str) -> Option<u32> {
     }
 }
 
+fn color_owned(color: Option<&str>) -> Option<String> {
+    color.map(str::to_string)
+}
+
+fn resolved_color<'a>(specific: Option<&'a str>, overall: Option<&'a str>, default: Option<&'a str>) -> Option<&'a str> {
+    specific.or(overall).or(default)
+}
+
 // ─── Glyph placement helpers ──────────────────────────────────────────
 
 /// Place a glyph using its SMuFL bounding-box SW corner as the south-west anchor.
 /// The rendered origin (reference point) ends up at (x, y).
 #[inline]
+#[allow(dead_code)]
 fn emit_glyph(
     cmds: &mut Vec<DrawCmd>,
     x: f64,
@@ -240,6 +249,20 @@ fn emit_glyph(
     codepoint: u32,
     sp: f64,
     font: glyph::FontId,
+) {
+    emit_glyph_colored(cmds, x, y, smufl_name, codepoint, sp, font, None);
+}
+
+#[inline]
+fn emit_glyph_colored(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y: f64,
+    smufl_name: &str,
+    codepoint: u32,
+    sp: f64,
+    font: glyph::FontId,
+    color: Option<&str>,
 ) {
     let fsize = 4.0 * sp;
     let bb = glyph::bbox_for(font, smufl_name);
@@ -254,6 +277,7 @@ fn emit_glyph(
         c: codepoint,
         s: fsize,
         a: "south-west".into(),
+        color: color_owned(color),
     });
 }
 
@@ -261,6 +285,7 @@ fn emit_glyph(
 /// Use this for articulations and dynamics where the coordinate is the
 /// desired glyph edge ("south" = bottom at y, "north" = top at y, etc.).
 #[inline]
+#[allow(dead_code)]
 fn emit_glyph_anchored(
     cmds: &mut Vec<DrawCmd>,
     x: f64,
@@ -269,15 +294,30 @@ fn emit_glyph_anchored(
     sp: f64,
     anchor: &'static str,
 ) {
+    emit_glyph_anchored_colored(cmds, x, y, codepoint, sp, anchor, None);
+}
+
+#[inline]
+fn emit_glyph_anchored_colored(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y: f64,
+    codepoint: u32,
+    sp: f64,
+    anchor: &'static str,
+    color: Option<&str>,
+) {
     cmds.push(DrawCmd::Glyph {
         x,
         y,
         c: codepoint,
         s: 4.0 * sp,
         a: anchor.into(),
+        color: color_owned(color),
     });
 }
 
+#[allow(dead_code)]
 fn emit_glyph_scaled(
     cmds: &mut Vec<DrawCmd>,
     x: f64,
@@ -287,12 +327,45 @@ fn emit_glyph_scaled(
     sp: f64,
     font: glyph::FontId,
 ) {
-    emit_glyph(cmds, x, y, smufl_name, codepoint, sp, font);
+    emit_glyph_scaled_colored(cmds, x, y, smufl_name, codepoint, sp, font, None);
+}
+
+fn emit_glyph_scaled_colored(
+    cmds: &mut Vec<DrawCmd>,
+    x: f64,
+    y: f64,
+    smufl_name: &str,
+    codepoint: u32,
+    sp: f64,
+    font: glyph::FontId,
+    color: Option<&str>,
+) {
+    emit_glyph_colored(cmds, x, y, smufl_name, codepoint, sp, font, color);
 }
 
 #[inline]
 fn emit_line(cmds: &mut Vec<DrawCmd>, x1: f64, y1: f64, x2: f64, y2: f64, w: f64) {
-    cmds.push(DrawCmd::Line { x1, y1, x2, y2, w });
+    emit_line_colored(cmds, x1, y1, x2, y2, w, None);
+}
+
+#[inline]
+fn emit_line_colored(
+    cmds: &mut Vec<DrawCmd>,
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+    w: f64,
+    color: Option<&str>,
+) {
+    cmds.push(DrawCmd::Line {
+        x1,
+        y1,
+        x2,
+        y2,
+        w,
+        color: color_owned(color),
+    });
 }
 
 fn xml_escape(value: &str) -> String {
@@ -504,6 +577,7 @@ fn write_music_glyph_use(
     anchor: &str,
     tx: &impl Fn(f64) -> f64,
     ty: &impl Fn(f64) -> f64,
+    fill: &str,
 ) -> bool {
     let Some(ch) = char::from_u32(c) else {
         return false;
@@ -524,11 +598,12 @@ fn write_music_glyph_use(
     let (sw_x, sw_y) = anchor_sw(x, y, width, height, anchor);
     let _ = write!(
         svg,
-        "<use href=\"#{id}\" transform=\"translate({x:.3} {y:.3}) scale({scale:.6})\" fill=\"black\"/>",
+        "<use href=\"#{id}\" transform=\"translate({x:.3} {y:.3}) scale({scale:.6})\" fill=\"{fill}\"/>",
         id = glyph_def_id(gid),
         x = tx(sw_x),
         y = ty(sw_y),
         scale = scale,
+        fill = xml_escape(fill),
     );
     true
 }
@@ -544,6 +619,7 @@ fn write_music_text_uses(
     anchor: &str,
     tx: &impl Fn(f64) -> f64,
     ty: &impl Fn(f64) -> f64,
+    fill: &str,
 ) -> bool {
     let scale = size_mm / face.units_per_em() as f64;
     let mut glyphs = Vec::new();
@@ -586,11 +662,12 @@ fn write_music_text_uses(
         let use_y = svg_sw_y - (bbox.y_min as f64 - min_y) * scale;
         let _ = write!(
             svg,
-            "<use href=\"#{id}\" transform=\"translate({x:.3} {y:.3}) scale({scale:.6})\" fill=\"black\"/>",
+            "<use href=\"#{id}\" transform=\"translate({x:.3} {y:.3}) scale({scale:.6})\" fill=\"{fill}\"/>",
             id = glyph_def_id(gid),
             x = use_x,
             y = use_y,
             scale = scale,
+            fill = xml_escape(fill),
         );
     }
 
@@ -840,12 +917,12 @@ fn svg_from_cmds(
 
     for cmd in cmds {
         match cmd {
-            DrawCmd::Line { x1, y1, x2, y2, w } => {
+            DrawCmd::Line { x1, y1, x2, y2, w, .. } => {
                 let pad = *w * 0.5;
                 update_bounds(&mut bounds, ox + x1 - pad, oy + y1 - pad);
                 update_bounds(&mut bounds, ox + x2 + pad, oy + y2 + pad);
             }
-            DrawCmd::Glyph { x, y, c, s, a } => {
+            DrawCmd::Glyph { x, y, c, s, a, .. } => {
                 if let Some((x0, y0, x1, y1)) = music_face
                     .as_ref()
                     .and_then(|face| music_glyph_bounds(face, ox + x, oy + y, *c, *s, a))
@@ -871,7 +948,7 @@ fn svg_from_cmds(
                     update_bounds(&mut bounds, ox + x + pad, oy + y + pad);
                 }
             }
-            DrawCmd::MusicText { x, y, v, s, a } => {
+            DrawCmd::MusicText { x, y, v, s, a, .. } => {
                 if let Some((x0, y0, x1, y1)) = music_face
                     .as_ref()
                     .and_then(|face| music_text_bounds(face, ox + x, oy + y, v, *s, a))
@@ -890,21 +967,21 @@ fn svg_from_cmds(
                 update_bounds(&mut bounds, ox + x - pad_x, oy + y - size_mm);
                 update_bounds(&mut bounds, ox + x + pad_x, oy + y + size_mm);
             }
-            DrawCmd::Polygon { pts } => {
+            DrawCmd::Polygon { pts, .. } => {
                 let mut i = 0;
                 while i + 1 < pts.len() {
                     update_bounds(&mut bounds, ox + pts[i], oy + pts[i + 1]);
                     i += 2;
                 }
             }
-            DrawCmd::BezierFill { pts } => {
+            DrawCmd::BezierFill { pts, .. } => {
                 let mut i = 0;
                 while i + 1 < pts.len() {
                     update_bounds(&mut bounds, ox + pts[i], oy + pts[i + 1]);
                     i += 2;
                 }
             }
-            DrawCmd::Circle { x, y, r } => {
+            DrawCmd::Circle { x, y, r, .. } => {
                 update_bounds(&mut bounds, ox + x - r, oy + y - r);
                 update_bounds(&mut bounds, ox + x + r, oy + y + r);
             }
@@ -953,14 +1030,30 @@ fn svg_from_cmds(
     oy = 0.0;
     for cmd in cmds {
         match cmd {
-            DrawCmd::Line { x1, y1, x2, y2, w } => {
+            DrawCmd::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                w,
+                color,
+            } => {
+                let stroke = color.as_deref().unwrap_or("black");
                 let _ = write!(
                     svg,
-                    "<line x1=\"{:.3}\" y1=\"{:.3}\" x2=\"{:.3}\" y2=\"{:.3}\" stroke=\"black\" stroke-width=\"{:.3}\" stroke-linecap=\"butt\"/>",
-                    tx(ox + x1), ty(oy + y1), tx(ox + x2), ty(oy + y2), w
+                    "<line x1=\"{:.3}\" y1=\"{:.3}\" x2=\"{:.3}\" y2=\"{:.3}\" stroke=\"{}\" stroke-width=\"{:.3}\" stroke-linecap=\"butt\"/>",
+                    tx(ox + x1), ty(oy + y1), tx(ox + x2), ty(oy + y2), xml_escape(stroke), w
                 );
             }
-            DrawCmd::Glyph { x, y, c, s, a } => {
+            DrawCmd::Glyph {
+                x,
+                y,
+                c,
+                s,
+                a,
+                color,
+            } => {
+                let fill = color.as_deref().unwrap_or("black");
                 let rendered_as_path = music_face.as_ref().is_some_and(|face| {
                     write_music_glyph_use(
                         &mut svg,
@@ -973,6 +1066,7 @@ fn svg_from_cmds(
                         a,
                         &tx,
                         &ty,
+                        fill,
                     )
                 });
                 if !rendered_as_path {
@@ -982,31 +1076,41 @@ fn svg_from_cmds(
                                 anchored_text_origin(ox + x, oy + y, bbox, *s, a);
                             let _ = write!(
                             svg,
-                            "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\">{}</text>",
+                            "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" fill=\"{}\">{}</text>",
                             tx(text_x),
                             ty(text_y),
                             escaped_music_font,
                             s,
+                            xml_escape(fill),
                             xml_escape(&ch.to_string())
                         );
                         } else {
                             let (text_anchor, baseline) = svg_anchor_attrs(a);
                             let _ = write!(
                             svg,
-                            "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
+                            "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\" fill=\"{}\">{}</text>",
                             tx(ox + x),
                             ty(oy + y),
                             escaped_music_font,
                             s,
                             text_anchor,
                             baseline,
+                            xml_escape(fill),
                             xml_escape(&ch.to_string())
                         );
                         }
                     }
                 }
             }
-            DrawCmd::MusicText { x, y, v, s, a } => {
+            DrawCmd::MusicText {
+                x,
+                y,
+                v,
+                s,
+                a,
+                color,
+            } => {
+                let fill = color.as_deref().unwrap_or("black");
                 let rendered_as_path = music_face.as_ref().is_some_and(|face| {
                     write_music_text_uses(
                         &mut svg,
@@ -1019,6 +1123,7 @@ fn svg_from_cmds(
                         a,
                         &tx,
                         &ty,
+                        fill,
                     )
                 });
                 if !rendered_as_path {
@@ -1026,24 +1131,26 @@ fn svg_from_cmds(
                         let (text_x, text_y) = anchored_text_origin(ox + x, oy + y, bbox, *s, a);
                         let _ = write!(
                         svg,
-                        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\">{}</text>",
+                        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" fill=\"{}\">{}</text>",
                         tx(text_x),
                         ty(text_y),
                         escaped_music_font,
                         s,
+                        xml_escape(fill),
                         xml_escape(v)
                     );
                     } else {
                         let (text_anchor, baseline) = svg_anchor_attrs(a);
                         let _ = write!(
                         svg,
-                        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
+                        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" text-anchor=\"{}\" dominant-baseline=\"{}\" fill=\"{}\">{}</text>",
                         tx(ox + x),
                         ty(oy + y),
                         escaped_music_font,
                         s,
                         text_anchor,
                         baseline,
+                        xml_escape(fill),
                         xml_escape(v)
                     );
                     }
@@ -1057,7 +1164,9 @@ fn svg_from_cmds(
                 w,
                 i,
                 a,
+                color,
             } => {
+                let fill = color.as_deref().unwrap_or("black");
                 let (text_anchor, baseline) = svg_anchor_attrs(a);
                 let weight = if w.as_ref() == "bold" {
                     "bold"
@@ -1068,11 +1177,12 @@ fn svg_from_cmds(
                 let size_mm = *s * 25.4 / 72.0;
                 let _ = write!(
                     svg,
-                    "<text x=\"{:.3}\" y=\"{:.3}\" font-size=\"{:.3}\" font-weight=\"{}\" font-style=\"{}\" text-anchor=\"{}\" dominant-baseline=\"{}\">{}</text>",
-                    tx(ox + x), ty(oy + y), size_mm, weight, style, text_anchor, baseline, xml_escape(v)
+                    "<text x=\"{:.3}\" y=\"{:.3}\" font-size=\"{:.3}\" font-weight=\"{}\" font-style=\"{}\" text-anchor=\"{}\" dominant-baseline=\"{}\" fill=\"{}\">{}</text>",
+                    tx(ox + x), ty(oy + y), size_mm, weight, style, text_anchor, baseline, xml_escape(fill), xml_escape(v)
                 );
             }
-            DrawCmd::Polygon { pts } => {
+            DrawCmd::Polygon { pts, color } => {
+                let fill = color.as_deref().unwrap_or("black");
                 svg.push_str("<path d=\"M");
                 let mut i = 0;
                 while i + 1 < pts.len() {
@@ -1082,13 +1192,14 @@ fn svg_from_cmds(
                     let _ = write!(svg, "{:.3} {:.3}", tx(ox + pts[i]), ty(oy + pts[i + 1]));
                     i += 2;
                 }
-                svg.push_str("Z\" fill=\"black\"/>");
+                let _ = write!(svg, "Z\" fill=\"{}\"/>", xml_escape(fill));
             }
-            DrawCmd::BezierFill { pts } => {
+            DrawCmd::BezierFill { pts, color } => {
+                let fill = color.as_deref().unwrap_or("black");
                 if pts.len() >= 12 {
                     let _ = write!(
                         svg,
-                        "<path d=\"M{:.3} {:.3} C{:.3} {:.3} {:.3} {:.3} {:.3} {:.3} C{:.3} {:.3} {:.3} {:.3} {:.3} {:.3}Z\" fill=\"black\"/>",
+                        "<path d=\"M{:.3} {:.3} C{:.3} {:.3} {:.3} {:.3} {:.3} {:.3} C{:.3} {:.3} {:.3} {:.3} {:.3} {:.3}Z\" fill=\"{}\"/>",
                         tx(ox + pts[0]), ty(oy + pts[1]),
                         tx(ox + pts[2]), ty(oy + pts[3]),
                         tx(ox + pts[4]), ty(oy + pts[5]),
@@ -1096,16 +1207,19 @@ fn svg_from_cmds(
                         tx(ox + pts[8]), ty(oy + pts[9]),
                         tx(ox + pts[10]), ty(oy + pts[11]),
                         tx(ox + pts[0]), ty(oy + pts[1]),
+                        xml_escape(fill),
                     );
                 }
             }
-            DrawCmd::Circle { x, y, r } => {
+            DrawCmd::Circle { x, y, r, color } => {
+                let fill = color.as_deref().unwrap_or("black");
                 let _ = write!(
                     svg,
-                    "<circle cx=\"{:.3}\" cy=\"{:.3}\" r=\"{:.3}\" fill=\"black\"/>",
+                    "<circle cx=\"{:.3}\" cy=\"{:.3}\" r=\"{:.3}\" fill=\"{}\"/>",
                     tx(ox + x),
                     ty(oy + y),
-                    r
+                    r,
+                    xml_escape(fill)
                 );
             }
             DrawCmd::MoveOrigin { dx, dy } => {
@@ -1672,6 +1786,7 @@ struct BeamNote {
 struct BeamGroupData {
     notes: Vec<BeamNote>,
     scale: f64,
+    color: Option<String>,
 }
 
 // ─── Main rendering functions ──────────────────────────────────────────
@@ -1864,6 +1979,8 @@ pub fn render_system_group(
     instrument_names: &[Option<&str>],
     instrument_name_shared: &[bool],
     fingering_positions: &[&str],
+    score_color: Option<&str>,
+    staff_colors: &[Option<&str>],
     music_font: &str,
 ) -> SystemOutput {
     let font = glyph::FontId::from_name(music_font);
@@ -1906,6 +2023,7 @@ pub fn render_system_group(
                 w: "bold".into(),
                 i: false,
                 a: "south".into(),
+                color: color_owned(score_color),
             });
             header_height += 7.0;
         }
@@ -1921,6 +2039,7 @@ pub fn render_system_group(
                 w: "regular".into(),
                 i: false,
                 a: "south".into(),
+                color: color_owned(score_color),
             });
             header_height += 5.0;
         }
@@ -1936,6 +2055,7 @@ pub fn render_system_group(
                 w: "regular".into(),
                 i: true,
                 a: "south-east".into(),
+                color: color_owned(score_color),
             });
             header_height = header_height.max(5.0);
         }
@@ -1952,6 +2072,7 @@ pub fn render_system_group(
                 w: "regular".into(),
                 i: true,
                 a: "south-east".into(),
+                color: color_owned(score_color),
             });
         }
     }
@@ -1965,6 +2086,7 @@ pub fn render_system_group(
                 w: "regular".into(),
                 i: true,
                 a: "south-west".into(),
+                color: color_owned(score_color),
             });
         }
     }
@@ -1983,6 +2105,7 @@ pub fn render_system_group(
         } else {
             "above"
         };
+        let staff_default_color = staff_colors.get(si).copied().flatten().or(score_color);
 
         if si > 0 {
             // Expand the gap if below-staff content of the upper staff or above-staff content
@@ -2008,6 +2131,7 @@ pub fn render_system_group(
                     instrument_group_extra,
                     group_center_y,
                     sp_unit,
+                    staff_colors.get(si - 1).copied().flatten().or(score_color),
                 );
             }
         } else if !instrument_name_shared.get(si + 1).copied().unwrap_or(false) {
@@ -2019,6 +2143,7 @@ pub fn render_system_group(
                     instrument_group_extra,
                     y_top,
                     sp_unit,
+                    staff_default_color,
                 );
             }
         }
@@ -2037,6 +2162,7 @@ pub fn render_system_group(
             y_top,
             font,
             instrument_indent,
+            staff_default_color,
         );
 
         y_offset -= staff_height_mm;
@@ -2085,6 +2211,7 @@ pub fn render_system_group(
                             c: brace_cp,
                             s: fsize,
                             a: "south-west".into(),
+                            color: color_owned(score_color),
                         });
                     }
                 }
@@ -2104,13 +2231,14 @@ pub fn render_system_group(
                     let top_terminal_clearance = 0.22 * sp_unit;
                     let bottom_terminal_clearance = 0.05 * sp_unit;
 
-                    emit_line(
+                    emit_line_colored(
                         &mut cmds,
                         stem_x,
                         group_y_top - terminal_overlap,
                         stem_x,
                         group_y_bottom + terminal_overlap,
                         thick,
+                        score_color,
                     );
                     cmds.push(DrawCmd::Glyph {
                         x: terminal_x,
@@ -2118,6 +2246,7 @@ pub fn render_system_group(
                         c: top_cp,
                         s: bracket_size,
                         a: "south-west".into(),
+                        color: color_owned(score_color),
                     });
                     cmds.push(DrawCmd::Glyph {
                         x: terminal_x,
@@ -2125,6 +2254,7 @@ pub fn render_system_group(
                         c: bottom_cp,
                         s: bracket_size,
                         a: "south-west".into(),
+                        color: color_owned(score_color),
                     });
                 }
                 StaffGroupKind::Barline => {}
@@ -2143,13 +2273,14 @@ pub fn render_system_group(
                 1.0
             };
 
-            emit_line(
+            emit_line_colored(
                 &mut cmds,
                 instrument_indent * sp_unit + ed.thin_barline_thickness / 2.0 * sp_unit,
                 group_y_top,
                 instrument_indent * sp_unit + ed.thin_barline_thickness / 2.0 * sp_unit,
                 group_y_bottom,
                 ed.thin_barline_thickness * sp_unit,
+                score_color,
             );
 
             let items = &ref_staff.items;
@@ -2174,6 +2305,7 @@ pub fn render_system_group(
                         &b.style,
                         sp_unit,
                         font,
+                        b.color.as_deref().or(score_color),
                     );
                 }
             }
@@ -2211,6 +2343,7 @@ pub fn render_system_group(
                 final_style,
                 sp_unit,
                 font,
+                score_color,
             );
         }
     }
@@ -2409,8 +2542,17 @@ fn render_instrument_name(
     group_extra_sp: f64,
     y_top: f64,
     sp: f64,
+    color: Option<&str>,
 ) {
-    render_instrument_name_centered(cmds, name, indent_sp, group_extra_sp, y_top - 2.0 * sp, sp);
+    render_instrument_name_centered(
+        cmds,
+        name,
+        indent_sp,
+        group_extra_sp,
+        y_top - 2.0 * sp,
+        sp,
+        color,
+    );
 }
 
 fn render_instrument_name_centered(
@@ -2420,6 +2562,7 @@ fn render_instrument_name_centered(
     group_extra_sp: f64,
     center_y: f64,
     sp: f64,
+    color: Option<&str>,
 ) {
     if indent_sp <= 0.0 {
         return;
@@ -2440,6 +2583,7 @@ fn render_instrument_name_centered(
             w: "regular".into(),
             i: false,
             a: "east".into(),
+            color: color_owned(color),
         });
     }
 }
@@ -2527,6 +2671,7 @@ fn render_system(
     y_top_offset: f64,
     font: glyph::FontId,
     instrument_indent_sp: f64,
+    default_color: Option<&str>,
 ) {
     let clef_name = laid_out.clef.as_deref();
     let opening_time = laid_out.time.as_ref().or(time.as_ref());
@@ -2595,25 +2740,27 @@ fn render_system(
     // Draw staff lines
     for i in 0..5 {
         let y = y_top - i as f64 * sp;
-        emit_line(
+        emit_line_colored(
             cmds,
             staff_left_x,
             y,
             total_width * sp,
             y,
             ed.staff_line_thickness * sp,
+            default_color,
         );
     }
 
     // Opening barline — skipped when the group renderer draws a spanning barline
     if !skip_barlines {
-        emit_line(
+        emit_line_colored(
             cmds,
             staff_left_x + ed.thin_barline_thickness / 2.0 * sp,
             y_top,
             staff_left_x + ed.thin_barline_thickness / 2.0 * sp,
             y_bottom,
             ed.thin_barline_thickness * sp,
+            default_color,
         );
     }
 
@@ -2622,7 +2769,7 @@ fn render_system(
     if let Some(c) = clef_name {
         let origin_offset = clef_origin_offset(c);
         let origin_y = y_top - origin_offset * sp;
-        emit_glyph(
+        emit_glyph_colored(
             cmds,
             cx,
             origin_y,
@@ -2630,12 +2777,13 @@ fn render_system(
             clef_codepoint(c),
             sp,
             font,
+            default_color,
         );
         cx += clef_w;
     }
 
     // Draw key signature
-    render_key_signature(cmds, cx, y_top, key, clef_name, sp, font);
+    render_key_signature(cmds, cx, y_top, key, clef_name, sp, font, default_color);
     cx += key_w;
 
     // Draw time signature
@@ -2651,6 +2799,7 @@ fn render_system(
                 t.symbol.as_deref(),
                 sp,
                 font,
+                default_color,
             );
         }
     }
@@ -2838,6 +2987,12 @@ fn render_system(
         beam_groups_data.push(BeamGroupData {
             notes: beam_note_data,
             scale: beam_scale,
+            color: resolved_color(
+                items[*group.first().unwrap()].event.beam_color(),
+                items[*group.first().unwrap()].event.overall_color(),
+                default_color,
+            )
+            .map(str::to_string),
         });
     }
 
@@ -2858,7 +3013,7 @@ fn render_system(
                 let offset = inline_clef_draw_offset(prev, next, sp);
                 let clef_x = x - offset;
                 let origin_y = y_top - clef_origin_offset(&c.clef) * sp;
-                emit_glyph_scaled(
+                emit_glyph_scaled_colored(
                     cmds,
                     clef_x,
                     origin_y,
@@ -2866,6 +3021,7 @@ fn render_system(
                     clef_codepoint(&c.clef),
                     sp * INLINE_CLEF_SCALE,
                     font,
+                    c.color.as_deref().or(default_color),
                 );
             }
             Event::TimeSig(t) => {
@@ -2878,9 +3034,11 @@ fn render_system(
                     t.symbol.as_deref(),
                     sp,
                     font,
+                    t.color.as_deref().or(default_color),
                 );
             }
             Event::Note(n) => {
+                let overall_color = n.colors.overall.as_deref().or(default_color);
                 let note_scale = if n.grace { GRACE_NOTE_SCALE } else { 1.0 };
                 let note_center_y = y_top + y;
                 let staff_pos = (-2.0 * item.y).round() as i32;
@@ -2890,7 +3048,7 @@ fn render_system(
                 let nh_w = glyph::advance_width_for(font, smufl);
 
                 // Ledger lines
-                render_ledger_lines(cmds, x, y_top, staff_pos, sp, note_scale, font);
+                render_ledger_lines(cmds, x, y_top, staff_pos, sp, note_scale, font, overall_color);
 
                 // Accidental
                 if let Some(ref acc) = n.accidental {
@@ -2899,12 +3057,21 @@ fn render_system(
                     {
                         let acc_w = glyph::advance_width_for(font, acc_sm);
                         let acc_x = x - nh_w / 2.0 * lsp - ACCIDENTAL_PADDING * lsp - acc_w * lsp;
-                        emit_glyph(cmds, acc_x, note_center_y, acc_sm, acc_cp, lsp, font);
+                        emit_glyph_colored(
+                            cmds,
+                            acc_x,
+                            note_center_y,
+                            acc_sm,
+                            acc_cp,
+                            lsp,
+                            font,
+                            overall_color,
+                        );
                     }
                 }
 
                 // Notehead
-                emit_glyph(
+                emit_glyph_colored(
                     cmds,
                     x - nh_w / 2.0 * lsp,
                     note_center_y,
@@ -2912,9 +3079,11 @@ fn render_system(
                     cp,
                     lsp,
                     font,
+                    overall_color,
                 );
             }
             Event::Chord(c) => {
+                let overall_color = c.colors.overall.as_deref().or(default_color);
                 let note_scale = if c.grace { GRACE_NOTE_SCALE } else { 1.0 };
                 let lsp = sp * note_scale;
                 let smufl = notehead_smufl(c.duration);
@@ -2942,7 +3111,8 @@ fn render_system(
                     let ny = y_top + item.chord_ys[ni] * sp;
                     let nsp = item.chord_staff_positions[ni];
                     let nx = x + offsets[ni];
-                    render_ledger_lines(cmds, nx, y_top, nsp, sp, note_scale, font);
+                    let note_color = c.notes[ni].color.as_deref().or(overall_color);
+                    render_ledger_lines(cmds, nx, y_top, nsp, sp, note_scale, font, note_color);
                     if let Some(ref acc) = cn.accidental {
                         if let (Some(acc_cp), Some(acc_sm)) =
                             (accidental_codepoint(acc), accidental_smufl(acc))
@@ -2974,18 +3144,28 @@ fn render_system(
                                     lane_width * lsp + CHORD_ACCIDENTAL_STACK_PADDING * lsp;
                             }
                             let acc_x = column_right_edge - acc_w * lsp;
-                            emit_glyph(cmds, acc_x, ny, acc_sm, acc_cp, lsp, font);
+                            emit_glyph_colored(cmds, acc_x, ny, acc_sm, acc_cp, lsp, font, note_color);
                         }
                     }
-                    emit_glyph(cmds, nx - nh_w / 2.0 * lsp, ny, smufl, cp, lsp, font);
+                    emit_glyph_colored(
+                        cmds,
+                        nx - nh_w / 2.0 * lsp,
+                        ny,
+                        smufl,
+                        cp,
+                        lsp,
+                        font,
+                        note_color,
+                    );
                 }
             }
             Event::Rest(r) => {
+                let overall_color = r.colors.overall.as_deref().or(default_color);
                 let note_scale = if r.grace { GRACE_NOTE_SCALE } else { 1.0 };
                 let lsp = sp * note_scale;
                 let rst_smufl = rest_smufl(r.duration);
                 let rst_cp = rest_codepoint(r.duration);
-                emit_glyph(cmds, x, y_top + y, rst_smufl, rst_cp, lsp, font);
+                emit_glyph_colored(cmds, x, y_top + y, rst_smufl, rst_cp, lsp, font, overall_color);
                 // Rest dots
                 if r.dots > 0 {
                     let bb = glyph::bbox_for(font, rst_smufl);
@@ -2996,13 +3176,23 @@ fn render_system(
                             x: dot_x_base + d as f64 * 0.4 * lsp,
                             y: y_top + y + 0.15 * lsp,
                             r: 0.12 * lsp,
+                            color: color_owned(overall_color),
                         });
                     }
                 }
             }
             Event::Barline(b) => {
                 if !skip_barlines && i < items.len() - 1 {
-                    render_barline(cmds, x + 0.5 * sp, y_top, y_bottom, &b.style, sp, font);
+                    render_barline(
+                        cmds,
+                        x + 0.5 * sp,
+                        y_top,
+                        y_bottom,
+                        &b.style,
+                        sp,
+                        font,
+                        b.color.as_deref().or(default_color),
+                    );
                 }
             }
             _ => {}
@@ -3019,6 +3209,9 @@ fn render_system(
 
         match ev {
             Event::Note(n) => {
+                let overall_color = n.colors.overall.as_deref().or(default_color);
+                let articulation_color = resolved_color(n.colors.articulations.as_deref(), n.colors.overall.as_deref(), default_color);
+                let dynamic_color = resolved_color(n.colors.dynamic.as_deref(), n.colors.overall.as_deref(), default_color);
                 let is_grace = n.grace;
                 let note_scale = if is_grace { GRACE_NOTE_SCALE } else { 1.0 };
                 let note_center_y = y_top + y;
@@ -3063,13 +3256,14 @@ fn render_system(
                                 half_thin
                             };
                         let stem_start_y = note_center_y + att_y * lsp;
-                        emit_line(
+                        emit_line_colored(
                             cmds,
                             stem_x,
                             stem_start_y,
                             stem_x,
                             stem_end_y,
                             ed.stem_thickness * lsp,
+                            overall_color,
                         );
 
                         // Flag
@@ -3078,7 +3272,7 @@ fn render_system(
                                 flag_codepoint(n.duration, &stem_dir),
                                 flag_smufl(n.duration, &stem_dir),
                             ) {
-                                emit_glyph(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp, font);
+                                emit_glyph_colored(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp, font, overall_color);
                             }
                         }
 
@@ -3101,7 +3295,7 @@ fn render_system(
                                     note_center_y + (-0.56 + beam_ext) * lsp,
                                 )
                             };
-                            emit_line(cmds, x0, sl_y0, x1, sl_y1, thickness);
+                            emit_line_colored(cmds, x0, sl_y0, x1, sl_y1, thickness, overall_color);
                         }
                     }
                 }
@@ -3129,6 +3323,7 @@ fn render_system(
                             x: dot_x_base + d as f64 * 0.5 * lsp,
                             y: dot_y,
                             r: dot_radius,
+                            color: color_owned(overall_color),
                         });
                     }
                 }
@@ -3142,6 +3337,7 @@ fn render_system(
                     &stem_dir,
                     y_top,
                     sp,
+                    articulation_color,
                 );
 
                 // Dynamic
@@ -3156,10 +3352,12 @@ fn render_system(
                         sp,
                         font,
                     );
-                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
+                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp, dynamic_color);
                 }
             }
             Event::Rest(r) => {
+                let overall_color = r.colors.overall.as_deref().or(default_color);
+                let dynamic_color = resolved_color(r.colors.dynamic.as_deref(), r.colors.overall.as_deref(), default_color);
                 if let Some(ref dyn_mark) = r.dynamic {
                     let dyn_y = dynamic_anchor_y(
                         items,
@@ -3171,10 +3369,13 @@ fn render_system(
                         sp,
                         font,
                     );
-                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
+                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp, dynamic_color.or(overall_color));
                 }
             }
             Event::Chord(c) => {
+                let overall_color = c.colors.overall.as_deref().or(default_color);
+                let articulation_color = resolved_color(c.colors.articulations.as_deref(), c.colors.overall.as_deref(), default_color);
+                let dynamic_color = resolved_color(c.colors.dynamic.as_deref(), c.colors.overall.as_deref(), default_color);
                 let is_grace = c.grace;
                 let note_scale = if is_grace { GRACE_NOTE_SCALE } else { 1.0 };
                 let lsp = sp * note_scale;
@@ -3254,6 +3455,7 @@ fn render_system(
                                 x: dot_xs[ni] + d as f64 * 0.5 * lsp,
                                 y: dot_y,
                                 r: dot_radius,
+                                color: color_owned(overall_color),
                             });
                         }
                     }
@@ -3293,13 +3495,14 @@ fn render_system(
                                 .fold(f64::NEG_INFINITY, f64::max)
                         };
                         let stem_start_y = primary_y_abs + att_y * lsp;
-                        emit_line(
+                        emit_line_colored(
                             cmds,
                             stem_x,
                             stem_start_y,
                             stem_x,
                             stem_end_y,
                             ed.stem_thickness * lsp,
+                            overall_color,
                         );
 
                         // Flag
@@ -3308,7 +3511,7 @@ fn render_system(
                                 flag_codepoint(c.duration, &stem_dir),
                                 flag_smufl(c.duration, &stem_dir),
                             ) {
-                                emit_glyph(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp, font);
+                                emit_glyph_colored(cmds, stem_x, stem_end_y, f_sm, f_cp, lsp, font, overall_color);
                             }
                         }
 
@@ -3331,14 +3534,14 @@ fn render_system(
                                     primary_y_abs + (-0.56 + beam_ext) * lsp,
                                 )
                             };
-                            emit_line(cmds, x0, sl_y0, x1, sl_y1, thickness);
+                            emit_line_colored(cmds, x0, sl_y0, x1, sl_y1, thickness, overall_color);
                         }
                     }
                 }
 
                 // Articulations
                 let art_ref_y = if stem_dir == "down" { top_y } else { _bottom_y };
-                render_articulations(cmds, x, art_ref_y, &c.articulations, &stem_dir, y_top, sp);
+                render_articulations(cmds, x, art_ref_y, &c.articulations, &stem_dir, y_top, sp, articulation_color);
 
                 // Dynamic
                 if let Some(ref dyn_mark) = c.dynamic {
@@ -3352,7 +3555,7 @@ fn render_system(
                         sp,
                         font,
                     );
-                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp);
+                    render_dynamic(cmds, x, dyn_y, dyn_mark, sp, dynamic_color);
                 }
             }
             _ => {}
@@ -3393,6 +3596,7 @@ fn render_system(
                     stem_end,
                     adj_stem_ends.contains_key(&i),
                     font,
+                    default_color,
                 );
 
                 // Staff markers
@@ -3405,6 +3609,7 @@ fn render_system(
                     above_anchor,
                     sp,
                     font,
+                    resolved_color(n.colors.staff_markers.as_deref(), n.colors.overall.as_deref(), default_color),
                 );
             }
             Event::Rest(r) => {
@@ -3429,6 +3634,7 @@ fn render_system(
                     None,
                     false,
                     font,
+                    default_color,
                 );
                 render_staff_markers(
                     cmds,
@@ -3439,6 +3645,7 @@ fn render_system(
                     above_anchor,
                     sp,
                     font,
+                    resolved_color(r.colors.staff_markers.as_deref(), r.colors.overall.as_deref(), default_color),
                 );
             }
             Event::Chord(c) => {
@@ -3480,6 +3687,7 @@ fn render_system(
                     stem_end,
                     adj_stem_ends.contains_key(&i),
                     font,
+                    default_color,
                 );
                 render_staff_markers(
                     cmds,
@@ -3490,6 +3698,7 @@ fn render_system(
                     above_anchor,
                     sp,
                     font,
+                    resolved_color(c.colors.staff_markers.as_deref(), c.colors.overall.as_deref(), default_color),
                 );
             }
             _ => {}
@@ -3521,12 +3730,25 @@ fn render_system(
         } else {
             total_width * sp - ed_final.thin_barline_thickness / 2.0 * sp
         };
-        render_barline(cmds, final_x, y_top, y_bottom, final_style, sp, font);
+        let final_color = items
+            .last()
+            .and_then(|item| match &item.event {
+                Event::Barline(b) => b.color.as_deref(),
+                _ => None,
+            })
+            .or(default_color);
+        render_barline(cmds, final_x, y_top, y_bottom, final_style, sp, font, final_color);
     }
 
     // ── Draw beams ──
     for beam_data in &beam_groups_data {
-        render_beam_group(cmds, &beam_data.notes, sp * beam_data.scale, font);
+        render_beam_group(
+            cmds,
+            &beam_data.notes,
+            sp * beam_data.scale,
+            font,
+            beam_data.color.as_deref(),
+        );
     }
 
     // ── Tuplet brackets ──
@@ -3557,7 +3779,16 @@ fn render_system(
     );
 
     // ── Ties and slurs ──
-    render_ties_and_slurs(cmds, items, &item_xs, &adj_stem_dirs, y_top, sp, font);
+    render_ties_and_slurs(
+        cmds,
+        items,
+        &item_xs,
+        &adj_stem_dirs,
+        y_top,
+        sp,
+        font,
+        default_color,
+    );
 
     // ── Trill lines ──
     render_trills(
@@ -3573,6 +3804,7 @@ fn render_system(
         total_width,
         fng_pos,
         font,
+        default_color,
     );
 
     // ── Octave lines ──
@@ -3589,6 +3821,7 @@ fn render_system(
         total_width,
         fng_pos,
         font,
+        default_color,
     );
 
     // ── Ending brackets (voltas) ──
@@ -3620,6 +3853,7 @@ fn render_system(
         music_start_x,
         total_width,
         fng_pos,
+        default_color,
     );
 }
 
@@ -3633,6 +3867,7 @@ fn render_key_signature(
     clef: Option<&str>,
     sp: f64,
     font: glyph::FontId,
+    color: Option<&str>,
 ) {
     let count = pitch::key_sig_accidental_count(key);
     if count == 0 {
@@ -3659,7 +3894,7 @@ fn render_key_signature(
         let staff_pos = positions[i];
         let acc_y = y_top - staff_pos as f64 * sp / 2.0;
         let acc_x = x + i as f64 * acc_spacing;
-        emit_glyph(cmds, acc_x, acc_y, acc_sm, acc_cp, sp, font);
+        emit_glyph_colored(cmds, acc_x, acc_y, acc_sm, acc_cp, sp, font, color);
     }
 }
 
@@ -3672,13 +3907,14 @@ fn render_time_signature(
     symbol: Option<&str>,
     sp: f64,
     font: glyph::FontId,
+    color: Option<&str>,
 ) {
     match symbol {
         Some("common") => {
-            emit_glyph(cmds, x, y_top - 2.0 * sp, "timeSigCommon", 0xE08A, sp, font);
+            emit_glyph_colored(cmds, x, y_top - 2.0 * sp, "timeSigCommon", 0xE08A, sp, font, color);
         }
         Some("cut") => {
-            emit_glyph(
+            emit_glyph_colored(
                 cmds,
                 x,
                 y_top - 2.0 * sp,
@@ -3686,6 +3922,7 @@ fn render_time_signature(
                 0xE08B,
                 sp,
                 font,
+                color,
             );
         }
         _ => {
@@ -3700,7 +3937,7 @@ fn render_time_signature(
                 if let Some(d) = ch.to_digit(10) {
                     let name = TIME_SIG_NAMES[d as usize];
                     let cp = time_digit_codepoint(d);
-                    emit_glyph(cmds, x + dx, y_top - 1.0 * sp, name, cp, sp, font);
+                    emit_glyph_colored(cmds, x + dx, y_top - 1.0 * sp, name, cp, sp, font, color);
                     dx += glyph::advance_width_for(font, name) * sp;
                 }
             }
@@ -3710,7 +3947,7 @@ fn render_time_signature(
                 if let Some(d) = ch.to_digit(10) {
                     let name = TIME_SIG_NAMES[d as usize];
                     let cp = time_digit_codepoint(d);
-                    emit_glyph(cmds, x + dx, y_top - 3.0 * sp, name, cp, sp, font);
+                    emit_glyph_colored(cmds, x + dx, y_top - 3.0 * sp, name, cp, sp, font, color);
                     dx += glyph::advance_width_for(font, name) * sp;
                 }
             }
@@ -3726,13 +3963,14 @@ fn render_barline(
     style: &str,
     sp: f64,
     font: glyph::FontId,
+    color: Option<&str>,
 ) {
     let ed = glyph::engraving_defaults(font);
     let thin = ed.thin_barline_thickness * sp;
     let thick = ed.thick_barline_thickness * sp;
 
     let draw_bar = |cmds: &mut Vec<DrawCmd>, bx: f64, t: f64| {
-        emit_line(cmds, bx, y_top, bx, y_bottom, t);
+        emit_line_colored(cmds, bx, y_top, bx, y_bottom, t, color);
     };
 
     match style {
@@ -3748,35 +3986,37 @@ fn render_barline(
         "repeat-start" => {
             draw_bar(cmds, x, thick);
             draw_bar(cmds, x + 0.5 * sp, thin);
-            draw_repeat_dots(cmds, x + 1.0 * sp, y_top, sp);
+            draw_repeat_dots(cmds, x + 1.0 * sp, y_top, sp, color);
         }
         "repeat-end" => {
-            draw_repeat_dots(cmds, x - 1.0 * sp, y_top, sp);
+            draw_repeat_dots(cmds, x - 1.0 * sp, y_top, sp, color);
             draw_bar(cmds, x - 0.5 * sp, thin);
             draw_bar(cmds, x, thick);
         }
         "repeat-both" => {
-            draw_repeat_dots(cmds, x - 1.0 * sp, y_top, sp);
+            draw_repeat_dots(cmds, x - 1.0 * sp, y_top, sp, color);
             draw_bar(cmds, x - 0.5 * sp, thin);
             draw_bar(cmds, x, thick);
             draw_bar(cmds, x + 0.5 * sp, thin);
-            draw_repeat_dots(cmds, x + 1.0 * sp, y_top, sp);
+            draw_repeat_dots(cmds, x + 1.0 * sp, y_top, sp, color);
         }
         _ => draw_bar(cmds, x, thin),
     }
 }
 
-fn draw_repeat_dots(cmds: &mut Vec<DrawCmd>, x: f64, staff_y_top: f64, sp: f64) {
+fn draw_repeat_dots(cmds: &mut Vec<DrawCmd>, x: f64, staff_y_top: f64, sp: f64, color: Option<&str>) {
     let dot_radius = 0.22 * sp;
     cmds.push(DrawCmd::Circle {
         x,
         y: staff_y_top - 1.5 * sp,
         r: dot_radius,
+        color: color_owned(color),
     });
     cmds.push(DrawCmd::Circle {
         x,
         y: staff_y_top - 2.5 * sp,
         r: dot_radius,
+        color: color_owned(color),
     });
 }
 
@@ -3789,17 +4029,18 @@ fn render_spanning_barline(
     style: &str,
     sp: f64,
     font: glyph::FontId,
+    color: Option<&str>,
 ) {
     let ed = glyph::engraving_defaults(font);
     let thin = ed.thin_barline_thickness * sp;
     let thick = ed.thick_barline_thickness * sp;
 
     let draw_bar = |cmds: &mut Vec<DrawCmd>, bx: f64, t: f64| {
-        emit_line(cmds, bx, y_top, bx, y_bottom, t);
+        emit_line_colored(cmds, bx, y_top, bx, y_bottom, t, color);
     };
     let draw_dots_on_staves = |cmds: &mut Vec<DrawCmd>, dx: f64| {
         for &staff_y_top in staff_y_tops {
-            draw_repeat_dots(cmds, dx, staff_y_top, sp);
+            draw_repeat_dots(cmds, dx, staff_y_top, sp, color);
         }
     };
 
@@ -3821,7 +4062,7 @@ fn render_spanning_barline(
             draw_bar(cmds, x + 0.5 * sp, thin);
             draw_dots_on_staves(cmds, x + 1.0 * sp);
         }
-        _ => render_barline(cmds, x, y_top, y_bottom, style, sp, font),
+        _ => render_barline(cmds, x, y_top, y_bottom, style, sp, font, color),
     }
 }
 
@@ -3833,6 +4074,7 @@ fn render_ledger_lines(
     sp: f64,
     note_scale: f64,
     font: glyph::FontId,
+    color: Option<&str>,
 ) {
     let info = pitch::ledger_lines_needed(staff_pos);
     if info.0 == 0 {
@@ -3848,26 +4090,28 @@ fn render_ledger_lines(
         for i in 0..info.0 {
             let ledger_pos = -2 - i as i32 * 2;
             let ly = y_top - ledger_pos as f64 * sp / 2.0;
-            emit_line(
+            emit_line_colored(
                 cmds,
                 x - nh_w / 2.0 * lsp - ext,
                 ly,
                 x + nh_w / 2.0 * lsp + ext,
                 ly,
                 thickness,
+                color,
             );
         }
     } else {
         for i in 0..info.0 {
             let ledger_pos = 10 + i as i32 * 2;
             let ly = y_top - ledger_pos as f64 * sp / 2.0;
-            emit_line(
+            emit_line_colored(
                 cmds,
                 x - nh_w / 2.0 * lsp - ext,
                 ly,
                 x + nh_w / 2.0 * lsp + ext,
                 ly,
                 thickness,
+                color,
             );
         }
     }
@@ -3881,6 +4125,7 @@ fn render_articulations(
     stem_dir: &str,
     y_top: f64,
     sp: f64,
+    color: Option<&str>,
 ) {
     if articulations.is_empty() {
         return;
@@ -3904,32 +4149,32 @@ fn render_articulations(
         let mut cur_y = note_y + gap_above;
         for art in &non_fermata {
             if let Some(cp) = articulation_codepoint(art, true) {
-                emit_glyph_anchored(cmds, x, cur_y, cp, sp, "south");
+                emit_glyph_anchored_colored(cmds, x, cur_y, cp, sp, "south", color);
                 cur_y += art_spacing;
             }
         }
         if !fermata.is_empty() {
             let fermata_y = cur_y.max(y_top + 0.5 * sp);
-            emit_glyph_anchored(cmds, x, fermata_y, 0xE4C0, sp, "south");
+            emit_glyph_anchored_colored(cmds, x, fermata_y, 0xE4C0, sp, "south", color);
         }
     } else {
         // Stem points up → articulations go BELOW the note
         let mut cur_y = note_y - gap_below;
         for art in &non_fermata {
             if let Some(cp) = articulation_codepoint(art, false) {
-                emit_glyph_anchored(cmds, x, cur_y, cp, sp, "north");
+                emit_glyph_anchored_colored(cmds, x, cur_y, cp, sp, "north", color);
                 cur_y -= art_spacing;
             }
         }
         // Fermata always above, regardless of stem direction
         if !fermata.is_empty() {
             let fermata_y = (note_y + gap_above).max(y_top + 0.5 * sp);
-            emit_glyph_anchored(cmds, x, fermata_y, 0xE4C0, sp, "south");
+            emit_glyph_anchored_colored(cmds, x, fermata_y, 0xE4C0, sp, "south", color);
         }
     }
 }
 
-fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, dynamic: &str, sp: f64) {
+fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, dynamic: &str, sp: f64, color: Option<&str>) {
     if dynamic.is_empty() {
         return;
     }
@@ -3951,6 +4196,7 @@ fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, dynamic: &str, sp: f6
                 v: dyn_str,
                 s: 4.0 * sp,
                 a: "north".into(),
+                color: color_owned(color),
             });
         }
     } else {
@@ -3962,6 +4208,7 @@ fn render_dynamic(cmds: &mut Vec<DrawCmd>, x: f64, y: f64, dynamic: &str, sp: f6
             w: "bold".into(),
             i: true,
             a: "north".into(),
+            color: color_owned(color),
         });
     }
 }
@@ -4253,6 +4500,7 @@ fn render_beam_group(
     beam_notes: &[BeamNote],
     sp: f64,
     font: glyph::FontId,
+    color: Option<&str>,
 ) {
     let n = beam_notes.len();
     if n < 2 {
@@ -4290,6 +4538,7 @@ fn render_beam_group(
                         sp,
                         y_offset,
                         beam_thickness,
+                        color,
                     );
                 }
             }
@@ -4304,6 +4553,7 @@ fn render_beam_group(
                 sp,
                 y_offset,
                 beam_thickness,
+                color,
             );
         }
     }
@@ -4318,6 +4568,7 @@ fn emit_beam_segment(
     sp: f64,
     y_offset: f64,
     thickness: f64,
+    color: Option<&str>,
 ) {
     let (x0, y0, x1, y1) = if start < end {
         let first = &beam_notes[start];
@@ -4366,10 +4617,12 @@ fn emit_beam_segment(
     if stem_dir == "up" {
         cmds.push(DrawCmd::Polygon {
             pts: vec![x0, y0 - thickness, x1, y1 - thickness, x1, y1, x0, y0],
+            color: color_owned(color),
         });
     } else {
         cmds.push(DrawCmd::Polygon {
             pts: vec![x0, y0, x1, y1, x1, y1 + thickness, x0, y0 + thickness],
+            color: color_owned(color),
         });
     }
 }
@@ -5245,6 +5498,7 @@ fn render_inline_text(
     stem_end: Option<f64>,
     is_beamed: bool,
     font: glyph::FontId,
+    default_color: Option<&str>,
 ) {
     let fng_stack_step = fingering_stack_step(sp);
     let default_sp_numeric = 1.75; // default-staff-space in mm
@@ -5252,6 +5506,12 @@ fn render_inline_text(
     let bold_fng_font_size = fng_font_size * 1.1;
     let ed = glyph::engraving_defaults(font);
     let beam_gap = (0.2 + 0.4 * ed.beam_thickness).max(0.35) * sp;
+    let overall_color = ev.overall_color();
+    let fingering_color = resolved_color(ev.fingering_color(), overall_color, default_color);
+    let chord_symbol_color = resolved_color(ev.chord_symbol_color(), overall_color, default_color);
+    let staff_text_color = resolved_color(ev.staff_text_color(), overall_color, default_color);
+    let expression_text_color =
+        resolved_color(ev.expression_text_color(), overall_color, default_color);
 
     // Track the topmost y of items placed above the staff so chord/staff-text
     // can stack above them with a clear gap.
@@ -5279,6 +5539,7 @@ fn render_inline_text(
             let mut cur_y = fng_base_y;
             for mark in &marks {
                 if mark.value != 0 {
+                    let mark_color = mark.color.as_deref().or(fingering_color);
                     cmds.push(DrawCmd::Text {
                         x,
                         y: cur_y,
@@ -5291,6 +5552,7 @@ fn render_inline_text(
                         w: if mark.bold { "bold" } else { "regular" }.into(),
                         i: false,
                         a: "north".into(),
+                        color: color_owned(mark_color),
                     });
                     cur_y -= fng_stack_step;
                 }
@@ -5307,6 +5569,7 @@ fn render_inline_text(
             let mut cur_y = fng_base_y;
             for mark in &marks {
                 if mark.value != 0 {
+                    let mark_color = mark.color.as_deref().or(fingering_color);
                     cmds.push(DrawCmd::Text {
                         x,
                         y: cur_y,
@@ -5319,6 +5582,7 @@ fn render_inline_text(
                         w: if mark.bold { "bold" } else { "regular" }.into(),
                         i: false,
                         a: "south".into(),
+                        color: color_owned(mark_color),
                     });
                     cur_y += fng_stack_step;
                 }
@@ -5365,6 +5629,7 @@ fn render_inline_text(
                 w: "bold".into(),
                 i: false,
                 a: "south".into(),
+                color: color_owned(chord_symbol_color),
             });
             // Chord text is ~10pt ≈ 3.5mm ≈ 2 sp — advance stack by that
             above_stack_top = above_stack_top.max(chord_base_y + text_height_mm(10.0));
@@ -5425,6 +5690,7 @@ fn render_inline_text(
                 w: "regular".into(),
                 i: false,
                 a: "south".into(),
+                color: color_owned(staff_text_color),
             });
         }
     }
@@ -5461,6 +5727,7 @@ fn render_inline_text(
                 w: "regular".into(),
                 i: true,
                 a: "north".into(),
+                color: color_owned(expression_text_color),
             });
         }
     }
@@ -5475,6 +5742,7 @@ fn render_staff_markers(
     above_anchor: f64,
     sp: f64,
     font: glyph::FontId,
+    color: Option<&str>,
 ) {
     let centered: Vec<&String> = markers
         .iter()
@@ -5500,7 +5768,7 @@ fn render_staff_markers(
             y_top + 0.12 * sp
         };
         if let Some(cp) = staff_marker_codepoint(mk) {
-            emit_glyph(cmds, marker_x, marker_y, mk, cp, sp, font);
+            emit_glyph_colored(cmds, marker_x, marker_y, mk, cp, sp, font, color);
         }
     }
 
@@ -5511,7 +5779,7 @@ fn render_staff_markers(
     }
     for mk in &centered {
         if let Some(cp) = staff_marker_codepoint(mk) {
-            emit_glyph(cmds, x, cur_y, mk, cp, sp, font);
+            emit_glyph_colored(cmds, x, cur_y, mk, cp, sp, font, color);
             cur_y += 1.7 * sp + 0.2 * sp;
         }
     }
@@ -5663,6 +5931,7 @@ fn render_tuplets(
             w: "regular".into(),
             i: true,
             a: anchor.into(),
+            color: None,
         });
     }
 }
@@ -5859,6 +6128,7 @@ fn render_ties_and_slurs(
     y_top: f64,
     sp: f64,
     font: glyph::FontId,
+    default_color: Option<&str>,
 ) {
     let get_stem_dir = |i: usize| -> String {
         adj_stem_dirs
@@ -5910,6 +6180,7 @@ fn render_ties_and_slurs(
             direction,
             sp,
             TIE_ARC_STYLE,
+            resolved_color(ev.tie_color(), ev.overall_color(), default_color),
         );
 
         tie_spans.push(ArcSpan {
@@ -5954,7 +6225,21 @@ fn render_ties_and_slurs(
             let end_y =
                 y_top + event_arc_reference_y(item, direction) * sp + direction * anchor_offset;
 
-            render_arc(cmds, start_x, start_y, end_x, end_y, direction, sp, style);
+            render_arc(
+                cmds,
+                start_x,
+                start_y,
+                end_x,
+                end_y,
+                direction,
+                sp,
+                style,
+                resolved_color(
+                    items[start_idx].event.slur_color(),
+                    items[start_idx].event.overall_color(),
+                    default_color,
+                ),
+            );
         }
     }
 }
@@ -5968,6 +6253,7 @@ fn render_arc(
     direction: f64,
     sp: f64,
     style: ArcStyle,
+    color: Option<&str>,
 ) {
     let dx = x2 - x1;
     let arc_height = arc_height(dx, sp, style);
@@ -5998,6 +6284,7 @@ fn render_arc(
             inner_cp1_x,
             inner_cp1_y,
         ],
+        color: color_owned(color),
     });
 }
 
@@ -6014,6 +6301,7 @@ fn render_trills(
     total_width: f64,
     fng_pos_default: &str,
     font: glyph::FontId,
+    default_color: Option<&str>,
 ) {
     let trill_cp = 0xE566u32;
     let wiggle_cp = 0xEAA4u32;
@@ -6040,7 +6328,7 @@ fn render_trills(
             let visual_top = note_visual_top(item, y_top, sp);
             (visual_top + 0.75 * sp).max(tr_min_y)
         });
-        emit_glyph(
+        emit_glyph_colored(
             cmds,
             item_xs[idx] - 0.55 * tr_width,
             trill_y,
@@ -6048,6 +6336,7 @@ fn render_trills(
             trill_cp,
             sp,
             font,
+            resolved_color(ev.trill_color(), ev.overall_color(), default_color),
         );
     }
 
@@ -6109,7 +6398,9 @@ fn render_trills(
         .unwrap_or((line_top + 0.75 * sp).max(tr_min_y));
         if tg.starts_here {
             let symbol_x = item_xs[*tg.indices.first().unwrap()] - 0.55 * tr_width;
-            emit_glyph(cmds, symbol_x, trill_y, "ornamentTrill", trill_cp, sp, font);
+            let start_event = &items[*tg.indices.first().unwrap()].event;
+            let trill_color = resolved_color(start_event.trill_color(), start_event.overall_color(), default_color);
+            emit_glyph_colored(cmds, symbol_x, trill_y, "ornamentTrill", trill_cp, sp, font, trill_color);
         }
 
         let wiggle_start = if tg.starts_here {
@@ -6127,8 +6418,10 @@ fn render_trills(
         if wiggle_w > 0.0 {
             let step = wiggle_w * 0.92;
             let mut cx = wiggle_start;
+            let start_event = &items[*tg.indices.first().unwrap()].event;
+            let trill_color = resolved_color(start_event.trill_color(), start_event.overall_color(), default_color);
             while cx < wiggle_end {
-                emit_glyph(
+                emit_glyph_colored(
                     cmds,
                     cx,
                     trill_y + 0.02 * sp,
@@ -6136,6 +6429,7 @@ fn render_trills(
                     wiggle_cp,
                     sp,
                     font,
+                    trill_color,
                 );
                 cx += step;
             }
@@ -6156,6 +6450,7 @@ fn render_octave_lines(
     total_width: f64,
     fng_pos_default: &str,
     font: glyph::FontId,
+    default_color: Option<&str>,
 ) {
     struct OctGroup {
         indices: Vec<usize>,
@@ -6218,6 +6513,9 @@ fn render_octave_lines(
         if og.indices.is_empty() {
             continue;
         }
+        let start_event = &items[*og.indices.first().unwrap()].event;
+        let octave_color =
+            resolved_color(start_event.octave_line_color(), start_event.overall_color(), default_color);
         let x_first = item_xs[*og.indices.first().unwrap()];
         let x_last = item_xs[*og.indices.last().unwrap()];
         let x0 = if og.starts_here {
@@ -6270,6 +6568,7 @@ fn render_octave_lines(
                     w: "bold".into(),
                     i: true,
                     a: "north-west".into(),
+                    color: color_owned(octave_color),
                 });
                 cmds.push(DrawCmd::Text {
                     x: label_x + number_w,
@@ -6279,6 +6578,7 @@ fn render_octave_lines(
                     w: "bold".into(),
                     i: true,
                     a: "north-west".into(),
+                    color: color_owned(octave_color),
                 });
 
                 (label_x + label_w + 0.62 * sp).min(x1 - 0.4 * sp).max(x0)
@@ -6287,9 +6587,9 @@ fn render_octave_lines(
             };
 
             // Dashed line
-            render_dashed_line(cmds, line_start, x1, bracket_y, sp);
+            render_dashed_line(cmds, line_start, x1, bracket_y, sp, octave_color);
             if og.ends_here {
-                emit_line(cmds, x1, bracket_y, x1, bracket_y - tick_len, line_w);
+                emit_line_colored(cmds, x1, bracket_y, x1, bracket_y - tick_len, line_w, octave_color);
             }
         } else {
             let elem_ys: Vec<f64> = og
@@ -6337,6 +6637,7 @@ fn render_octave_lines(
                     w: "bold".into(),
                     i: true,
                     a: "south-west".into(),
+                    color: color_owned(octave_color),
                 });
                 cmds.push(DrawCmd::Text {
                     x: label_x + number_w,
@@ -6346,6 +6647,7 @@ fn render_octave_lines(
                     w: "bold".into(),
                     i: true,
                     a: "south-west".into(),
+                    color: color_owned(octave_color),
                 });
 
                 (label_x + label_w + 0.62 * sp).min(x1 - 0.4 * sp).max(x0)
@@ -6353,22 +6655,22 @@ fn render_octave_lines(
                 x0
             };
 
-            render_dashed_line(cmds, line_start, x1, bracket_y, sp);
+            render_dashed_line(cmds, line_start, x1, bracket_y, sp, octave_color);
             if og.ends_here {
-                emit_line(cmds, x1, bracket_y, x1, bracket_y + tick_len, line_w);
+                emit_line_colored(cmds, x1, bracket_y, x1, bracket_y + tick_len, line_w, octave_color);
             }
         }
     }
 }
 
-fn render_dashed_line(cmds: &mut Vec<DrawCmd>, x0: f64, x1: f64, y: f64, sp: f64) {
+fn render_dashed_line(cmds: &mut Vec<DrawCmd>, x0: f64, x1: f64, y: f64, sp: f64, color: Option<&str>) {
     let dash = 1.2 * sp;
     let gap = 0.8 * sp;
     let line_w = 0.12 * sp;
     let mut cur = x0;
     while cur < x1 {
         let seg_end = (cur + dash).min(x1);
-        emit_line(cmds, cur, y, seg_end, y, line_w);
+        emit_line_colored(cmds, cur, y, seg_end, y, line_w, color);
         cur += dash + gap;
     }
 }
@@ -6541,6 +6843,7 @@ fn render_endings(
                 w: "regular".into(),
                 i: false,
                 a: "north-west".into(),
+                color: None,
             });
         }
     }
@@ -6675,6 +6978,7 @@ fn render_lyrics(
     _music_start_x: f64,
     _total_width: f64,
     _fng_pos: &str,
+    default_color: Option<&str>,
 ) {
     let lyric_font_size = 9.25 * (sp / 1.75);
     let lyric_line_step = 1.75 * sp;
@@ -6700,6 +7004,7 @@ fn render_lyrics(
 
         let lyrics = ev.lyrics();
         let x = item_xs[idx];
+        let lyric_color = resolved_color(ev.lyrics_color(), ev.overall_color(), default_color);
 
         for (li, entry) in lyrics.iter().enumerate() {
             if entry.carry {
@@ -6717,6 +7022,7 @@ fn render_lyrics(
                         w: "regular".into(),
                         i: false,
                         a: "north".into(),
+                        color: color_owned(lyric_color),
                     });
                 }
             }
@@ -6729,6 +7035,7 @@ fn render_lyrics(
         let mut _prev_text_x: Option<f64> = None;
         let mut prev_continuation: Option<String> = None;
         let mut prev_right_x: Option<f64> = None;
+        let mut prev_color: Option<String> = None;
 
         for (idx, item) in items.iter().enumerate() {
             let ev = &item.event;
@@ -6739,6 +7046,8 @@ fn render_lyrics(
             let lyrics = ev.lyrics();
             let x = item_xs[idx];
             let entry = lyrics.get(li);
+            let lyric_color = resolved_color(ev.lyrics_color(), ev.overall_color(), default_color)
+                .map(str::to_string);
 
             if let Some(entry) = entry {
                 if entry.carry {
@@ -6759,6 +7068,7 @@ fn render_lyrics(
                                         w: "regular".into(),
                                         i: false,
                                         a: "north".into(),
+                                        color: prev_color.clone(),
                                     });
                                 } else if cont == "extender" {
                                     // Add extra padding at both ends so the underscore line
@@ -6770,19 +7080,21 @@ fn render_lyrics(
                                     let ext_end = x - next_half_w - 0.4 * sp - lyric_extender_trim;
                                     if ext_end > ext_start {
                                         let ext_y = top_y - 1.45 * sp;
-                                        emit_line(
+                                        emit_line_colored(
                                             cmds,
                                             ext_start,
                                             ext_y,
                                             ext_end,
                                             ext_y,
                                             0.09 * sp,
+                                            prev_color.as_deref(),
                                         );
                                     }
                                 }
                             }
                         }
                         _prev_text_x = Some(x);
+                        prev_color = lyric_color.clone();
                         prev_continuation = Some(entry.continuation.clone());
                         // Estimate text right edge — use a larger per-character width so the
                         // extender line starts clearly after wide characters like 'W' or 'y'.
