@@ -7,11 +7,62 @@
 
 #let scorify-wasm = plugin("scorify_wasm.wasm")
 
+// Named color presets exported for Typst-side score configuration and
+// string interpolation in inline music color wrappers.
+#let red = "#ff0000"
+#let orange = "#ffa500"
+#let yellow = "#ffcf00"
+#let green = "#00ff00"
+#let blue = "#0000ff"
+#let sky-blue = "#4e9fe5"
+#let purple = "#9d0055"
+#let gold = "#d4af37"
+#let white = "#ffffff"
+#let black = "#000000"
+#let silver = "#c0c0c0"
+#let platinum = "#e5e4e2"
+#let bronze = "#cd7f32"
+#let copper = "#b87333"
+#let charcoal = "#36454f"
+#let navy = "#0a2a66"
+
+#let preset-colors = (
+  "red": red,
+  "orange": orange,
+  "yellow": yellow,
+  "green": green,
+  "blue": blue,
+  "skyblue": sky-blue,
+  "purple": purple,
+  "gold": gold,
+  "white": white,
+  "black": black,
+  "silver": silver,
+  "platinum": platinum,
+  "bronze": bronze,
+  "copper": copper,
+  "charcoal": charcoal,
+  "navy": navy,
+)
+
+#let resolve-preset-color(value) = {
+  if type(value) != str {
+    value
+  } else {
+    let key = if value == "sky blue" or value == "sky-blue" or value == "sky_blue" {
+      "skyblue"
+    } else {
+      value
+    }
+    preset-colors.at(key, default: value)
+  }
+}
+
 #let normalize-color(value) = {
   if value == none {
     none
   } else if type(value) == str {
-    value
+    resolve-preset-color(value)
   } else {
     let css = repr(rgb(value))
     if css.starts-with("rgb(\"") and css.ends-with("\")") {
@@ -26,7 +77,7 @@
   if value == none {
     none
   } else if type(value) == str {
-    rgb(value)
+    rgb(resolve-preset-color(value))
   } else {
     value
   }

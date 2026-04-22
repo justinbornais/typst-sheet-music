@@ -1,6 +1,6 @@
 // Color rendering test coverage
 
-#import "../lib.typ": score, melody
+#import "../lib.typ": score, melody, sky-blue, purple, bronze, charcoal, navy
 
 #set page(width: 210mm, height: 297mm, margin: 1.5cm)
 
@@ -166,4 +166,43 @@
   key: "C",
   time: "4/4",
   music: "c4n[2] d e | <f a c'>2n[1 color{#dc2626:3} 5] g2n[4]",
+)
+
+#v(1cm)
+
+== Test 15: Named preset global colors across a grand staff
+
+#score(
+  title: "Preset Palette",
+  composer: "Scorify",
+  key: "D",
+  time: "4/4",
+  color: sky-blue,
+  staves: (
+    (clef: "treble", color: purple, music: "d'4 e' f#' g' | a' b' c#'' d''"),
+    (clef: "bass", color: bronze, music: "d,2 a, | d,2 r2"),
+  ),
+  staff-group: "grand",
+)
+
+#v(1cm)
+
+== Test 16: Named preset inline wrappers and local overrides
+
+#melody(
+  key: "C",
+  time: "4/4",
+  color: charcoal,
+  music: "color{gold:c4 d e f} | gcolor{red} acolor{blue} bcolor{green} c'",
+)
+
+#v(1cm)
+
+== Test 17: Metallic and neutral presets on text, chords, and fingerings
+
+#melody(
+  key: "G",
+  time: "4/4",
+  color: navy,
+  music: "g4text[Solo]color{platinum} a[Em]color{silver} b l[La]color{orange} c' | <d' f#' a'>2n[1 color{yellow:2} 4] color{gold:g'2}",
 )

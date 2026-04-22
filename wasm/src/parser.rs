@@ -265,11 +265,11 @@ impl<'a> Parser<'a> {
         while cursor < self.len() {
             match self.input[cursor] {
                 b':' => {
-                    let value = color.trim().to_string();
+                    let value = Self::resolve_color_name(color.trim()).to_string();
                     return Some((value, Some(cursor + 1), cursor + 1));
                 }
                 b'}' => {
-                    let value = color.trim().to_string();
+                    let value = Self::resolve_color_name(color.trim()).to_string();
                     return Some((value, None, cursor + 1));
                 }
                 ch => {
@@ -285,6 +285,35 @@ impl<'a> Parser<'a> {
     fn set_if_missing(slot: &mut Option<String>, color: &str) {
         if slot.is_none() {
             *slot = Some(color.to_string());
+        }
+    }
+
+    fn resolve_color_name(color: &str) -> &str {
+        match color
+            .trim()
+            .chars()
+            .filter(|ch| !matches!(ch, ' ' | '-' | '_'))
+            .flat_map(|ch| ch.to_lowercase())
+            .collect::<String>()
+            .as_str()
+        {
+            "red" => "#ff0000",
+            "orange" => "#ffa500",
+            "yellow" => "#ffcf00",
+            "green" => "#00ff00",
+            "blue" => "#0000ff",
+            "skyblue" => "#4e9fe5",
+            "purple" => "#9d0055",
+            "gold" => "#d4af37",
+            "white" => "#ffffff",
+            "black" => "#000000",
+            "silver" => "#c0c0c0",
+            "platinum" => "#e5e4e2",
+            "bronze" => "#cd7f32",
+            "copper" => "#b87333",
+            "charcoal" => "#36454f",
+            "navy" => "#0a2a66",
+            _ => color.trim(),
         }
     }
 
@@ -552,10 +581,10 @@ impl<'a> Parser<'a> {
 
         let inner = &part[6..part.len() - 1];
         let colon = inner.find(':')?;
-        let color = &inner[..colon];
+        let color = Self::resolve_color_name(&inner[..colon]).to_string();
         let value = &inner[colon + 1..];
         let mut mark = Self::parse_fingering_part(value)?;
-        mark.color = Some(color.to_string());
+        mark.color = Some(color);
         Some(mark)
     }
 
