@@ -1843,6 +1843,52 @@ struct BeamGroupData {
     color: Option<String>,
 }
 
+fn finalize_raw_beam_group(raw_beam_groups: &mut Vec<Vec<usize>>, cur_beam: &mut Vec<usize>) {
+    if cur_beam.len() >= 2 {
+        raw_beam_groups.push(std::mem::take(cur_beam));
+    } else {
+        cur_beam.clear();
+    }
+}
+
+fn collect_raw_beam_groups(items: &[LaidOutItem]) -> Vec<Vec<usize>> {
+    let mut raw_beam_groups: Vec<Vec<usize>> = Vec::with_capacity(16);
+    let mut cur_beam: Vec<usize> = Vec::with_capacity(8);
+
+    for (i, item) in items.iter().enumerate() {
+        let ev = &item.event;
+
+        // Repeated spaces are parsed as Gap events. Treat them as explicit
+        // beam separators so manual spacing-driven beam breaks stay stable.
+        if matches!(ev, Event::Gap(_)) {
+            finalize_raw_beam_group(&mut raw_beam_groups, &mut cur_beam);
+            continue;
+        }
+
+        let beamable = (ev.is_note() || ev.is_chord()) && ev.duration() >= 8;
+        let grace = ev.grace();
+        if beamable {
+            let same_grace =
+                cur_beam.is_empty() || items[*cur_beam.first().unwrap()].event.grace() == grace;
+            let same_voice =
+                cur_beam.is_empty() || items[*cur_beam.first().unwrap()].voice == item.voice;
+            if !same_grace || !same_voice {
+                finalize_raw_beam_group(&mut raw_beam_groups, &mut cur_beam);
+            }
+            let limit = if grace { 8 } else { 4 };
+            if cur_beam.len() == limit {
+                finalize_raw_beam_group(&mut raw_beam_groups, &mut cur_beam);
+            }
+            cur_beam.push(i);
+        } else {
+            finalize_raw_beam_group(&mut raw_beam_groups, &mut cur_beam);
+        }
+    }
+
+    finalize_raw_beam_group(&mut raw_beam_groups, &mut cur_beam);
+    raw_beam_groups
+}
+
 // ─── Main rendering functions ──────────────────────────────────────────
 
 /// Returns how far below `y_bottom` the given events' below-staff elements extend, in sp units.
@@ -2885,39 +2931,7 @@ fn render_system(
     let black_bottom = black_bb.map_or(-0.82, |b| b.sw_y);
 
     // ── Auto-beaming ──
-    let mut raw_beam_groups: Vec<Vec<usize>> = Vec::with_capacity(16);
-    let mut cur_beam: Vec<usize> = Vec::with_capacity(8);
-    for (i, item) in items.iter().enumerate() {
-        let ev = &item.event;
-        let beamable = (ev.is_note() || ev.is_chord()) && ev.duration() >= 8;
-        let grace = ev.grace();
-        if beamable {
-            let same_grace =
-                cur_beam.is_empty() || items[*cur_beam.first().unwrap()].event.grace() == grace;
-            let same_voice =
-                cur_beam.is_empty() || items[*cur_beam.first().unwrap()].voice == item.voice;
-            if !same_grace || !same_voice {
-                if cur_beam.len() >= 2 {
-                    raw_beam_groups.push(cur_beam.clone());
-                }
-                cur_beam.clear();
-            }
-            let limit = if grace { 8 } else { 4 };
-            if cur_beam.len() == limit {
-                raw_beam_groups.push(cur_beam.clone());
-                cur_beam.clear();
-            }
-            cur_beam.push(i);
-        } else {
-            if cur_beam.len() >= 2 {
-                raw_beam_groups.push(cur_beam.clone());
-            }
-            cur_beam.clear();
-        }
-    }
-    if cur_beam.len() >= 2 {
-        raw_beam_groups.push(cur_beam);
-    }
+    let raw_beam_groups = collect_raw_beam_groups(items);
 
     // Compute beam geometry
     let mut adj_stem_ends: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
@@ -4747,9 +4761,51 @@ mod beam_tests {
 
     fn polygon(cmds: &[DrawCmd], idx: usize) -> &[f64] {
         match &cmds[idx] {
-            DrawCmd::Polygon { pts } => pts,
+            DrawCmd::Polygon { pts, .. } => pts,
             other => panic!("expected polygon, got {other:?}"),
         }
+    }
+
+    fn laid_out_item(event: Event) -> LaidOutItem {
+        LaidOutItem {
+            event,
+            x: 0.0,
+            y: 0.0,
+            stem_dir: None,
+            stem_y_end: None,
+            stem_forced: false,
+            voice: None,
+            width: 1.0,
+            chord_ys: Vec::new(),
+            chord_staff_positions: Vec::new(),
+            voice_items: Vec::new(),
+        }
+    }
+
+    fn eighth_note(name: &str) -> Event {
+        let mut note = Note::new(name, 4);
+        note.duration = 8;
+        Event::Note(note)
+    }
+
+    #[test]
+    fn repeated_spaces_split_beam_groups() {
+        let items = vec![
+            laid_out_item(eighth_note("c")),
+            laid_out_item(eighth_note("d")),
+            laid_out_item(Event::Gap(Gap { amount: 1 })),
+            laid_out_item(eighth_note("e")),
+            laid_out_item(eighth_note("f")),
+            laid_out_item(Event::Gap(Gap { amount: 1 })),
+            laid_out_item(eighth_note("g")),
+            laid_out_item(Event::Gap(Gap { amount: 1 })),
+            laid_out_item(eighth_note("a")),
+            laid_out_item(Event::Gap(Gap { amount: 1 })),
+            laid_out_item(eighth_note("b")),
+            laid_out_item(eighth_note("c")),
+        ];
+
+        assert_eq!(collect_raw_beam_groups(&items), vec![vec![0, 1], vec![3, 4], vec![10, 11]]);
     }
 
     #[test]
@@ -4757,7 +4813,7 @@ mod beam_tests {
         let notes = vec![beam_note(0.0, 10.0, 8), beam_note(10.0, 11.0, 16)];
         let mut cmds = Vec::new();
 
-        render_beam_group(&mut cmds, &notes, 1.0, glyph::FontId::Bravura);
+        render_beam_group(&mut cmds, &notes, 1.0, glyph::FontId::Bravura, None);
 
         assert_eq!(cmds.len(), 2);
         let secondary = polygon(&cmds, 1);
@@ -4771,7 +4827,7 @@ mod beam_tests {
         let notes = vec![beam_note(0.0, 11.0, 16), beam_note(10.0, 10.0, 8)];
         let mut cmds = Vec::new();
 
-        render_beam_group(&mut cmds, &notes, 1.0, glyph::FontId::Bravura);
+        render_beam_group(&mut cmds, &notes, 1.0, glyph::FontId::Bravura, None);
 
         assert_eq!(cmds.len(), 2);
         let secondary = polygon(&cmds, 1);

@@ -810,8 +810,17 @@ impl<'a> Parser<'a> {
 
         // Chord symbol, staff text, expression text, fingering, lyrics
         loop {
+            let attachment_start = p;
             while p < self.len() && is_whitespace_char(self.input[p]) {
                 p += 1;
+            }
+
+            let whitespace_len = p - attachment_start;
+            if whitespace_len > 0
+                && (whitespace_len > 1 || !self.can_start_post_note_attachment(p))
+            {
+                p = attachment_start;
+                break;
             }
 
             if self.peek(p) == Some(b'l') {
@@ -850,6 +859,14 @@ impl<'a> Parser<'a> {
         }
 
         (att, p)
+    }
+
+    fn can_start_post_note_attachment(&self, p: usize) -> bool {
+        self.peek(p) == Some(b'l')
+            || (p + 5 <= self.len() && &self.input[p..p + 5] == b"text[")
+            || (p + 4 <= self.len() && &self.input[p..p + 4] == b"exp[")
+            || self.is_fingering_start(p)
+            || self.peek(p) == Some(b'[')
     }
 
     fn parse_note_pitch(&self, p: usize) -> (Option<String>, i32, usize) {
@@ -2004,6 +2021,21 @@ mod tests {
             }
             other => panic!("expected rest, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn preserves_repeated_spaces_as_gap_events_between_notes() {
+        let events = parse_music("c8 d  e f  g  a  b c", 4);
+
+        let gap_amounts: Vec<i32> = events
+            .iter()
+            .filter_map(|event| match event {
+                Event::Gap(gap) => Some(gap.amount),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(gap_amounts, vec![1, 1, 1, 1]);
     }
 
     #[test]

@@ -401,6 +401,21 @@ fn flagged_note_before_longer_accidental(event: &Event, next: &Event) -> bool {
         && event_has_accidental(next)
 }
 
+fn is_short_gap_neighbor(event: &Event) -> bool {
+    event_is_note_cluster(event) && !event.grace() && event.duration() >= 8
+}
+
+fn gap_extra_space_units(gap: &Gap, prev: Option<&Event>, next: Option<&Event>) -> i32 {
+    let mut amount = gap.amount;
+    if amount > 0
+        && prev.map_or(false, is_short_gap_neighbor)
+        && next.map_or(false, is_short_gap_neighbor)
+    {
+        amount -= 1;
+    }
+    amount.max(0)
+}
+
 fn needs_leading_accidental_space(event: &Event, next: &Event) -> bool {
     if !event_has_accidental(next) {
         return false;
@@ -662,7 +677,7 @@ pub fn event_width_font(
         }
         Event::TimeSig(_) => inline_time_sig_width(event, prev, next, font),
         Event::KeySig(_) => 2.0,
-        Event::Gap(g) => 0.7 * g.amount as f64,
+        Event::Gap(g) => 0.7 * gap_extra_space_units(g, prev, next) as f64,
         Event::LineBreak => 0.0,
         Event::VoiceGroup(vg) => voice_group_width_font(vg, font),
         Event::Rest(_) if is_empty_measure_whole_rest(event, prev, next) => {
@@ -1663,6 +1678,7 @@ mod tests {
             octave_line_direction: None,
             octave_line_start: false,
             octave_line_end: false,
+            colors: ElementColors::default(),
         })
     }
 
@@ -1697,6 +1713,7 @@ mod tests {
             ending: None,
             ending_start: false,
             ending_end: false,
+            colors: ElementColors::default(),
         })
     }
 
@@ -1706,7 +1723,12 @@ mod tests {
             ending: None,
             ending_start: false,
             ending_end: false,
+            color: None,
         })
+    }
+
+    fn gap(amount: i32) -> Event {
+        Event::Gap(Gap { amount })
     }
 
     fn mark_tuplet(event: &mut Event, in_time_of: f64, number: i32, count: i32) {
@@ -1738,6 +1760,7 @@ mod tests {
                     name: (*name).to_string(),
                     accidental: accidental.map(str::to_string),
                     octave: *octave,
+                    color: None,
                 })
                 .collect(),
             duration,
@@ -1777,7 +1800,37 @@ mod tests {
             octave_line_direction: None,
             octave_line_start: false,
             octave_line_end: false,
+            colors: ElementColors::default(),
         })
+    }
+
+    #[test]
+    fn first_gap_space_is_free_between_short_notes() {
+        let prev = note("d", None, 8);
+        let next = note("e", None, 8);
+        let width = event_width(&gap(1), Some(&prev), Some(&next));
+
+        assert_eq!(width, 0.0);
+    }
+
+    #[test]
+    fn additional_gap_space_remains_between_short_notes() {
+        let prev = note("d", None, 8);
+        let next = note("e", None, 16);
+        let width = event_width(&gap(2), Some(&prev), Some(&next));
+
+        assert_eq!(width, 0.7);
+    }
+
+    #[test]
+    fn gap_space_is_kept_when_either_side_is_not_short() {
+        let short_prev = note("d", None, 8);
+        let quarter_next = note("e", None, 4);
+        let quarter_prev = note("d", None, 4);
+        let short_next = note("e", None, 8);
+
+        assert_eq!(event_width(&gap(1), Some(&short_prev), Some(&quarter_next)), 0.7);
+        assert_eq!(event_width(&gap(1), Some(&quarter_prev), Some(&short_next)), 0.7);
     }
 
     #[test]

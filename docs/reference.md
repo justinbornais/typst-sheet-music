@@ -147,6 +147,8 @@ Examples of accepted inputs:
 
 - **Rests, spacers, and manual spacing**: `r4`, `r8.`, `rbreve`, `rlonga`, `rmaxima`, `s4`, `smaxima`
   - Repeated spaces add extra horizontal gap: `c e   g c`
+  - Repeated spaces also break automatic beaming between short notes when you want separate 8th/16th-note groups: `c8 d e f` vs `c8 d  e f`
+  - Between 8th notes or faster on both sides, the first extra space only breaks the beam group. Use three or more spaces if you also want a visible gap: `c8 d  e` vs `c8 d   e`
 
 - **Chords**: `<c e g>4`, `<c e g>breve`, `<c e g>maxima`
 

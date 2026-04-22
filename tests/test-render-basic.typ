@@ -823,7 +823,7 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
 #melody(
   key: "C",
   time: "4/4",
-  music: "{2,3:c8 d e} {2,3:g8 a b} | {2,3:c'16 d' e'} f'4",
+  music: "{2,3:c8 d e}  {2,3:g8 a b} | {2,3:c'16 d' e'} f'4",
 )
 
 #v(4mm)
@@ -832,7 +832,7 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
   key: "C",
   time: "4/4",
   tuplet-style: "number",
-  music: "{2,3:c8 d e} {2,3:g8 a b} | {2,3:c'8 r8 e'} f'4",
+  music: "{2,3:c8 d e}  {2,3:g8 a b} | {2,3:c'8 r8 e'} f'4",
 )
 
 #v(1cm)
@@ -1084,4 +1084,22 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
       music: "c,2 g, | d,2 a,",
     ),
   ),
+)
+
+== Test 74: Extra spaces split beam groups
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c8 d e f g a b c' | c8 d  e f  g  a  b c'",
+)
+
+#v(1cm)
+
+== Test 74b: Double spaces break beams, triple spaces widen short-note gaps
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "c8 d  e f | c8 d   e f | c4 d  e8 f",
 )
