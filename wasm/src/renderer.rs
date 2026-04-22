@@ -1262,6 +1262,45 @@ fn note_stem_x(x: f64, duration: i32, stem_dir: &str, sp: f64, font: glyph::Font
     }
 }
 
+fn stem_x_for_item(
+    item: &LaidOutItem,
+    x: f64,
+    stem_dir: &str,
+    sp: f64,
+    font: glyph::FontId,
+) -> Option<f64> {
+    match &item.event {
+        Event::Note(n) => {
+            let note_scale = if n.grace { GRACE_NOTE_SCALE } else { 1.0 };
+            Some(note_stem_x(x, n.duration, stem_dir, sp * note_scale, font))
+        }
+        Event::Chord(c) => {
+            let note_scale = if c.grace { GRACE_NOTE_SCALE } else { 1.0 };
+            let lsp = sp * note_scale;
+            let smufl = notehead_smufl(c.duration);
+            let nh_w = glyph::advance_width_for(font, smufl);
+            let anchor_key = if stem_dir == "up" {
+                "stemUpSE"
+            } else {
+                "stemDownNW"
+            };
+            let anch = glyph::anchor_for(font, smufl, anchor_key);
+            let (att_x, _att_y) = if let Some(a) = anch {
+                (a.x, a.y)
+            } else if stem_dir == "up" {
+                (nh_w, 0.168)
+            } else {
+                (0.0, -0.168)
+            };
+            let sx = x - nh_w / 2.0 * lsp + att_x * lsp;
+            let ed = glyph::engraving_defaults(font);
+            let half_thin = ed.stem_thickness / 2.0 * lsp;
+            Some(sx + if stem_dir == "up" { -half_thin } else { half_thin })
+        }
+        _ => None,
+    }
+}
+
 fn augmentation_dot_radius(sp: f64) -> f64 {
     0.22 * sp
 }
@@ -1451,6 +1490,21 @@ fn event_arc_reference_y(item: &LaidOutItem, direction: f64) -> f64 {
 
 fn arc_height(dx: f64, sp: f64, style: ArcStyle) -> f64 {
     (dx.abs() * style.height_factor).clamp(style.min_height * sp, style.max_height * sp)
+}
+
+fn cubic_point(
+    p0: (f64, f64),
+    p1: (f64, f64),
+    p2: (f64, f64),
+    p3: (f64, f64),
+    t: f64,
+) -> (f64, f64) {
+    let mt = 1.0 - t;
+    let mt2 = mt * mt;
+    let t2 = t * t;
+    let x = mt2 * mt * p0.0 + 3.0 * mt2 * t * p1.0 + 3.0 * mt * t2 * p2.0 + t2 * t * p3.0;
+    let y = mt2 * mt * p0.1 + 3.0 * mt2 * t * p1.1 + 3.0 * mt * t2 * p2.1 + t2 * t * p3.1;
+    (x, y)
 }
 
 fn arc_extreme_y_at(
@@ -3783,6 +3837,7 @@ fn render_system(
         cmds,
         items,
         &item_xs,
+        &adj_stem_ends,
         &adj_stem_dirs,
         y_top,
         sp,
@@ -6125,6 +6180,7 @@ fn render_ties_and_slurs(
     cmds: &mut Vec<DrawCmd>,
     items: &[LaidOutItem],
     item_xs: &[f64],
+    adj_stem_ends: &std::collections::HashMap<usize, f64>,
     adj_stem_dirs: &std::collections::HashMap<usize, String>,
     y_top: f64,
     sp: f64,
@@ -6203,16 +6259,72 @@ fn render_ties_and_slurs(
         }
         if ev.slur_end() && !slur_starts.is_empty() {
             let start_idx = slur_starts.pop().unwrap();
-            let stem_dir = get_stem_dir(start_idx);
-            let direction = if stem_dir == "up" { -1.0 } else { 1.0 };
+            let start_stem_dir = get_stem_dir(start_idx);
+            let end_stem_dir = get_stem_dir(i);
+            let start_uses_stem = start_stem_dir == "up" && end_stem_dir == "down";
+            let end_uses_stem = start_stem_dir == "down" && end_stem_dir == "up";
+            let direction = if start_uses_stem {
+                1.0
+            } else if start_stem_dir == "up" {
+                -1.0
+            } else {
+                1.0
+            };
 
             let nh_w =
                 glyph::advance_width_for(font, notehead_smufl(items[start_idx].event.duration()))
                     * sp;
             let next_nh_w = glyph::advance_width_for(font, notehead_smufl(ev.duration())) * sp;
+            let span_mm = (item_xs[i] - item_xs[start_idx]).abs();
+            let slur_head_inset = if span_mm < 18.0 {
+                1.02
+            } else if span_mm < 32.0 {
+                0.96
+            } else {
+                0.86
+            };
+            let endpoint_gap = if span_mm < 18.0 {
+                0.62 * sp
+            } else if span_mm < 32.0 {
+                0.68 * sp
+            } else {
+                0.72 * sp
+            };
 
-            let start_x = item_xs[start_idx] + nh_w / 2.0 * 0.8;
-            let end_x = item_xs[i] - next_nh_w / 2.0 * 0.8;
+            let mut start_x = item_xs[start_idx] + nh_w / 2.0 * slur_head_inset;
+            let mut start_y = y_top + event_arc_reference_y(&items[start_idx], direction) * sp;
+            let mut end_x = item_xs[i] - next_nh_w / 2.0 * slur_head_inset;
+            let mut end_y = y_top + event_arc_reference_y(item, direction) * sp;
+            if start_uses_stem {
+                let stem_end_y = adj_stem_ends
+                    .get(&start_idx)
+                    .copied()
+                    .map(|se| y_top + se * sp)
+                    .or_else(|| items[start_idx].stem_y_end.map(|se| y_top + se * sp));
+                if let (Some(stem_x), Some(stem_y)) = (
+                    stem_x_for_item(&items[start_idx], item_xs[start_idx], &start_stem_dir, sp, font),
+                    stem_end_y,
+                ) {
+                    start_x = stem_x;
+                    start_y = stem_y;
+                }
+            }
+            if end_uses_stem {
+                let stem_end_y = adj_stem_ends
+                    .get(&i)
+                    .copied()
+                    .map(|se| y_top + se * sp)
+                    .or_else(|| item.stem_y_end.map(|se| y_top + se * sp));
+                if let (Some(stem_x), Some(stem_y)) = (
+                    stem_x_for_item(item, item_xs[i], &end_stem_dir, sp, font),
+                    stem_end_y,
+                ) {
+                    end_x = stem_x;
+                    end_y = stem_y;
+                }
+            }
+            start_x += endpoint_gap;
+            end_x -= endpoint_gap;
             let overlaps_tie = overlapping_tie_span(&tie_spans, start_x, end_x, direction);
             let anchor_offset = if overlaps_tie { 0.95 * sp } else { 0.55 * sp };
             let style = if overlaps_tie {
@@ -6220,11 +6332,12 @@ fn render_ties_and_slurs(
             } else {
                 SLUR_ARC_STYLE
             };
-            let start_y = y_top
-                + event_arc_reference_y(&items[start_idx], direction) * sp
-                + direction * anchor_offset;
-            let end_y =
-                y_top + event_arc_reference_y(item, direction) * sp + direction * anchor_offset;
+            if !start_uses_stem {
+                start_y += direction * anchor_offset;
+            }
+            if !end_uses_stem {
+                end_y += direction * anchor_offset;
+            }
 
             render_arc(
                 cmds,
@@ -6259,32 +6372,40 @@ fn render_arc(
     let dx = x2 - x1;
     let arc_height = arc_height(dx, sp, style);
     let half_thick = style.max_thickness * sp / 2.0;
+    let end_half_thick = (half_thick * 0.42).max(0.03 * sp);
+    let mid_y = (y1 + y2) / 2.0;
+    let outer_apex_y = mid_y + direction * (arc_height + half_thick) * 0.98;
+    let inner_apex_y = mid_y + direction * (arc_height - half_thick).max(arc_height * 0.55) * 0.98;
+    let outer_handle = dx * 0.28;
+    let inner_handle = dx * 0.24;
 
-    let outer_cp1_x = x1 + dx * 0.2;
-    let outer_cp1_y = y1 + direction * (arc_height + half_thick) * 0.9;
-    let outer_cp2_x = x1 + dx * 0.8;
-    let outer_cp2_y = y2 + direction * (arc_height + half_thick) * 0.9;
+    let outer_start = (x1, y1 + direction * end_half_thick);
+    let outer_end = (x2, y2 + direction * end_half_thick);
+    let inner_end = (x2, y2 - direction * end_half_thick);
+    let inner_start = (x1, y1 - direction * end_half_thick);
 
-    let inner_cp1_x = x1 + dx * 0.25;
-    let inner_cp1_y = y1 + direction * (arc_height - half_thick).max(arc_height * 0.5) * 0.9;
-    let inner_cp2_x = x1 + dx * 0.75;
-    let inner_cp2_y = y2 + direction * (arc_height - half_thick).max(arc_height * 0.5) * 0.9;
+    let outer_cp1 = (x1 + outer_handle, outer_start.1 + (outer_apex_y - outer_start.1) * 0.88);
+    let outer_cp2 = (x2 - outer_handle, outer_end.1 + (outer_apex_y - outer_end.1) * 0.88);
+    let inner_cp1 = (x1 + inner_handle, inner_start.1 + (inner_apex_y - inner_start.1) * 0.84);
+    let inner_cp2 = (x2 - inner_handle, inner_end.1 + (inner_apex_y - inner_end.1) * 0.84);
 
-    cmds.push(DrawCmd::BezierFill {
-        pts: vec![
-            x1,
-            y1,
-            outer_cp1_x,
-            outer_cp1_y,
-            outer_cp2_x,
-            outer_cp2_y,
-            x2,
-            y2,
-            inner_cp2_x,
-            inner_cp2_y,
-            inner_cp1_x,
-            inner_cp1_y,
-        ],
+    let steps = 18usize;
+    let mut pts = Vec::with_capacity((steps + 1) * 4);
+    for step in 0..=steps {
+        let t = step as f64 / steps as f64;
+        let (px, py) = cubic_point(outer_start, outer_cp1, outer_cp2, outer_end, t);
+        pts.push(px);
+        pts.push(py);
+    }
+    for step in (0..=steps).rev() {
+        let t = step as f64 / steps as f64;
+        let (px, py) = cubic_point(inner_start, inner_cp1, inner_cp2, inner_end, t);
+        pts.push(px);
+        pts.push(py);
+    }
+
+    cmds.push(DrawCmd::Polygon {
+        pts,
         color: color_owned(color),
     });
 }

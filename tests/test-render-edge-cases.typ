@@ -405,3 +405,16 @@ This document provides a series of tests to verify the rendering of edge cases i
     ),
   ),
 )
+
+== Test 21: Different Slur Situations
+
+#score(
+  key: "C",
+  time: "4/4",
+  staves: (
+    (
+      clef: "treble",
+      music: "c'4( d' e c') | g( a') b'( c)",
+    ),
+  ),
+)
