@@ -9,7 +9,7 @@ Full API and syntax documentation: [docs/reference.md](docs/reference.md)
 ### Via Typst Package Manager
 
 ```typ
-#import "@preview/scorify:0.2.0": score, melody
+#import "@preview/scorify:0.3.0": score, melody
 ```
 
 Compile normally:
@@ -57,7 +57,7 @@ Use `music-font-metadata` when you want to provide external SMuFL metadata expli
 ## Example
 
 ```typ
-#import "@preview/scorify:0.2.0": melody
+#import "@preview/scorify:0.3.0": melody
 
 #melody(
   title: "Scale",
@@ -70,7 +70,7 @@ Use `music-font-metadata` when you want to provide external SMuFL metadata expli
 ## Example: Grand Staff
 
 ```typ
-#import "@preview/scorify:0.2.0": score
+#import "@preview/scorify:0.3.0": score
 
 #score(
   title: "Ode to Joy",
