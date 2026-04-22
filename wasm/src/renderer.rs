@@ -2976,6 +2976,8 @@ fn render_system(
 
         let x0 = item_xs[*group.first().unwrap()];
         let xn = item_xs[*group.last().unwrap()];
+        let ascending = last_tip_y > first_tip_y;
+        (sy0, syn) = clamp_beam_slope(sy0, syn, x0, xn, stem_dir, ascending, 15.0, sp);
         let ed = glyph::engraving_defaults(font);
         let beam_step_staff = (ed.beam_thickness + ed.beam_spacing) * beam_scale;
         let min_clearance = 0.25 * beam_scale;
@@ -4615,6 +4617,49 @@ fn render_beam_group(
     }
 }
 
+fn clamp_beam_slope(
+    sy0: f64,
+    syn: f64,
+    x0: f64,
+    xn: f64,
+    stem_dir: &str,
+    prefer_start: bool,
+    max_angle_degrees: f64,
+    sp: f64,
+) -> (f64, f64) {
+    let dx = (xn - x0).abs();
+    if dx <= f64::EPSILON {
+        return (sy0, syn);
+    }
+
+    let max_slope = max_angle_degrees.to_radians().tan();
+    let max_delta_staff = max_slope * dx / sp;
+    let raw_delta = syn - sy0;
+    let excess = raw_delta.abs() - max_delta_staff;
+    if excess <= 0.0 {
+        return (sy0, syn);
+    }
+
+    let outward_sign = if stem_dir == "up" { 1.0 } else { -1.0 };
+    let start_candidate = (sy0 + outward_sign * excess, syn);
+    let end_candidate = (sy0, syn + outward_sign * excess);
+    let start_delta = (start_candidate.1 - start_candidate.0).abs();
+    let end_delta = (end_candidate.1 - end_candidate.0).abs();
+    let start_valid = start_delta <= max_delta_staff + 1e-9 && start_delta < raw_delta.abs();
+    let end_valid = end_delta <= max_delta_staff + 1e-9 && end_delta < raw_delta.abs();
+
+    match (prefer_start, start_valid, end_valid) {
+        (true, true, _) => start_candidate,
+        (false, _, true) => end_candidate,
+        (_, true, false) => start_candidate,
+        (_, false, true) => end_candidate,
+        _ => {
+            let half = excess / 2.0;
+            (sy0 + outward_sign * half, syn - outward_sign * half)
+        }
+    }
+}
+
 fn emit_beam_segment(
     cmds: &mut Vec<DrawCmd>,
     beam_notes: &[BeamNote],
@@ -4740,6 +4785,25 @@ mod beam_tests {
 
         assert_eq!(up_edge, 2.8);
         assert_eq!(down_edge, -1.8);
+    }
+
+    #[test]
+    fn clamp_beam_slope_caps_angle_for_ascending_group() {
+        let (sy0, syn) = clamp_beam_slope(4.0, 12.0, 0.0, 10.0, "up", true, 15.0, 1.0);
+        let slope = (syn - sy0) / 10.0;
+
+        assert!(slope.abs() <= 15.0_f64.to_radians().tan() + 1e-9);
+        assert!(sy0 > 4.0);
+    }
+
+    #[test]
+    fn clamp_beam_slope_prefers_last_stem_for_descending_group() {
+        let (sy0, syn) = clamp_beam_slope(12.0, 4.0, 0.0, 10.0, "up", false, 15.0, 1.0);
+        let slope = (syn - sy0) / 10.0;
+
+        assert!(slope.abs() <= 15.0_f64.to_radians().tan() + 1e-9);
+        assert!(syn > 4.0);
+        assert_eq!(sy0, 12.0);
     }
 }
 
