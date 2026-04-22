@@ -212,6 +212,7 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
                 .map(|s| s.color.as_deref())
                 .collect::<Vec<_>>(),
             &params.music_font,
+            &params.tuplet_style,
         );
         output_systems.push(sys_output);
     }

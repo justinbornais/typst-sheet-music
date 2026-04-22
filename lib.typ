@@ -172,6 +172,7 @@
 /// - system-spacing: vertical space between systems
 /// - staff-spacing: vertical space between staves within a system
 /// - music-font: SMuFL font family (defaults to Leland)
+/// - tuplet-style: `"bracket"` or `"number"` (defaults to `"bracket"`)
 /// - width: explicit width or auto
 /// - measure-numbers: "system", "every", "none"
 /// - measures-per-line: if set, force this many measures per system line
@@ -196,6 +197,7 @@
   color: none,
   music-font: "Leland",
   music-font-metadata: none,
+  tuplet-style: "bracket",
   width: auto,
   measure-numbers: "system",
   relative-octave: false,
@@ -252,6 +254,7 @@
       measure_numbers: measure-numbers,
       music_font: music-font,
       color: normalize-color(color),
+      tuplet_style: tuplet-style,
     )
 
     let result-bytes = scorify-wasm.render_score(bytes(json.encode(input)))
@@ -288,6 +291,7 @@
   color: none,
   music-font: "Leland",
   music-font-metadata: none,
+  tuplet-style: "bracket",
   width: auto,
   measures-per-line: none,
   instrument-name: none,
@@ -305,6 +309,7 @@
     color: color,
     music-font: music-font,
     music-font-metadata: music-font-metadata,
+    tuplet-style: tuplet-style,
     width: width,
     measures-per-line: measures-per-line,
   )

@@ -2036,6 +2036,7 @@ pub fn render_system_group(
     score_color: Option<&str>,
     staff_colors: &[Option<&str>],
     music_font: &str,
+    tuplet_style: &str,
 ) -> SystemOutput {
     let font = glyph::FontId::from_name(music_font);
     let ed = glyph::engraving_defaults(font);
@@ -2217,6 +2218,7 @@ pub fn render_system_group(
             font,
             instrument_indent,
             staff_default_color,
+            tuplet_style,
         );
 
         y_offset -= staff_height_mm;
@@ -2726,6 +2728,7 @@ fn render_system(
     font: glyph::FontId,
     instrument_indent_sp: f64,
     default_color: Option<&str>,
+    tuplet_style: &str,
 ) {
     let clef_name = laid_out.clef.as_deref();
     let opening_time = laid_out.time.as_ref().or(time.as_ref());
@@ -3818,6 +3821,7 @@ fn render_system(
         y_bottom,
         sp,
         font,
+        tuplet_style,
     );
 
     // ── Hairpins ──
@@ -5915,6 +5919,7 @@ fn render_tuplets(
     y_bottom: f64,
     sp: f64,
     font: glyph::FontId,
+    tuplet_style: &str,
 ) {
     // Find tuplet groups
     let mut tuplet_groups: Vec<(Vec<usize>, i32)> = Vec::with_capacity(items.len() / 3);
@@ -5938,7 +5943,9 @@ fn render_tuplets(
         }
     }
 
-    let tuplet_font_size = 7.75 * (sp / 1.75);
+    let tuplet_font_size = 12.5 * (sp / 1.75);
+    let normalized_tuplet_style = tuplet_style.trim().to_ascii_lowercase();
+    let draw_bracket = normalized_tuplet_style != "number";
 
     for (indices, tn) in &tuplet_groups {
         if indices.is_empty() {
@@ -6001,48 +6008,93 @@ fn render_tuplets(
         let pad = 0.26 * sp;
         let x_first = tup_xs.first().unwrap() - pad;
         let x_last = tup_xs.last().unwrap() + pad;
-
-        let bracket_y = if stem_dir == "up" {
+        let start_anchor_y = tup_stem_ends.first().copied().unwrap_or(y_top);
+        let end_anchor_y = tup_stem_ends.last().copied().unwrap_or(y_top);
+        let hook_len = 1.55 * sp;
+        let note_clearance = if draw_bracket { 0.58 * sp } else { 1.0 * sp };
+        let line_clearance = if draw_bracket {
+            note_clearance + hook_len
+        } else {
+            note_clearance + 0.45 * sp
+        };
+        let raw_y0 = if stem_dir == "up" {
+            start_anchor_y + line_clearance
+        } else {
+            start_anchor_y - line_clearance
+        };
+        let raw_y1 = if stem_dir == "up" {
+            end_anchor_y + line_clearance
+        } else {
+            end_anchor_y - line_clearance
+        };
+        let dx = x_last - x_first;
+        let raw_dy = raw_y1 - raw_y0;
+        let raw_angle = if dx.abs() > f64::EPSILON {
+            (raw_dy / dx).atan().abs().to_degrees()
+        } else {
+            0.0
+        };
+        let use_sloped_bracket = raw_angle >= 4.0;
+        let max_slope = 15.0_f64.to_radians().tan();
+        let clamped_dy = if dx.abs() > f64::EPSILON {
+            raw_dy.clamp(-max_slope * dx.abs(), max_slope * dx.abs())
+        } else {
+            0.0
+        };
+        let center_y = if use_sloped_bracket {
+            (raw_y0 + raw_y1) / 2.0
+        } else if stem_dir == "up" {
             tup_stem_ends
                 .iter()
                 .copied()
                 .fold(f64::NEG_INFINITY, f64::max)
-                + 0.6 * sp
+                + line_clearance
         } else {
-            tup_stem_ends.iter().copied().fold(f64::INFINITY, f64::min) - 0.6 * sp
+            tup_stem_ends.iter().copied().fold(f64::INFINITY, f64::min) - line_clearance
         };
-
-        let tick_len = 0.4 * sp;
+        let (line_y0, line_y1) = if use_sloped_bracket {
+            (center_y - clamped_dy / 2.0, center_y + clamped_dy / 2.0)
+        } else {
+            (center_y, center_y)
+        };
         let tick_dir = if stem_dir == "up" { -1.0 } else { 1.0 };
         let line_w = 0.12 * sp;
-
-        // Bracket lines
-        emit_line(cmds, x_first, bracket_y, x_last, bracket_y, line_w);
-        emit_line(
-            cmds,
-            x_first,
-            bracket_y,
-            x_first,
-            bracket_y + tick_dir * tick_len,
-            line_w,
-        );
-        emit_line(
-            cmds,
-            x_last,
-            bracket_y,
-            x_last,
-            bracket_y + tick_dir * tick_len,
-            line_w,
-        );
-
-        // Number
         let mid_x = (x_first + x_last) / 2.0;
-        let num_offset = 0.25 * sp;
-        let (num_y, anchor) = if stem_dir == "up" {
-            (bracket_y + num_offset, "south")
-        } else {
-            (bracket_y - num_offset, "north")
-        };
+        let number_gap_half = 0.9 * sp;
+        let number_line_y = (line_y0 + line_y1) / 2.0;
+        let num_y = number_line_y;
+        let anchor = "center";
+
+        if draw_bracket {
+            let left_gap_x = (mid_x - number_gap_half).max(x_first + 0.45 * sp);
+            let right_gap_x = (mid_x + number_gap_half).min(x_last - 0.45 * sp);
+            let slope = if dx.abs() > f64::EPSILON {
+                (line_y1 - line_y0) / dx
+            } else {
+                0.0
+            };
+            let line_y_at = |x: f64| line_y0 + slope * (x - x_first);
+
+            emit_line(cmds, x_first, line_y0, left_gap_x, line_y_at(left_gap_x), line_w);
+            emit_line(cmds, right_gap_x, line_y_at(right_gap_x), x_last, line_y1, line_w);
+            emit_line(
+                cmds,
+                x_first,
+                line_y0,
+                x_first,
+                line_y0 + tick_dir * hook_len,
+                line_w,
+            );
+            emit_line(
+                cmds,
+                x_last,
+                line_y1,
+                x_last,
+                line_y1 + tick_dir * hook_len,
+                line_w,
+            );
+        }
+
         cmds.push(DrawCmd::Text {
             x: mid_x,
             y: num_y,

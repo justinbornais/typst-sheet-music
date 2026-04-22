@@ -803,6 +803,12 @@ pub struct ScoreInput {
     pub measure_numbers: String,
     pub music_font: String,
     pub color: Option<String>,
+    #[serde(default = "default_tuplet_style")]
+    pub tuplet_style: String,
+}
+
+fn default_tuplet_style() -> String {
+    "bracket".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

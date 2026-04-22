@@ -818,7 +818,26 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
 
 #v(1cm)
 
-== Test 62: First and second endings
+== Test 62: Tuplet styles - bracketed and number-only
+
+#melody(
+  key: "C",
+  time: "4/4",
+  music: "{2,3:c8 d e} {2,3:g8 a b} | {2,3:c'16 d' e'} f'4",
+)
+
+#v(4mm)
+
+#melody(
+  key: "C",
+  time: "4/4",
+  tuplet-style: "number",
+  music: "{2,3:c8 d e} {2,3:g8 a b} | {2,3:c'8 r8 e'} f'4",
+)
+
+#v(1cm)
+
+== Test 63: First and second endings
 
 #score(
   key: "C",
@@ -833,7 +852,7 @@ Mid-system `:|:` should render with dots on both sides, and a line-ending
 
 #v(1cm)
 
-== Test 63: Lyrics - hyphens, extenders, carries, and stacked verses
+== Test 64: Lyrics - hyphens, extenders, carries, and stacked verses
 
 #score(
   key: "C",
