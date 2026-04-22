@@ -83,6 +83,17 @@
   }
 }
 
+#let normalize-note-colors(value) = {
+  if value == none {
+    none
+  } else {
+    value.pairs().fold((:), (acc, pair) => {
+      let (note, color) = pair
+      acc + (((str(note)): normalize-color(color)))
+    })
+  }
+}
+
 // Header (standard Typst content, outside the SVG systems)
 
 #let render-header(
@@ -195,6 +206,7 @@
   staff-spacing: 8mm,
   lyric-line-spacing: none,
   color: none,
+  note-colors: none,
   music-font: "Leland",
   music-font-metadata: none,
   tuplet-style: "bracket",
@@ -231,6 +243,7 @@
         instrument_name_shared: s.at("instrument-name-shared", default: false),
         fingering_position: s.at("fingering-position", default: "above"),
         color: normalize-color(s.at("color", default: none)),
+        note_colors: normalize-note-colors(s.at("note-colors", default: none)),
         barline_group_start: s.at("barline-group-start", default: s.at("connect-start", default: false)),
         barline_group_end: s.at("barline-group-end", default: s.at("connect-end", default: false)),
         bracket_start: s.at("bracket-start", default: false),
@@ -254,6 +267,7 @@
       measure_numbers: measure-numbers,
       music_font: music-font,
       color: normalize-color(color),
+      note_colors: normalize-note-colors(note-colors),
       tuplet_style: tuplet-style,
     )
 
@@ -289,6 +303,7 @@
   system-spacing: 12mm,
   lyric-line-spacing: none,
   color: none,
+  note-colors: none,
   music-font: "Leland",
   music-font-metadata: none,
   tuplet-style: "bracket",
@@ -298,7 +313,7 @@
   instrument-name-cont: none,
 ) = {
   score(
-    staves: ((clef: clef, music: music, instrument-name: instrument-name, instrument-name-cont: instrument-name-cont),),
+    staves: ((clef: clef, music: music, instrument-name: instrument-name, instrument-name-cont: instrument-name-cont, note-colors: note-colors),),
     key: key,
     time: time,
     title: title,
@@ -307,6 +322,7 @@
     system-spacing: system-spacing,
     lyric-line-spacing: lyric-line-spacing,
     color: color,
+    note-colors: note-colors,
     music-font: music-font,
     music-font-metadata: music-font-metadata,
     tuplet-style: tuplet-style,

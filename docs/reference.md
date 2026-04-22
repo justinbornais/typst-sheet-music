@@ -30,6 +30,7 @@ Primary entry point for one or more staves.
 | `arranger` | string | `none` | Arranger name |
 | `lyricist` | string | `none` | Lyricist name |
 | `color` | string | `none` | Default SVG color for the whole score, for example `"#b91c1c"` or `"red"` |
+| `note-colors` | dictionary | `none` | Note-specific color map keyed by pitch strings like `"c"`, `"f#"`, or `"c''"` |
 | `staff-size` | length | `1.75mm` | Staff space distance |
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `staff-spacing` | length | `8mm` | Vertical space between staves in a system |
@@ -50,6 +51,7 @@ Staff dictionaries support:
 | `instrument-name-shared` | bool | `false` | Share the previous staff's name, centered across both staves |
 | `fingering-position` | string | `"above"` | Default fingering position: `"above"` or `"below"` |
 | `color` | string | `none` | Default SVG color for everything on this staff |
+| `note-colors` | dictionary | `none` | Staff-local note color map, merged over the score-level `note-colors` |
 | `barline-group-start` / `barline-group-end` | bool | `false` | Connect measure lines across adjacent staves without drawing a brace or bracket |
 | `bracket-start` / `bracket-end` | bool | `false` | Draw a straight bracket and connected measure lines across adjacent staves |
 | `brace-start` / `brace-end` | bool | `false` | Draw a grand-staff brace and connected measure lines across adjacent staves |
@@ -82,6 +84,7 @@ Single-staff convenience wrapper around `score()`.
 | `title` | string | `none` | Title |
 | `composer` | string | `none` | Composer |
 | `color` | string | `none` | Default SVG color for the melody staff |
+| `note-colors` | dictionary | `none` | Note-specific color map for this melody staff |
 | `staff-size` | length | `1.75mm` | Staff space |
 | `system-spacing` | length | `12mm` | Vertical space between systems |
 | `lyric-line-spacing` | length | `none` | Override stacked lyric line spacing |
@@ -173,8 +176,15 @@ Examples of accepted inputs:
 - **Color controls**
   - Global score / melody default: `#score(color: "sky blue", ...)`, `#melody(color: "red", ...)`, or raw hex like `#score(color: "#0f766e", ...)`
   - Per-staff default: `(clef: "treble", color: "blue", music: "...")`
+  - Note map parameter: `note-colors: ("c": red, "c#'": blue, d: "green")`
   - Selection wrapper: `color{red:d4 e f g | e( d) c2}` or `color{#dc2626:d4 e f g | e( d) c2}`
   - Element-local override: `c4color{red}`, `c4~color{blue} c4`, `c4(color{green} d)`, `<c ecolor{purple} g>4`
+  - Note-map keys use the same pitch spelling as notes in the music string, but without duration. Quote keys whenever they contain accidentals or octave markers.
+  - A note-map key applies to every octave of that pitch by default. If you add more explicit octave keys for the same pitch, they act as split points. For example, `("c": red, "c'": green)` colors `c`, `c,`, and lower in red, and `c'`, `c''`, and higher in green.
+  - Score-level `note-colors` applies to every staff. A staff's own `note-colors` overrides the score map for matching pitches on that staff.
+  - For single notes, note-map colors apply to the note itself, including the notehead, stem, flag, grace slash, and augmentation dots, like a normal note color override.
+  - Note-map colors do not recolor shared beams for 8th/16th/etc. note groups unless those beams are explicitly colored by another color control.
+  - Note-map colors override score/staff default `color`, but inline `color{...}` wrappers still win when both target the same note.
   - Selection color affects musical content inside the wrapper but intentionally does not recolor staff lines or measure lines.
 
 ### Built-in Color Presets

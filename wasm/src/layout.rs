@@ -1829,8 +1829,14 @@ mod tests {
         let quarter_prev = note("d", None, 4);
         let short_next = note("e", None, 8);
 
-        assert_eq!(event_width(&gap(1), Some(&short_prev), Some(&quarter_next)), 0.7);
-        assert_eq!(event_width(&gap(1), Some(&quarter_prev), Some(&short_next)), 0.7);
+        assert_eq!(
+            event_width(&gap(1), Some(&short_prev), Some(&quarter_next)),
+            0.7
+        );
+        assert_eq!(
+            event_width(&gap(1), Some(&quarter_prev), Some(&short_next)),
+            0.7
+        );
     }
 
     #[test]
@@ -1851,11 +1857,7 @@ mod tests {
 
     #[test]
     fn tuplets_scale_written_duration_for_spacing_and_alignment() {
-        let mut triplet_eighths = vec![
-            note("c", None, 8),
-            note("d", None, 8),
-            note("e", None, 8),
-        ];
+        let mut triplet_eighths = vec![note("c", None, 8), note("d", None, 8), note("e", None, 8)];
         for event in &mut triplet_eighths {
             mark_tuplet(event, 2.0, 3, 3);
         }
@@ -2244,5 +2246,4 @@ mod tests {
         assert!((upper_barline_x - lower_barline_x).abs() < 0.000001);
         assert!((upper_second_measure_x - lower_second_measure_x).abs() < 0.000001);
     }
-
 }

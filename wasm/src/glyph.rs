@@ -535,9 +535,17 @@ fn advance_width_finaleash(g: &str) -> f64 {
         "coda" => 3.704,
         "unpitchedPercussionClef1" => 0.964,
         // Fallback for glyphs not in this font
-        "brace" | "flag32ndUp" | "flag32ndDown" | "flag64thUp" | "flag64thDown"
-        | "gClef15ma" | "gClef15mb" | "fClef15ma" | "fClef15mb"
-        | "mensuralWhiteMaxima" | "mensuralWhiteLonga" => advance_width_bravura(g),
+        "brace"
+        | "flag32ndUp"
+        | "flag32ndDown"
+        | "flag64thUp"
+        | "flag64thDown"
+        | "gClef15ma"
+        | "gClef15mb"
+        | "fClef15ma"
+        | "fClef15mb"
+        | "mensuralWhiteMaxima"
+        | "mensuralWhiteLonga" => advance_width_bravura(g),
         _ => 0.0,
     }
 }
@@ -589,9 +597,17 @@ fn advance_width_finalebroadway(g: &str) -> f64 {
         "segno" => 2.028,
         "coda" => 2.428,
         "unpitchedPercussionClef1" => 1.34,
-        "brace" | "flag32ndUp" | "flag32ndDown" | "flag64thUp" | "flag64thDown"
-        | "gClef15ma" | "gClef15mb" | "fClef15ma" | "fClef15mb"
-        | "mensuralWhiteMaxima" | "mensuralWhiteLonga" => advance_width_bravura(g),
+        "brace"
+        | "flag32ndUp"
+        | "flag32ndDown"
+        | "flag64thUp"
+        | "flag64thDown"
+        | "gClef15ma"
+        | "gClef15mb"
+        | "fClef15ma"
+        | "fClef15mb"
+        | "mensuralWhiteMaxima"
+        | "mensuralWhiteLonga" => advance_width_bravura(g),
         _ => 0.0,
     }
 }
@@ -694,9 +710,17 @@ fn advance_width_finalejazz(g: &str) -> f64 {
         "segno" => 3.792,
         "coda" => 3.872,
         "unpitchedPercussionClef1" => 0.512,
-        "brace" | "flag32ndUp" | "flag32ndDown" | "flag64thUp" | "flag64thDown"
-        | "gClef15ma" | "gClef15mb" | "fClef15ma" | "fClef15mb"
-        | "mensuralWhiteMaxima" | "mensuralWhiteLonga" => advance_width_bravura(g),
+        "brace"
+        | "flag32ndUp"
+        | "flag32ndDown"
+        | "flag64thUp"
+        | "flag64thDown"
+        | "gClef15ma"
+        | "gClef15mb"
+        | "fClef15ma"
+        | "fClef15mb"
+        | "mensuralWhiteMaxima"
+        | "mensuralWhiteLonga" => advance_width_bravura(g),
         _ => 0.0,
     }
 }
@@ -836,7 +860,14 @@ pub fn bbox_for(font: FontId, glyph_name: &str) -> Option<BBox> {
 }
 
 fn bbox_common(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "bracket" => b(0.0, -1.272, 1.876, 5.284),
         "bracketTop" => b(0.0, 0.0, 1.876, 1.18),
@@ -846,7 +877,14 @@ fn bbox_common(g: &str) -> Option<BBox> {
 }
 
 fn bbox_bravura(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "mensuralWhiteMaxima" => b(0.0, -3.548, 2.5, 0.684),
         "mensuralWhiteLonga" => b(0.0, -3.548, 1.3, 0.684),
@@ -912,7 +950,14 @@ fn bbox_bravura(g: &str) -> Option<BBox> {
 }
 
 fn bbox_leipzig(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(0.0, -0.68, 2.18, 0.68),
         "noteheadWhole" => b(0.0, -0.532, 1.62, 0.532),
@@ -979,7 +1024,14 @@ fn bbox_leipzig(g: &str) -> Option<BBox> {
 }
 
 fn bbox_leland(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(0.0, -0.712, 2.152, 0.716),
         "noteheadWhole" => b(0.0, -0.536, 1.492, 0.544),
@@ -1045,7 +1097,14 @@ fn bbox_leland(g: &str) -> Option<BBox> {
 }
 
 fn bbox_petaluma(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(-0.002, -0.892, 2.457, 0.892),
         "noteheadWhole" => b(0.0, -0.745, 1.521, 0.66),
@@ -1111,7 +1170,14 @@ fn bbox_petaluma(g: &str) -> Option<BBox> {
 }
 
 fn bbox_sebastian(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(0.0, -0.624, 2.132, 0.624),
         "noteheadWhole" => b(0.0, -0.552, 1.78, 0.552),
@@ -1178,7 +1244,14 @@ fn bbox_sebastian(g: &str) -> Option<BBox> {
 }
 
 fn bbox_finaleash(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(-0.016, -0.74, 1.832, 0.74),
         "noteheadWhole" => b(0.0, -0.632, 1.472, 0.636),
@@ -1230,15 +1303,30 @@ fn bbox_finaleash(g: &str) -> Option<BBox> {
         "coda" => b(0.0, -0.5, 3.704, 3.5),
         "unpitchedPercussionClef1" => b(0.0, -1.0, 0.964, 1.0),
         // Fallback
-        "brace" | "flag32ndUp" | "flag32ndDown" | "flag64thUp" | "flag64thDown"
-        | "gClef15ma" | "gClef15mb" | "fClef15ma" | "fClef15mb"
-        | "mensuralWhiteMaxima" | "mensuralWhiteLonga" => bbox_bravura(g),
+        "brace"
+        | "flag32ndUp"
+        | "flag32ndDown"
+        | "flag64thUp"
+        | "flag64thDown"
+        | "gClef15ma"
+        | "gClef15mb"
+        | "fClef15ma"
+        | "fClef15mb"
+        | "mensuralWhiteMaxima"
+        | "mensuralWhiteLonga" => bbox_bravura(g),
         _ => None,
     }
 }
 
 fn bbox_finalebroadway(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(0.0, -0.7, 2.256, 0.7),
         "noteheadWhole" => b(0.0, -0.596, 1.576, 0.556),
@@ -1289,15 +1377,30 @@ fn bbox_finalebroadway(g: &str) -> Option<BBox> {
         "segno" => b(0.0, 0.0, 2.028, 3.0),
         "coda" => b(0.0, -0.5, 2.428, 3.5),
         "unpitchedPercussionClef1" => b(0.0, -1.0, 1.34, 1.0),
-        "brace" | "flag32ndUp" | "flag32ndDown" | "flag64thUp" | "flag64thDown"
-        | "gClef15ma" | "gClef15mb" | "fClef15ma" | "fClef15mb"
-        | "mensuralWhiteMaxima" | "mensuralWhiteLonga" => bbox_bravura(g),
+        "brace"
+        | "flag32ndUp"
+        | "flag32ndDown"
+        | "flag64thUp"
+        | "flag64thDown"
+        | "gClef15ma"
+        | "gClef15mb"
+        | "fClef15ma"
+        | "fClef15mb"
+        | "mensuralWhiteMaxima"
+        | "mensuralWhiteLonga" => bbox_bravura(g),
         _ => None,
     }
 }
 
 fn bbox_finaleengraver(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(0.0, -0.56, 2.652, 0.56),
         "noteheadWhole" => b(0.0, -0.544, 1.8, 0.544),
@@ -1362,7 +1465,14 @@ fn bbox_finaleengraver(g: &str) -> Option<BBox> {
 }
 
 fn bbox_finalejazz(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(0.0, -0.7, 2.244, 0.7),
         "noteheadWhole" => b(0.0, -0.62, 1.82, 0.616),
@@ -1413,15 +1523,30 @@ fn bbox_finalejazz(g: &str) -> Option<BBox> {
         "segno" => b(0.0, 0.0, 3.792, 3.0),
         "coda" => b(0.0, -0.5, 3.872, 3.5),
         "unpitchedPercussionClef1" => b(0.0, -1.0, 0.512, 1.0),
-        "brace" | "flag32ndUp" | "flag32ndDown" | "flag64thUp" | "flag64thDown"
-        | "gClef15ma" | "gClef15mb" | "fClef15ma" | "fClef15mb"
-        | "mensuralWhiteMaxima" | "mensuralWhiteLonga" => bbox_bravura(g),
+        "brace"
+        | "flag32ndUp"
+        | "flag32ndDown"
+        | "flag64thUp"
+        | "flag64thDown"
+        | "gClef15ma"
+        | "gClef15mb"
+        | "fClef15ma"
+        | "fClef15mb"
+        | "mensuralWhiteMaxima"
+        | "mensuralWhiteLonga" => bbox_bravura(g),
         _ => None,
     }
 }
 
 fn bbox_finalelegacy(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(0.0, -0.564, 2.52, 0.564),
         "noteheadWhole" => b(0.0, -0.544, 1.624, 0.544),
@@ -1486,7 +1611,14 @@ fn bbox_finalelegacy(g: &str) -> Option<BBox> {
 }
 
 fn bbox_finalemaestro(g: &str) -> Option<BBox> {
-    let b = |sw_x, sw_y, ne_x, ne_y| Some(BBox { sw_x, sw_y, ne_x, ne_y });
+    let b = |sw_x, sw_y, ne_x, ne_y| {
+        Some(BBox {
+            sw_x,
+            sw_y,
+            ne_x,
+            ne_y,
+        })
+    };
     match g {
         "noteheadDoubleWhole" => b(0.0, -0.62, 2.376, 0.62),
         "noteheadWhole" => b(0.0, -0.528, 1.68, 0.528),
@@ -1685,4 +1817,3 @@ fn anchor_finalemaestro(glyph_name: &str, anchor_name: &str) -> Option<Anchor> {
         _ => None,
     }
 }
-

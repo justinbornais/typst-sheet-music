@@ -36,7 +36,12 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
         .iter()
         .map(|s| {
             let base_oct = pitch::clef_default_base_octave(s.clef.as_deref().unwrap_or("treble"));
-            parser::parse_music(&s.music, base_oct)
+            parser::parse_music_with_note_colors(
+                &s.music,
+                base_oct,
+                params.note_colors.as_ref(),
+                s.note_colors.as_ref(),
+            )
         })
         .collect();
     let staff_group_ranges = build_staff_group_ranges(params);
@@ -643,6 +648,7 @@ mod tests {
             ending: None,
             ending_start: false,
             ending_end: false,
+            color: None,
         })
     }
 
@@ -654,6 +660,7 @@ mod tests {
             ending: None,
             ending_start: false,
             ending_end: false,
+            color: None,
         })
     }
 
@@ -672,6 +679,8 @@ mod tests {
             bracket_end: false,
             brace_start: false,
             brace_end: false,
+            color: None,
+            note_colors: None,
         }
     }
 
@@ -693,6 +702,9 @@ mod tests {
             measures_per_line: None,
             measure_numbers: "none".into(),
             music_font: "Leland".into(),
+            color: None,
+            note_colors: None,
+            tuplet_style: "bracket".into(),
         }
     }
 

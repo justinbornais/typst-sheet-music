@@ -1,5 +1,6 @@
 use crate::pitch::{clef_default_base_octave, is_supported_clef};
 use crate::types::*;
+use std::collections::BTreeMap;
 
 fn is_digit(ch: u8) -> bool {
     ch >= b'0' && ch <= b'9'
@@ -12,6 +13,176 @@ fn is_whitespace_char(ch: u8) -> bool {
 }
 fn is_word_char(ch: u8) -> bool {
     is_lower(ch) || is_digit(ch) || ch == b'-'
+}
+
+fn resolve_color_name(color: &str) -> &str {
+    match color
+        .trim()
+        .chars()
+        .filter(|ch| !matches!(ch, ' ' | '-' | '_'))
+        .flat_map(|ch| ch.to_lowercase())
+        .collect::<String>()
+        .as_str()
+    {
+        "red" => "#ff0000",
+        "orange" => "#ffa500",
+        "yellow" => "#ffcf00",
+        "green" => "#00ff00",
+        "blue" => "#0000ff",
+        "skyblue" => "#4e9fe5",
+        "purple" => "#9d0055",
+        "gold" => "#d4af37",
+        "white" => "#ffffff",
+        "black" => "#000000",
+        "silver" => "#c0c0c0",
+        "platinum" => "#e5e4e2",
+        "bronze" => "#cd7f32",
+        "copper" => "#b87333",
+        "charcoal" => "#36454f",
+        "navy" => "#0a2a66",
+        _ => color.trim(),
+    }
+}
+
+fn pitch_class_key(name: &str, accidental: Option<&str>) -> String {
+    format!("{}|{}", name, accidental.unwrap_or(""))
+}
+
+fn parse_note_color_key(key: &str, base_octave: i32) -> Option<(String, i32)> {
+    let trimmed = key.trim();
+    let bytes = trimmed.as_bytes();
+    let first = *bytes.first()?;
+    if !(b'a'..=b'g').contains(&first) {
+        return None;
+    }
+
+    let name = (first as char).to_string();
+    let mut pos = 1;
+    let accidental = match bytes.get(pos).copied() {
+        Some(b'#') => {
+            pos += 1;
+            if bytes.get(pos) == Some(&b'#') {
+                pos += 1;
+                Some("double-sharp")
+            } else {
+                Some("sharp")
+            }
+        }
+        Some(b'&') => {
+            pos += 1;
+            if bytes.get(pos) == Some(&b'&') {
+                pos += 1;
+                Some("double-flat")
+            } else {
+                Some("flat")
+            }
+        }
+        Some(b'=') => {
+            pos += 1;
+            Some("natural")
+        }
+        _ => None,
+    };
+
+    let mut octave = base_octave;
+    while let Some(ch) = bytes.get(pos) {
+        match ch {
+            b'\'' => {
+                octave += 1;
+                pos += 1;
+            }
+            b',' => {
+                octave -= 1;
+                pos += 1;
+            }
+            _ => return None,
+        }
+    }
+
+    Some((pitch_class_key(&name, accidental), octave))
+}
+
+type NoteColorMap = BTreeMap<String, Vec<(i32, String)>>;
+
+fn build_note_color_map(
+    score_note_colors: Option<&BTreeMap<String, String>>,
+    staff_note_colors: Option<&BTreeMap<String, String>>,
+    base_octave: i32,
+) -> NoteColorMap {
+    let mut merged: NoteColorMap = BTreeMap::new();
+
+    for source in [score_note_colors, staff_note_colors] {
+        if let Some(source) = source {
+            for (note, color) in source {
+                if let Some((pitch_class, octave)) = parse_note_color_key(note, base_octave) {
+                    let thresholds = merged.entry(pitch_class).or_default();
+                    thresholds.retain(|(existing_octave, _)| *existing_octave != octave);
+                    thresholds.push((octave, resolve_color_name(color).to_string()));
+                }
+            }
+        }
+    }
+
+    for thresholds in merged.values_mut() {
+        thresholds.sort_by_key(|(octave, _)| *octave);
+    }
+
+    merged
+}
+
+fn resolve_note_color<'a>(
+    note_colors: &'a NoteColorMap,
+    name: &str,
+    accidental: Option<&str>,
+    octave: i32,
+) -> Option<&'a str> {
+    let thresholds = note_colors.get(&pitch_class_key(name, accidental))?;
+    let idx = thresholds.partition_point(|(threshold_octave, _)| *threshold_octave <= octave);
+    if idx > 0 {
+        Some(thresholds[idx - 1].1.as_str())
+    } else {
+        thresholds.first().map(|(_, color)| color.as_str())
+    }
+}
+
+fn apply_note_colors(events: &mut [Event], note_colors: &NoteColorMap) {
+    if note_colors.is_empty() {
+        return;
+    }
+
+    for event in events {
+        match event {
+            Event::Note(note) => {
+                if let Some(color) =
+                    resolve_note_color(note_colors, &note.name, note.accidental.as_deref(), note.octave)
+                {
+                    if note.colors.overall.is_none() {
+                        if note.colors.noteheads.is_empty() {
+                            note.colors.noteheads.push(None);
+                        }
+                        Parser::set_if_missing(&mut note.colors.noteheads[0], color);
+                    }
+                }
+            }
+            Event::Chord(chord) => {
+                for note in &mut chord.notes {
+                    if let Some(color) = resolve_note_color(
+                        note_colors,
+                        &note.name,
+                        note.accidental.as_deref(),
+                        note.octave,
+                    ) {
+                        Parser::set_if_missing(&mut note.color, color);
+                    }
+                }
+            }
+            Event::VoiceGroup(group) => {
+                apply_note_colors(&mut group.upper, note_colors);
+                apply_note_colors(&mut group.lower, note_colors);
+            }
+            _ => {}
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -265,11 +436,11 @@ impl<'a> Parser<'a> {
         while cursor < self.len() {
             match self.input[cursor] {
                 b':' => {
-                    let value = Self::resolve_color_name(color.trim()).to_string();
+                    let value = resolve_color_name(color.trim()).to_string();
                     return Some((value, Some(cursor + 1), cursor + 1));
                 }
                 b'}' => {
-                    let value = Self::resolve_color_name(color.trim()).to_string();
+                    let value = resolve_color_name(color.trim()).to_string();
                     return Some((value, None, cursor + 1));
                 }
                 ch => {
@@ -288,40 +459,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn resolve_color_name(color: &str) -> &str {
-        match color
-            .trim()
-            .chars()
-            .filter(|ch| !matches!(ch, ' ' | '-' | '_'))
-            .flat_map(|ch| ch.to_lowercase())
-            .collect::<String>()
-            .as_str()
-        {
-            "red" => "#ff0000",
-            "orange" => "#ffa500",
-            "yellow" => "#ffcf00",
-            "green" => "#00ff00",
-            "blue" => "#0000ff",
-            "skyblue" => "#4e9fe5",
-            "purple" => "#9d0055",
-            "gold" => "#d4af37",
-            "white" => "#ffffff",
-            "black" => "#000000",
-            "silver" => "#c0c0c0",
-            "platinum" => "#e5e4e2",
-            "bronze" => "#cd7f32",
-            "copper" => "#b87333",
-            "charcoal" => "#36454f",
-            "navy" => "#0a2a66",
-            _ => color.trim(),
-        }
-    }
-
-    fn apply_color_to_colors(
-        colors: &mut ElementColors,
-        target: EventColorTarget,
-        color: &str,
-    ) {
+    fn apply_color_to_colors(colors: &mut ElementColors, target: EventColorTarget, color: &str) {
         match target {
             EventColorTarget::Overall => Self::set_if_missing(&mut colors.overall, color),
             EventColorTarget::Tie => Self::set_if_missing(&mut colors.tie, color),
@@ -331,9 +469,7 @@ impl<'a> Parser<'a> {
                 Self::set_if_missing(&mut colors.articulations, color)
             }
             EventColorTarget::Dynamic => Self::set_if_missing(&mut colors.dynamic, color),
-            EventColorTarget::ChordSymbol => {
-                Self::set_if_missing(&mut colors.chord_symbol, color)
-            }
+            EventColorTarget::ChordSymbol => Self::set_if_missing(&mut colors.chord_symbol, color),
             EventColorTarget::StaffText => Self::set_if_missing(&mut colors.staff_text, color),
             EventColorTarget::ExpressionText => {
                 Self::set_if_missing(&mut colors.expression_text, color)
@@ -499,7 +635,11 @@ impl<'a> Parser<'a> {
                 Event::Clef(clef) => Self::set_if_missing(&mut clef.color, color),
                 Event::TimeSig(time_sig) => Self::set_if_missing(&mut time_sig.color, color),
                 Event::Spacer(spacer) => Self::set_if_missing(&mut spacer.color, color),
-                Event::Barline(_) | Event::Gap(_) | Event::KeySig(_) | Event::VoiceGroup(_) | Event::LineBreak => {}
+                Event::Barline(_)
+                | Event::Gap(_)
+                | Event::KeySig(_)
+                | Event::VoiceGroup(_)
+                | Event::LineBreak => {}
             }
         }
     }
@@ -519,19 +659,12 @@ impl<'a> Parser<'a> {
 
     fn parse_fingering_part(part: &str) -> Option<FingeringMark> {
         let bold = part.len() >= 3 && part.starts_with('*') && part.ends_with('*');
-        let value_text = if bold {
-            &part[1..part.len() - 1]
-        } else {
-            part
-        };
-        value_text
-            .parse::<i32>()
-            .ok()
-            .map(|value| FingeringMark {
-                value,
-                bold,
-                color: None,
-            })
+        let value_text = if bold { &part[1..part.len() - 1] } else { part };
+        value_text.parse::<i32>().ok().map(|value| FingeringMark {
+            value,
+            bold,
+            color: None,
+        })
     }
 
     fn split_fingering_parts(value: &str) -> Vec<&str> {
@@ -581,7 +714,7 @@ impl<'a> Parser<'a> {
 
         let inner = &part[6..part.len() - 1];
         let colon = inner.find(':')?;
-        let color = Self::resolve_color_name(&inner[..colon]).to_string();
+        let color = resolve_color_name(&inner[..colon]).to_string();
         let value = &inner[colon + 1..];
         let mut mark = Self::parse_fingering_part(value)?;
         mark.color = Some(color);
@@ -602,9 +735,7 @@ impl<'a> Parser<'a> {
                 .iter()
                 .filter_map(|part| Self::parse_fingering_mark(part))
                 .collect();
-            let has_custom_marks = marks
-                .iter()
-                .any(|mark| mark.bold || mark.color.is_some());
+            let has_custom_marks = marks.iter().any(|mark| mark.bold || mark.color.is_some());
             if marks.is_empty() {
                 None
             } else if has_custom_marks {
@@ -816,8 +947,7 @@ impl<'a> Parser<'a> {
             }
 
             let whitespace_len = p - attachment_start;
-            if whitespace_len > 0
-                && (whitespace_len > 1 || !self.can_start_post_note_attachment(p))
+            if whitespace_len > 0 && (whitespace_len > 1 || !self.can_start_post_note_attachment(p))
             {
                 p = attachment_start;
                 break;
@@ -1070,7 +1200,8 @@ impl<'a> Parser<'a> {
                         if self.pos + 5 < self.len()
                             && &self.input[self.pos..self.pos + 5] == b"color"
                         {
-                            if let Some((value, None, next_pos)) = self.parse_color_call(self.pos + 5)
+                            if let Some((value, None, next_pos)) =
+                                self.parse_color_call(self.pos + 5)
                             {
                                 if !value.is_empty() {
                                     color = Some(value);
@@ -1231,7 +1362,8 @@ impl<'a> Parser<'a> {
                 }
 
                 if token == "color" {
-                    if let Some((value, span_body_start, next_pos)) = self.parse_color_call(word_end)
+                    if let Some((value, span_body_start, next_pos)) =
+                        self.parse_color_call(word_end)
                     {
                         if let Some(body_start) = span_body_start {
                             self.curly_open_serial += 1;
@@ -1900,9 +2032,23 @@ pub fn parse_music(input: &str, base_octave: i32) -> Vec<Event> {
     parser.events
 }
 
+pub fn parse_music_with_note_colors(
+    input: &str,
+    base_octave: i32,
+    score_note_colors: Option<&BTreeMap<String, String>>,
+    staff_note_colors: Option<&BTreeMap<String, String>>,
+) -> Vec<Event> {
+    let mut parser = Parser::new(input, base_octave);
+    parser.parse();
+    let note_colors = build_note_color_map(score_note_colors, staff_note_colors, base_octave);
+    apply_note_colors(&mut parser.events, &note_colors);
+    parser.events
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     #[test]
     fn parses_two_voice_groups() {
@@ -2058,6 +2204,92 @@ mod tests {
                 assert_eq!(n.staff_markers, vec!["caesura"]);
             }
             other => panic!("expected second note, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn applies_note_color_map_to_notes_and_chord_noteheads() {
+        let note_colors = BTreeMap::from([
+            ("c".to_string(), "red".to_string()),
+            ("e".to_string(), "#123456".to_string()),
+        ]);
+
+        let events = parse_music_with_note_colors("c4 <c e g>1", 4, Some(&note_colors), None);
+
+        match &events[0] {
+            Event::Note(note) => {
+                assert_eq!(note.colors.overall.as_deref(), None);
+                assert_eq!(note.colors.noteheads[0].as_deref(), Some("#ff0000"));
+            }
+            other => panic!("expected note, got {other:?}"),
+        }
+
+        match &events[1] {
+            Event::Chord(chord) => {
+                assert_eq!(chord.notes[0].color.as_deref(), Some("#ff0000"));
+                assert_eq!(chord.notes[1].color.as_deref(), Some("#123456"));
+                assert_eq!(chord.notes[2].color.as_deref(), None);
+            }
+            other => panic!("expected chord, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn note_color_map_respects_staff_override_and_inline_color_precedence() {
+        let score_note_colors = BTreeMap::from([("c".to_string(), "red".to_string())]);
+        let staff_note_colors = BTreeMap::from([("c".to_string(), "blue".to_string())]);
+
+        let events = parse_music_with_note_colors(
+            "ccolor{#00ff00} c",
+            4,
+            Some(&score_note_colors),
+            Some(&staff_note_colors),
+        );
+
+        match &events[0] {
+            Event::Note(note) => {
+                assert_eq!(note.colors.overall.as_deref(), Some("#00ff00"));
+                assert!(note.colors.noteheads.is_empty());
+            }
+            other => panic!("expected first note, got {other:?}"),
+        }
+
+        match &events[1] {
+            Event::Note(note) => {
+                assert_eq!(note.colors.overall.as_deref(), None);
+                assert_eq!(note.colors.noteheads[0].as_deref(), Some("#0000ff"));
+            }
+            other => panic!("expected second note, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn note_color_map_applies_across_octaves_and_splits_at_explicit_thresholds() {
+        let note_colors = BTreeMap::from([
+            ("c".to_string(), "red".to_string()),
+            ("c'".to_string(), "green".to_string()),
+        ]);
+
+        let events = parse_music_with_note_colors("c,,4 c, c c' c''", 4, Some(&note_colors), None);
+
+        let expected = [
+            Some("#ff0000"),
+            Some("#ff0000"),
+            Some("#ff0000"),
+            Some("#00ff00"),
+            Some("#00ff00"),
+        ];
+
+        for (event, expected_color) in events.iter().zip(expected) {
+            match event {
+                Event::Note(note) => {
+                    assert_eq!(
+                        note.colors.noteheads.first().and_then(|color| color.as_deref()),
+                        expected_color
+                    );
+                }
+                other => panic!("expected note, got {other:?}"),
+            }
         }
     }
 }

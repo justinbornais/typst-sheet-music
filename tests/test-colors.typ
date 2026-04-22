@@ -1,6 +1,6 @@
 // Color rendering test coverage
 
-#import "../lib.typ": score, melody, sky-blue, purple, bronze, charcoal, navy
+#import "../lib.typ": score, melody, red, blue, gold, sky-blue, purple, bronze, charcoal, navy
 
 #set page(width: 210mm, height: 297mm, margin: 1.5cm)
 
@@ -53,7 +53,7 @@
 #melody(
   key: "C",
   time: "4/4",
-  music: "c4 color{#dc2626:d e f g | e( d) c2}",
+  music: "c4 color{#dc2626:d8 e f g | e4( d) c2}",
 )
 
 #v(1cm)
@@ -205,4 +205,61 @@
   time: "4/4",
   color: navy,
   music: "g4text[Solo]color{platinum} a[Em]color{silver} b l[La]color{orange} c' | <d' f#' a'>2n[1 color{yellow:2} 4] color{gold:g'2}",
+)
+
+#v(1cm)
+
+== Test 18: Melody note-colors map
+
+#melody(
+  key: "C",
+  time: "4/4",
+  color: charcoal,
+  note-colors: ("c": red, "e": blue, "g": gold, "c'": purple),
+  music: "c4 d e f | g a b c'
+  c8 d e c d e f d | e4 d c2",
+)
+
+#v(1cm)
+
+== Test 19: Score and per-staff note-colors maps
+
+#score(
+  key: "C",
+  time: "4/4",
+  note-colors: ("c": red, "g": sky-blue),
+  staves: (
+    (
+      clef: "treble",
+      note-colors: ("c": purple, "e'": bronze),
+      music: "c4 d e f | g a b c'",
+    ),
+    (
+      clef: "bass",
+      music: "c,4 g, c d | e f g c",
+    ),
+  ),
+  staff-group: "grand",
+)
+
+#v(1cm)
+
+== Test 20: Note-colors map should yield to inline color wrappers
+
+#melody(
+  key: "C",
+  time: "4/4",
+  note-colors: ("c": red, "d": blue),
+  music: "ccolor{#22c55e} d color{gold:e f}",
+)
+
+#v(1cm)
+
+== Test 21: Note-colors map should apply across octaves with explicit split points
+
+#melody(
+  key: "C",
+  time: "4/4",
+  note-colors: ("c": red, "c'": green),
+  music: "c,,8 c, c c' c'' c''' c'' c' | c c, c,, c,,,",
 )

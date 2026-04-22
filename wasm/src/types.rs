@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 
 pub const DURATION_MAXIMA: i32 = -8;
 pub const DURATION_LONGA: i32 = -4;
@@ -803,6 +804,7 @@ pub struct ScoreInput {
     pub measure_numbers: String,
     pub music_font: String,
     pub color: Option<String>,
+    pub note_colors: Option<BTreeMap<String, String>>,
     #[serde(default = "default_tuplet_style")]
     pub tuplet_style: String,
 }
@@ -834,6 +836,7 @@ pub struct StaffInput {
     #[serde(default)]
     pub brace_end: bool,
     pub color: Option<String>,
+    pub note_colors: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
