@@ -5,7 +5,7 @@
 <<
   /Type /Pages
   /Count 5
-  /Kids [128 0 R 130 0 R 132 0 R 134 0 R 136 0 R]
+  /Kids [124 0 R 126 0 R 128 0 R 130 0 R 132 0 R]
 >>
 endobj
 
@@ -22,10 +22,10 @@ endobj
 <<
   /Parent 2 0 R
   /First 4 0 R
-  /Last 25 0 R
-  /Count -22
+  /Last 24 0 R
+  /Count -21
   /Title (Color Functionality Tests)
-  /Dest 127 0 R
+  /Dest 123 0 R
 >>
 endobj
 
@@ -34,7 +34,7 @@ endobj
   /Parent 3 0 R
   /Next 5 0 R
   /Title (Test 1: Global melody color)
-  /Dest 105 0 R
+  /Dest 102 0 R
 >>
 endobj
 
@@ -44,7 +44,7 @@ endobj
   /Next 6 0 R
   /Prev 4 0 R
   /Title (Test 2: Global score color with title and composer)
-  /Dest 106 0 R
+  /Dest 103 0 R
 >>
 endobj
 
@@ -54,7 +54,7 @@ endobj
   /Next 7 0 R
   /Prev 5 0 R
   /Title (Test 3: Per-staff colors inside one score)
-  /Dest 107 0 R
+  /Dest 104 0 R
 >>
 endobj
 
@@ -64,7 +64,7 @@ endobj
   /Next 8 0 R
   /Prev 6 0 R
   /Title (Test 4: Selection color wrapper over notes and slurs)
-  /Dest 108 0 R
+  /Dest 105 0 R
 >>
 endobj
 
@@ -74,7 +74,7 @@ endobj
   /Next 9 0 R
   /Prev 7 0 R
   /Title (Test 5: Selection color wrapper with dynamics, text, and lyrics)
-  /Dest 109 0 R
+  /Dest 106 0 R
 >>
 endobj
 
@@ -84,7 +84,7 @@ endobj
   /Next 10 0 R
   /Prev 8 0 R
   /Title (Test 6: Selection color wrapper should not recolor barlines or staff lines)
-  /Dest 110 0 R
+  /Dest 107 0 R
 >>
 endobj
 
@@ -94,7 +94,7 @@ endobj
   /Next 11 0 R
   /Prev 9 0 R
   /Title (Test 7: Local note color override)
-  /Dest 111 0 R
+  /Dest 108 0 R
 >>
 endobj
 
@@ -104,7 +104,7 @@ endobj
   /Next 12 0 R
   /Prev 10 0 R
   /Title (Test 8: Local tie-only color override)
-  /Dest 112 0 R
+  /Dest 109 0 R
 >>
 endobj
 
@@ -114,7 +114,7 @@ endobj
   /Next 13 0 R
   /Prev 11 0 R
   /Title (Test 9: Local slur-only color override)
-  /Dest 113 0 R
+  /Dest 110 0 R
 >>
 endobj
 
@@ -124,7 +124,7 @@ endobj
   /Next 14 0 R
   /Prev 12 0 R
   /Title (Test 10: Local chord-note color override)
-  /Dest 114 0 R
+  /Dest 111 0 R
 >>
 endobj
 
@@ -134,7 +134,7 @@ endobj
   /Next 15 0 R
   /Prev 13 0 R
   /Title (Test 11: Local articulation and dynamic color overrides)
-  /Dest 115 0 R
+  /Dest 112 0 R
 >>
 endobj
 
@@ -144,7 +144,7 @@ endobj
   /Next 16 0 R
   /Prev 14 0 R
   /Title (Test 12: Local chord symbol, staff text, and lyric color overrides)
-  /Dest 116 0 R
+  /Dest 113 0 R
 >>
 endobj
 
@@ -154,7 +154,7 @@ endobj
   /Next 17 0 R
   /Prev 15 0 R
   /Title (Test 13: Mixed global, staff, selection, and local colors together)
-  /Dest 117 0 R
+  /Dest 114 0 R
 >>
 endobj
 
@@ -164,7 +164,7 @@ endobj
   /Next 18 0 R
   /Prev 16 0 R
   /Title (Test 14: Fingering color override with one colored mark in a three-fingering chord)
-  /Dest 118 0 R
+  /Dest 115 0 R
 >>
 endobj
 
@@ -174,7 +174,7 @@ endobj
   /Next 19 0 R
   /Prev 17 0 R
   /Title (Test 15: Named preset global colors across a grand staff)
-  /Dest 119 0 R
+  /Dest 116 0 R
 >>
 endobj
 
@@ -184,7 +184,7 @@ endobj
   /Next 20 0 R
   /Prev 18 0 R
   /Title (Test 16: Named preset inline wrappers and local overrides)
-  /Dest 120 0 R
+  /Dest 117 0 R
 >>
 endobj
 
@@ -194,7 +194,7 @@ endobj
   /Next 21 0 R
   /Prev 19 0 R
   /Title (Test 17: Metallic and neutral presets on text, chords, and fingerings)
-  /Dest 121 0 R
+  /Dest 118 0 R
 >>
 endobj
 
@@ -204,7 +204,7 @@ endobj
   /Next 22 0 R
   /Prev 20 0 R
   /Title (Test 18: Melody note-colors map)
-  /Dest 122 0 R
+  /Dest 119 0 R
 >>
 endobj
 
@@ -214,7 +214,7 @@ endobj
   /Next 23 0 R
   /Prev 21 0 R
   /Title (Test 19: Score and per-staff note-colors maps)
-  /Dest 123 0 R
+  /Dest 120 0 R
 >>
 endobj
 
@@ -224,30 +224,20 @@ endobj
   /Next 24 0 R
   /Prev 22 0 R
   /Title (Test 20: Note-colors map should yield to inline color wrappers)
-  /Dest 124 0 R
+  /Dest 121 0 R
 >>
 endobj
 
 24 0 obj
 <<
   /Parent 3 0 R
-  /Next 25 0 R
   /Prev 23 0 R
   /Title (Test 21: Note-colors map should apply across octaves with explicit split points)
-  /Dest 125 0 R
+  /Dest 122 0 R
 >>
 endobj
 
 25 0 obj
-<<
-  /Parent 3 0 R
-  /Prev 24 0 R
-  /Title (Test 22: Note-colors map should color stems but not beams)
-  /Dest 126 0 R
->>
-endobj
-
-26 0 obj
 <<
   /Type /StructTreeRoot
   /RoleMap <<
@@ -257,115 +247,129 @@ endobj
     /Strong /Span
     /Em /Span
   >>
-  /K [32 0 R]
+  /K [31 0 R]
   /ParentTree <<
-    /Nums [0 27 0 R 1 28 0 R 2 29 0 R 3 30 0 R 4 31 0 R]
+    /Nums [0 26 0 R 1 27 0 R 2 28 0 R 3 29 0 R 4 30 0 R]
   >>
   /ParentTreeNextKey 5
 >>
 endobj
 
+26 0 obj
+[85 0 R 84 0 R 83 0 R 82 0 R 81 0 R 79 0 R 76 0 R 75 0 R 74 0 R 73 0 R 72 0 R]
+endobj
+
 27 0 obj
-[88 0 R 87 0 R 86 0 R 85 0 R 84 0 R 82 0 R 79 0 R 78 0 R 77 0 R 76 0 R 75 0 R]
+[71 0 R 70 0 R 69 0 R 68 0 R 67 0 R 66 0 R 65 0 R 64 0 R 63 0 R 62 0 R]
 endobj
 
 28 0 obj
-[74 0 R 73 0 R 72 0 R 71 0 R 70 0 R 69 0 R 68 0 R 67 0 R 66 0 R 65 0 R]
+[61 0 R 60 0 R 59 0 R 58 0 R 57 0 R 56 0 R 55 0 R 54 0 R 53 0 R 52 0 R]
 endobj
 
 29 0 obj
-[64 0 R 63 0 R 62 0 R 61 0 R 60 0 R 59 0 R 58 0 R 57 0 R 56 0 R 55 0 R]
+[51 0 R 50 0 R 48 0 R 45 0 R 44 0 R 43 0 R 42 0 R 41 0 R 40 0 R 39 0 R 38 0 R]
 endobj
 
 30 0 obj
-[54 0 R 53 0 R 51 0 R 48 0 R 47 0 R 46 0 R 45 0 R 44 0 R 43 0 R 42 0 R 41 0 R]
+[37 0 R 36 0 R 35 0 R 34 0 R 33 0 R 32 0 R]
 endobj
 
 31 0 obj
-[40 0 R 39 0 R 38 0 R 37 0 R 36 0 R 35 0 R 34 0 R 33 0 R]
+<<
+  /Type /StructElem
+  /S /Document
+  /P 25 0 R
+  /K [85 0 R 84 0 R 83 0 R 82 0 R 81 0 R 77 0 R 76 0 R 75 0 R 74 0 R 73 0 R 72 0 R 71 0 R 70 0 R 69 0 R 68 0 R 67 0 R 66 0 R 65 0 R 64 0 R 63 0 R 62 0 R 61 0 R 60 0 R 59 0 R 58 0 R 57 0 R 56 0 R 55 0 R 54 0 R 53 0 R 52 0 R 51 0 R 50 0 R 46 0 R 45 0 R 44 0 R 43 0 R 42 0 R 41 0 R 40 0 R 39 0 R 38 0 R 37 0 R 36 0 R 35 0 R 34 0 R 33 0 R 32 0 R]
+>>
 endobj
 
 32 0 obj
 <<
   /Type /StructElem
-  /S /Document
-  /P 26 0 R
-  /K [88 0 R 87 0 R 86 0 R 85 0 R 84 0 R 80 0 R 79 0 R 78 0 R 77 0 R 76 0 R 75 0 R 74 0 R 73 0 R 72 0 R 71 0 R 70 0 R 69 0 R 68 0 R 67 0 R 66 0 R 65 0 R 64 0 R 63 0 R 62 0 R 61 0 R 60 0 R 59 0 R 58 0 R 57 0 R 56 0 R 55 0 R 54 0 R 53 0 R 49 0 R 48 0 R 47 0 R 46 0 R 45 0 R 44 0 R 43 0 R 42 0 R 41 0 R 40 0 R 39 0 R 38 0 R 37 0 R 36 0 R 35 0 R 34 0 R 33 0 R]
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [5]
+  /Pg 132 0 R
 >>
 endobj
 
 33 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [7]
-  /Pg 136 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 21: Note-colors map should apply across octaves with explicit split points)
+  /K [4]
+  /Pg 132 0 R
 >>
 endobj
 
 34 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 22: Note-colors map should color stems but not beams)
-  /K [6]
-  /Pg 136 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [3]
+  /Pg 132 0 R
 >>
 endobj
 
 35 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [5]
-  /Pg 136 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 20: Note-colors map should yield to inline color wrappers)
+  /K [2]
+  /Pg 132 0 R
 >>
 endobj
 
 36 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 21: Note-colors map should apply across octaves with explicit split points)
-  /K [4]
-  /Pg 136 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [1]
+  /Pg 132 0 R
 >>
 endobj
 
 37 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [3]
-  /Pg 136 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 19: Score and per-staff note-colors maps)
+  /K [0]
+  /Pg 132 0 R
 >>
 endobj
 
 38 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 20: Note-colors map should yield to inline color wrappers)
-  /K [2]
-  /Pg 136 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [10]
+  /Pg 130 0 R
 >>
 endobj
 
@@ -373,13 +377,13 @@ endobj
 <<
   /Type /StructElem
   /S /Figure
-  /P 32 0 R
+  /P 31 0 R
   /A [<<
     /O /Layout
     /Placement /Block
   >>]
-  /K [1]
-  /Pg 136 0 R
+  /K [9]
+  /Pg 130 0 R
 >>
 endobj
 
@@ -387,10 +391,10 @@ endobj
 <<
   /Type /StructElem
   /S /H2
-  /P 32 0 R
-  /T (Test 19: Score and per-staff note-colors maps)
-  /K [0]
-  /Pg 136 0 R
+  /P 31 0 R
+  /T (Test 18: Melody note-colors map)
+  /K [8]
+  /Pg 130 0 R
 >>
 endobj
 
@@ -398,102 +402,95 @@ endobj
 <<
   /Type /StructElem
   /S /Figure
-  /P 32 0 R
+  /P 31 0 R
   /A [<<
     /O /Layout
     /Placement /Block
   >>]
-  /K [10]
-  /Pg 134 0 R
+  /K [7]
+  /Pg 130 0 R
 >>
 endobj
 
 42 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [9]
-  /Pg 134 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 17: Metallic and neutral presets on text, chords, and fingerings)
+  /K [6]
+  /Pg 130 0 R
 >>
 endobj
 
 43 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 18: Melody note-colors map)
-  /K [8]
-  /Pg 134 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [5]
+  /Pg 130 0 R
 >>
 endobj
 
 44 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [7]
-  /Pg 134 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 16: Named preset inline wrappers and local overrides)
+  /K [4]
+  /Pg 130 0 R
 >>
 endobj
 
 45 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 17: Metallic and neutral presets on text, chords, and fingerings)
-  /K [6]
-  /Pg 134 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [3]
+  /Pg 130 0 R
 >>
 endobj
 
 46 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [5]
-  /Pg 134 0 R
+  /S /Div
+  /P 31 0 R
+  /K [49 0 R 47 0 R]
 >>
 endobj
 
 47 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 16: Named preset inline wrappers and local overrides)
-  /K [4]
-  /Pg 134 0 R
+  /S /Div
+  /P 46 0 R
+  /K [48 0 R]
 >>
 endobj
 
 48 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
+  /S /Span
+  /P 47 0 R
   /A [<<
     /O /Layout
     /Placement /Block
   >>]
-  /K [3]
-  /Pg 134 0 R
+  /K [2]
+  /Pg 130 0 R
 >>
 endobj
 
@@ -501,375 +498,375 @@ endobj
 <<
   /Type /StructElem
   /S /Div
-  /P 32 0 R
-  /K [52 0 R 50 0 R]
+  /P 46 0 R
+  /K []
 >>
 endobj
 
 50 0 obj
 <<
   /Type /StructElem
-  /S /Div
-  /P 49 0 R
-  /K [51 0 R]
+  /S /P
+  /P 31 0 R
+  /K [1]
+  /Pg 130 0 R
 >>
 endobj
 
 51 0 obj
 <<
   /Type /StructElem
-  /S /Span
-  /P 50 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [2]
-  /Pg 134 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 15: Named preset global colors across a grand staff)
+  /K [0]
+  /Pg 130 0 R
 >>
 endobj
 
 52 0 obj
 <<
   /Type /StructElem
-  /S /Div
-  /P 49 0 R
-  /K []
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [9]
+  /Pg 128 0 R
 >>
 endobj
 
 53 0 obj
 <<
   /Type /StructElem
-  /S /P
-  /P 32 0 R
-  /K [1]
-  /Pg 134 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 14: Fingering color override with one colored mark in a three-fingering chord)
+  /K [8]
+  /Pg 128 0 R
 >>
 endobj
 
 54 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 15: Named preset global colors across a grand staff)
-  /K [0]
-  /Pg 134 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [7]
+  /Pg 128 0 R
 >>
 endobj
 
 55 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [9]
-  /Pg 132 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 13: Mixed global, staff, selection, and local colors together)
+  /K [6]
+  /Pg 128 0 R
 >>
 endobj
 
 56 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 14: Fingering color override with one colored mark in a three-fingering chord)
-  /K [8]
-  /Pg 132 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [5]
+  /Pg 128 0 R
 >>
 endobj
 
 57 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [7]
-  /Pg 132 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 12: Local chord symbol, staff text, and lyric color overrides)
+  /K [4]
+  /Pg 128 0 R
 >>
 endobj
 
 58 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 13: Mixed global, staff, selection, and local colors together)
-  /K [6]
-  /Pg 132 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [3]
+  /Pg 128 0 R
 >>
 endobj
 
 59 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [5]
-  /Pg 132 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 11: Local articulation and dynamic color overrides)
+  /K [2]
+  /Pg 128 0 R
 >>
 endobj
 
 60 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 12: Local chord symbol, staff text, and lyric color overrides)
-  /K [4]
-  /Pg 132 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [1]
+  /Pg 128 0 R
 >>
 endobj
 
 61 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [3]
-  /Pg 132 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 10: Local chord-note color override)
+  /K [0]
+  /Pg 128 0 R
 >>
 endobj
 
 62 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 11: Local articulation and dynamic color overrides)
-  /K [2]
-  /Pg 132 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [9]
+  /Pg 126 0 R
 >>
 endobj
 
 63 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [1]
-  /Pg 132 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 9: Local slur-only color override)
+  /K [8]
+  /Pg 126 0 R
 >>
 endobj
 
 64 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 10: Local chord-note color override)
-  /K [0]
-  /Pg 132 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [7]
+  /Pg 126 0 R
 >>
 endobj
 
 65 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [9]
-  /Pg 130 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 8: Local tie-only color override)
+  /K [6]
+  /Pg 126 0 R
 >>
 endobj
 
 66 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 9: Local slur-only color override)
-  /K [8]
-  /Pg 130 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [5]
+  /Pg 126 0 R
 >>
 endobj
 
 67 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [7]
-  /Pg 130 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 7: Local note color override)
+  /K [4]
+  /Pg 126 0 R
 >>
 endobj
 
 68 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 8: Local tie-only color override)
-  /K [6]
-  /Pg 130 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [3]
+  /Pg 126 0 R
 >>
 endobj
 
 69 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [5]
-  /Pg 130 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 6: Selection color wrapper should not recolor barlines or staff lines)
+  /K [2]
+  /Pg 126 0 R
 >>
 endobj
 
 70 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 7: Local note color override)
-  /K [4]
-  /Pg 130 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [1]
+  /Pg 126 0 R
 >>
 endobj
 
 71 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [3]
-  /Pg 130 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 5: Selection color wrapper with dynamics, text, and lyrics)
+  /K [0]
+  /Pg 126 0 R
 >>
 endobj
 
 72 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 6: Selection color wrapper should not recolor barlines or staff lines)
-  /K [2]
-  /Pg 130 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [10]
+  /Pg 124 0 R
 >>
 endobj
 
 73 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [1]
-  /Pg 130 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 4: Selection color wrapper over notes and slurs)
+  /K [9]
+  /Pg 124 0 R
 >>
 endobj
 
 74 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 5: Selection color wrapper with dynamics, text, and lyrics)
-  /K [0]
-  /Pg 130 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [8]
+  /Pg 124 0 R
 >>
 endobj
 
 75 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [10]
-  /Pg 128 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 3: Per-staff colors inside one score)
+  /K [7]
+  /Pg 124 0 R
 >>
 endobj
 
 76 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 4: Selection color wrapper over notes and slurs)
-  /K [9]
-  /Pg 128 0 R
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [6]
+  /Pg 124 0 R
 >>
 endobj
 
 77 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [8]
-  /Pg 128 0 R
+  /S /Div
+  /P 31 0 R
+  /K [80 0 R 78 0 R]
 >>
 endobj
 
 78 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 3: Per-staff colors inside one score)
-  /K [7]
-  /Pg 128 0 R
+  /S /Div
+  /P 77 0 R
+  /K [79 0 R]
 >>
 endobj
 
 79 0 obj
 <<
   /Type /StructElem
-  /S /Figure
-  /P 32 0 R
+  /S /Span
+  /P 78 0 R
   /A [<<
     /O /Layout
     /Placement /Block
   >>]
-  /K [6]
-  /Pg 128 0 R
+  /K [5]
+  /Pg 124 0 R
 >>
 endobj
 
@@ -877,112 +874,80 @@ endobj
 <<
   /Type /StructElem
   /S /Div
-  /P 32 0 R
-  /K [83 0 R 81 0 R]
+  /P 77 0 R
+  /K []
 >>
 endobj
 
 81 0 obj
 <<
   /Type /StructElem
-  /S /Div
-  /P 80 0 R
-  /K [82 0 R]
+  /S /P
+  /P 31 0 R
+  /K [4]
+  /Pg 124 0 R
 >>
 endobj
 
 82 0 obj
 <<
   /Type /StructElem
-  /S /Span
-  /P 81 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [5]
-  /Pg 128 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 2: Global score color with title and composer)
+  /K [3]
+  /Pg 124 0 R
 >>
 endobj
 
 83 0 obj
 <<
   /Type /StructElem
-  /S /Div
-  /P 80 0 R
-  /K []
+  /S /Figure
+  /P 31 0 R
+  /A [<<
+    /O /Layout
+    /Placement /Block
+  >>]
+  /K [2]
+  /Pg 124 0 R
 >>
 endobj
 
 84 0 obj
 <<
   /Type /StructElem
-  /S /P
-  /P 32 0 R
-  /K [4]
-  /Pg 128 0 R
+  /S /H2
+  /P 31 0 R
+  /T (Test 1: Global melody color)
+  /K [1]
+  /Pg 124 0 R
 >>
 endobj
 
 85 0 obj
 <<
   /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 2: Global score color with title and composer)
-  /K [3]
-  /Pg 128 0 R
+  /S /H1
+  /P 31 0 R
+  /T (Color Functionality Tests)
+  /K [0]
+  /Pg 124 0 R
 >>
 endobj
 
 86 0 obj
 <<
-  /Type /StructElem
-  /S /Figure
-  /P 32 0 R
-  /A [<<
-    /O /Layout
-    /Placement /Block
-  >>]
-  /K [2]
-  /Pg 128 0 R
->>
-endobj
-
-87 0 obj
-<<
-  /Type /StructElem
-  /S /H2
-  /P 32 0 R
-  /T (Test 1: Global melody color)
-  /K [1]
-  /Pg 128 0 R
->>
-endobj
-
-88 0 obj
-<<
-  /Type /StructElem
-  /S /H1
-  /P 32 0 R
-  /T (Color Functionality Tests)
-  /K [0]
-  /Pg 128 0 R
->>
-endobj
-
-89 0 obj
-<<
   /Type /Font
   /Subtype /Type0
   /BaseFont /RFZACZ+LibertinusSerif-Bold-Identity-H
   /Encoding /Identity-H
-  /DescendantFonts [90 0 R]
-  /ToUnicode 93 0 R
+  /DescendantFonts [87 0 R]
+  /ToUnicode 90 0 R
 >>
 endobj
 
-90 0 obj
+87 0 obj
 <<
   /Type /Font
   /Subtype /CIDFontType0
@@ -992,13 +957,13 @@ endobj
     /Ordering (Identity)
     /Supplement 0
   >>
-  /FontDescriptor 92 0 R
+  /FontDescriptor 89 0 R
   /DW 0
   /W [0 0 500 1 1 706 2 2 551 3 3 325 4 4 428 5 5 250 6 6 545 7 7 598 8 8 616 9 9 456 10 10 358 11 11 322 12 12 505.99997 13 13 558 14 14 652 15 15 489 16 16 427 17 17 514 18 18 256 19 19 732 20 20 542 21 21 905 22 22 561 23 23 514 24 24 777 25 25 619 26 26 581 27 27 514 28 28 614 29 29 358 30 30 716 31 31 514 32 32 504 33 33 529 34 34 514 35 35 244 36 36 561 37 37 740 38 39 514 40 40 577 41 43 514 44 44 899 45 45 521 46 46 613 47 47 641 48 48 740 49 49 609]
 >>
 endobj
 
-91 0 obj
+88 0 obj
 <<
   /Length 13
   /Filter /FlateDecode
@@ -1008,7 +973,7 @@ xœûÿ  ¬»
 endstream
 endobj
 
-92 0 obj
+89 0 obj
 <<
   /Type /FontDescriptor
   /FontName /RFZACZ+LibertinusSerif-Bold
@@ -1019,12 +984,12 @@ endobj
   /Descent -246
   /CapHeight 645
   /StemV 168.6
-  /CIDSet 91 0 R
-  /FontFile3 94 0 R
+  /CIDSet 88 0 R
+  /FontFile3 91 0 R
 >>
 endobj
 
-93 0 obj
+90 0 obj
 <<
   /Length 1300
   /Type /CMap
@@ -1113,7 +1078,7 @@ end
 endstream
 endobj
 
-94 0 obj
+91 0 obj
 <<
   /Length 5909
   /Filter /FlateDecode
@@ -1143,18 +1108,18 @@ k9£ª©aÛ(¼üğ°»µ“ii¬î$'R¼	Í´ÓŞQé¤ejµ™)´TÊ(üó`4xsñ<­‹Ë‹NÌaröïÔK¨õQ£‡;u®jFët
 endstream
 endobj
 
-95 0 obj
+92 0 obj
 <<
   /Type /Font
   /Subtype /Type0
   /BaseFont /JAZYUZ+LibertinusSerif-Regular-Identity-H
   /Encoding /Identity-H
-  /DescendantFonts [96 0 R]
-  /ToUnicode 99 0 R
+  /DescendantFonts [93 0 R]
+  /ToUnicode 96 0 R
 >>
 endobj
 
-96 0 obj
+93 0 obj
 <<
   /Type /Font
   /Subtype /CIDFontType0
@@ -1164,13 +1129,13 @@ endobj
     /Ordering (Identity)
     /Supplement 0
   >>
-  /FontDescriptor 98 0 R
+  /FontDescriptor 95 0 R
   /DW 0
   /W [0 0 500 1 1 485 2 2 428 3 3 504 4 4 372 5 5 271 6 6 310 7 7 515 8 8 264 9 9 528 10 10 457 11 15 465]
 >>
 endobj
 
-97 0 obj
+94 0 obj
 <<
   /Length 10
   /Filter /FlateDecode
@@ -1180,7 +1145,7 @@ xœûÿ ÿÿ
 endstream
 endobj
 
-98 0 obj
+95 0 obj
 <<
   /Type /FontDescriptor
   /FontName /JAZYUZ+LibertinusSerif-Regular
@@ -1191,12 +1156,12 @@ endobj
   /Descent -246
   /CapHeight 658
   /StemV 95.4
-  /CIDSet 97 0 R
-  /FontFile3 100 0 R
+  /CIDSet 94 0 R
+  /FontFile3 97 0 R
 >>
 endobj
 
-99 0 obj
+96 0 obj
 <<
   /Length 816
   /Type /CMap
@@ -1251,7 +1216,7 @@ end
 endstream
 endobj
 
-100 0 obj
+97 0 obj
 <<
   /Length 2017
   /Filter /FlateDecode
@@ -1270,15 +1235,15 @@ B<*D}Ä¼úˆı‰Íù/¸*
 endstream
 endobj
 
-101 0 obj
-[/ICCBased 103 0 R]
+98 0 obj
+[/ICCBased 100 0 R]
 endobj
 
-102 0 obj
-[/ICCBased 104 0 R]
+99 0 obj
+[/ICCBased 101 0 R]
 endobj
 
-103 0 obj
+100 0 obj
 <<
   /Length 258
   /N 1
@@ -1293,7 +1258,7 @@ F§ëMkŠIˆ¹‘RŸB|êê&Ø¥n‚à¤‹¸º(¸H¹rëTÅ³üË9ğ`ùÕ¨a”&åÊº»ãî:Ùl
 endstream
 endobj
 
-104 0 obj
+101 0 obj
 <<
   /Length 314
   /N 3
@@ -1307,120 +1272,116 @@ xœ}¿KqÆ?×U–X94%MQKS†Nø#Ô¦óüQ vİ÷BšË¡©hˆFk	¢ÙÆú‚ !
 endstream
 endobj
 
+102 0 obj
+[124 0 R /XYZ 42.519684 783.5971 0]
+endobj
+
+103 0 obj
+[124 0 R /XYZ 42.519684 647.08704 0]
+endobj
+
+104 0 obj
+[124 0 R /XYZ 42.519684 405.83218 0]
+endobj
+
 105 0 obj
-[128 0 R /XYZ 42.519684 783.5971 0]
+[124 0 R /XYZ 42.519684 216.47229 0]
 endobj
 
 106 0 obj
-[128 0 R /XYZ 42.519684 647.08704 0]
+[126 0 R /XYZ 42.519684 809.3701 0]
 endobj
 
 107 0 obj
-[128 0 R /XYZ 42.519684 405.83218 0]
+[126 0 R /XYZ 42.519684 628.92676 0]
 endobj
 
 108 0 obj
-[128 0 R /XYZ 42.519684 216.47229 0]
+[126 0 R /XYZ 42.519684 492.41675 0]
 endobj
 
 109 0 obj
-[130 0 R /XYZ 42.519684 809.3701 0]
+[126 0 R /XYZ 42.519684 355.9067 0]
 endobj
 
 110 0 obj
-[130 0 R /XYZ 42.519684 628.92676 0]
+[126 0 R /XYZ 42.519684 222.1347 0]
 endobj
 
 111 0 obj
-[130 0 R /XYZ 42.519684 492.41675 0]
-endobj
-
-112 0 obj
-[130 0 R /XYZ 42.519684 355.9067 0]
-endobj
-
-113 0 obj
-[130 0 R /XYZ 42.519684 222.1347 0]
-endobj
-
-114 0 obj
-[132 0 R /XYZ 42.519684 809.3701 0]
-endobj
-
-115 0 obj
-[132 0 R /XYZ 42.519684 677.71423 0]
-endobj
-
-116 0 obj
-[132 0 R /XYZ 42.519684 535.6864 0]
-endobj
-
-117 0 obj
-[132 0 R /XYZ 42.519684 363.63553 0]
-endobj
-
-118 0 obj
-[132 0 R /XYZ 42.519684 177.95044 0]
-endobj
-
-119 0 obj
-[134 0 R /XYZ 42.519684 809.3701 0]
-endobj
-
-120 0 obj
-[134 0 R /XYZ 42.519684 557.51733 0]
-endobj
-
-121 0 obj
-[134 0 R /XYZ 42.519684 421.00732 0]
-endobj
-
-122 0 obj
-[134 0 R /XYZ 42.519684 244.013 0]
-endobj
-
-123 0 obj
-[136 0 R /XYZ 42.519684 809.3701 0]
-endobj
-
-124 0 obj
-[136 0 R /XYZ 42.519684 625.2882 0]
-endobj
-
-125 0 obj
-[136 0 R /XYZ 42.519684 493.6324 0]
-endobj
-
-126 0 obj
-[136 0 R /XYZ 42.519684 282.66412 0]
-endobj
-
-127 0 obj
 [128 0 R /XYZ 42.519684 809.3701 0]
 endobj
 
-128 0 obj
+112 0 obj
+[128 0 R /XYZ 42.519684 677.71423 0]
+endobj
+
+113 0 obj
+[128 0 R /XYZ 42.519684 535.6864 0]
+endobj
+
+114 0 obj
+[128 0 R /XYZ 42.519684 363.63553 0]
+endobj
+
+115 0 obj
+[128 0 R /XYZ 42.519684 177.95044 0]
+endobj
+
+116 0 obj
+[130 0 R /XYZ 42.519684 809.3701 0]
+endobj
+
+117 0 obj
+[130 0 R /XYZ 42.519684 557.51733 0]
+endobj
+
+118 0 obj
+[130 0 R /XYZ 42.519684 421.00732 0]
+endobj
+
+119 0 obj
+[130 0 R /XYZ 42.519684 244.013 0]
+endobj
+
+120 0 obj
+[132 0 R /XYZ 42.519684 809.3701 0]
+endobj
+
+121 0 obj
+[132 0 R /XYZ 42.519684 625.2882 0]
+endobj
+
+122 0 obj
+[132 0 R /XYZ 42.519684 493.6324 0]
+endobj
+
+123 0 obj
+[124 0 R /XYZ 42.519684 809.3701 0]
+endobj
+
+124 0 obj
 <<
   /Type /Page
   /Resources <<
     /ProcSet [/PDF /Text /ImageC /ImageB]
     /ColorSpace <<
-      /c0 101 0 R
-      /c1 102 0 R
+      /c0 98 0 R
+      /c1 99 0 R
     >>
     /Font <<
-      /f0 89 0 R
-      /f1 95 0 R
+      /f0 86 0 R
+      /f1 92 0 R
     >>
   >>
   /MediaBox [0 0 595.2756 841.8898]
   /StructParents 0
   /Parent 1 0 R
-  /Contents 129 0 R
+  /Contents 125 0 R
 >>
 endobj
 
-129 0 obj
+125 0 obj
 <<
   /Length 5553
   /Filter /FlateDecode
@@ -1455,28 +1416,28 @@ zkîÄq¦Z*xE
 endstream
 endobj
 
-130 0 obj
+126 0 obj
 <<
   /Type /Page
   /Resources <<
     /ProcSet [/PDF /Text /ImageC /ImageB]
     /ColorSpace <<
-      /c0 101 0 R
-      /c1 102 0 R
+      /c0 98 0 R
+      /c1 99 0 R
     >>
     /Font <<
-      /f0 89 0 R
-      /f1 95 0 R
+      /f0 86 0 R
+      /f1 92 0 R
     >>
   >>
   /MediaBox [0 0 595.2756 841.8898]
   /StructParents 1
   /Parent 1 0 R
-  /Contents 131 0 R
+  /Contents 127 0 R
 >>
 endobj
 
-131 0 obj
+127 0 obj
 <<
   /Length 4408
   /Filter /FlateDecode
@@ -1500,28 +1461,28 @@ Kì}‘>£7pGÌƒãôó˜Í=2>œTwA0¹L]ØªWá%HGwñî.Bk!ìÕõ"…ÈŒ™°v]/¨Á©•©å„AÁL½„€
 endstream
 endobj
 
-132 0 obj
+128 0 obj
 <<
   /Type /Page
   /Resources <<
     /ProcSet [/PDF /Text /ImageC /ImageB]
     /ColorSpace <<
-      /c0 101 0 R
-      /c1 102 0 R
+      /c0 98 0 R
+      /c1 99 0 R
     >>
     /Font <<
-      /f0 89 0 R
-      /f1 95 0 R
+      /f0 86 0 R
+      /f1 92 0 R
     >>
   >>
   /MediaBox [0 0 595.2756 841.8898]
   /StructParents 2
   /Parent 1 0 R
-  /Contents 133 0 R
+  /Contents 129 0 R
 >>
 endobj
 
-133 0 obj
+129 0 obj
 <<
   /Length 6560
   /Filter /FlateDecode
@@ -1555,28 +1516,28 @@ eØN¬ï ßÚ†›Áğ¼9şñ~Ô-óölëG[?ÚúÑ³#¾p5"6>„ïóyñ +ğE“_Uo)ÂÅsÃYWVÏœ{ı)œÑX,
 endstream
 endobj
 
-134 0 obj
+130 0 obj
 <<
   /Type /Page
   /Resources <<
     /ProcSet [/PDF /Text /ImageC /ImageB]
     /ColorSpace <<
-      /c0 101 0 R
-      /c1 102 0 R
+      /c0 98 0 R
+      /c1 99 0 R
     >>
     /Font <<
-      /f0 89 0 R
-      /f1 95 0 R
+      /f0 86 0 R
+      /f1 92 0 R
     >>
   >>
   /MediaBox [0 0 595.2756 841.8898]
   /StructParents 3
   /Parent 1 0 R
-  /Contents 135 0 R
+  /Contents 131 0 R
 >>
 endobj
 
-135 0 obj
+131 0 obj
 <<
   /Length 5410
   /Filter /FlateDecode
@@ -1608,79 +1569,76 @@ S“¼½€éõÌdU‹¾µ/¼j
 endstream
 endobj
 
-136 0 obj
+132 0 obj
 <<
   /Type /Page
   /Resources <<
     /ProcSet [/PDF /Text /ImageC /ImageB]
     /ColorSpace <<
-      /c0 101 0 R
-      /c1 102 0 R
+      /c0 98 0 R
+      /c1 99 0 R
     >>
     /Font <<
-      /f0 89 0 R
+      /f0 86 0 R
     >>
   >>
   /MediaBox [0 0 595.2756 841.8898]
   /StructParents 4
   /Parent 1 0 R
-  /Contents 137 0 R
+  /Contents 133 0 R
 >>
 endobj
 
-137 0 obj
+133 0 obj
 <<
-  /Length 4756
+  /Length 4213
   /Filter /FlateDecode
 >>
 stream
-xœí]M$¹q½ç¯ <6*–ñÁ/@ĞA+l@„@Ë«ÅvÖjÿ}ãÉª¬êîš®îÊFÍ¨æ0ÁÊäc’‘äãG÷ÃÿşÏçğ›ß,!|÷Çïÿı÷!.¿ımøİï¿_ş¶pˆ!†JÜrµPZ¤š2‡‡OËw1<ü}‰áïŸ—ß}\bøøËòİ1°’„?Çåã§å¿şå/1Æ¿DÎBÖ0µÒ¯ıú¹k1TÆõ_‡"ëƒ+¿¤ù“}õ4ë‘Ùşÿ_G^ùHåCØ•GOÚø5=QÈ_ÔãœşzT ÏÇù|N­§/q„v¨Œõ{DwKüğßáã,ø¸üiùÃ¿_¾;mS>´éª)«P™Ã§%%¡’RÍ‡ÄŸW‰¹)Y‹~^=¾JüiùóòyùÛ"Tjå’{³OM×æ3³æóıK?|ÿŸK$nşo±ğÇ%—Œ¢†OW¦¡ü¼ü°üéÚ0‰JİÃ¸²	L¡txW6i$‡·qeæuãtmEŠÜQëX‡„R#­•S(¦TD¸<
-$&1ì,Çği±1å •!XĞ,]xX„[[	»4®%¦ğ°@ªRW»¦9Há°ãÈ‚çj…,%h4HÆA‘Ç”ÃÃ¢â¿G	ª)ìZJAMÂ®±£&»Z‘w»Ò¸¹•ğ°tQJ³°KÊAe‹ªŒ4ci†l»˜4¨ºP{‘RF‰¤Æ°K-I5ì2ç!d¼«‹ErĞ¨aWJêuTjËO•­Â*„“Ô µ„gÕ`Ú†ô° 2GjA¤jSb@uÙ˜ƒEä¤Šò"ñ¢¨d¤ÆTüw³)Õ^³M´W[*áP>”6¡èÙBÄT,$Õ°K‘ƒyÛ´¡yu5	Æv%¡DhıæÅtCh)xE-ì³»7BD[1h¬!¢˜)Akx	†*ÚÈjFM‡«d­]ˆÆí¢Å`ÍÂNj
-VÏyia½h+)ìÅÎ°]7‹”Ì]C6´rN]È5âbåÖ+¡	÷–ƒğ°hX9(²àh1(ŒcCm[FK,!)~GMwÉš»œ*^Èm å`M!5/5ÊÈÅ4JÁ¥Ô`^wã4dÅ«rÉ9(¼ƒ‹À¤ÛXâ Slîaé²Ö¤ày…Ÿ6</âÖ€*xJñV\b@¼Ø1ïaa·¶˜Ñh»f—b@özŒ³†±5Ô6ã!…	C´˜ ä`pwÄXU	;˜¦¡%MÁ[ØÅVÆƒÒƒ‡7¯»§I˜$¡E½
-R;«Yí¬õkT—ğLF,èÏzXÓ˜áãAš"N¡;DÄ=e	;)9ÂÃÂyˆnÕ¸koé0û¿œK"³$)”Ì”S„ÓŸg†y³ Ïà¢•ğóÂÌSòJ)Šıâ‘£§ !ÜójghèZHˆ½=F³xÄuIñ}éM…Ş¨‚îü^ÑO¼=²ú/şó½&„G¶R‡ î(.¦4êäÖ1 ˆŠ)êˆtªh¼¶¹‹ÂX´áY­2…ØØzî¢´ñ£àS¢²¸Á³ ~[‚a¶à•/)M`½m¼|¨$†7!SD¹,ıaq+²$A‚hìº ËsĞŞº1(ÃÎÏo(‚ÅÏbİÎZ
-R‘[+AÜÇüƒ(e¤1ìÔ“ô¯¥7#ÒPaJÌî/şÒSìÆÅ€£
-ƒ¯Ü	¤µàşOâFòxÀ^1¬¹n%ø7È¿=Š#Fga\=RŸp˜Æs±%¦ZkÑ»İİèîFİèÒ1	û˜„2§\3ºl‘´ÿ³GB¿„‘kø´H¢ÊS}ÑP…c¦d\j(f¤}´Q
-øñÓ¥€s£;ÏF3£ï>ŠêÄ˜ïª’Â®¢—ì=(ï—@• è"¢;-¨¶Ş¯öF„ˆª¯@À£'!)-J(–Q£Ñ¸Uh1‡b$¡³¸ªöµy©ÈšËĞì9–jzƒ¯#è¦¬ş5ÈŒŞvõkŠÄ’$”d„AƒU¿ÆT«(ê?‹&i¦!RíMq‹¯ÓÕ,†úÏ”Š´¯3¦ÔZ.¡¤F£œ/p-¤ÚŠ,‰Üh”ÜàcSÒüØ$Â§‘…@T|šz¦ìı¡k0p{,ØG2nY@”ıMÔåx×ó±õ´ ©PK5p¤â„MWZ¼ú;#ğ'ªCõM¤ğxåóñì´Œf	÷!+õNïU_˜¥Rã*b±3U]—ëQº,SáP¨v¬¡³¾É|/ñNÍ­9Sóõ¸·v]»1Ø®m$q=ÁĞµm€d=ÅĞµm€l=ÉĞµm€òººöâY†¦ Å,éñ74eĞææ“_.²Pì»Ü8€bw¬Œ4Ğ©¸«>.íbnÁï*Mú“0¼!Ù$ôüs‚?ùSg köŠÄH¢àª ¸ç.<, Kå€é€Â0UPÙ è-dpáøÓ©ÇpÎEŒï|:Á…Ü‰U=Kä)5`PàÂÃÂ˜ğ4LÃ 
-}äXÄ)WĞş…[ á[boQÌ´ÃİZÄ¸Ôµ¨AT#¶ˆæªÜçG `æ¯ŠiŞ‹µ.¤ê?B´„	ÿÎ[Î:;á‰‚á5À€öôÄ.ÀşúhupÂ¨"'C|\ÚG®‚§#*Õ;°$Áp58IáD-®ŒYĞ	Š|ØiŒ ‰ó);mµàÓu­¼oî>ÍáC{›Æ~ÀÍÅL»	AÆçi04ÜÕ…†ftİ-¿+YêOBÆÑóÇ]{Ì‹Y,nTLÇÄº“Xwë•\0GŠù‰u3w/º{Ñİ‹^7ºèËa~¥1¿]}Ó`æ<\ëİï	çê…Dsn…r‘\VJ½i^92÷×Ì®Xg6*)ñ·Úr™qmí«!—#|,×¹íòØcŠ¾0ækaÅ(ÅŠĞÿ»å\¾-¯|û÷ã”;Ìu¨cQÂJ£we7“,©º“hnobtÏ¼ù`ŒEÉ9	å²ÉY„Ğá$çÔë=s$c	ÂƒÏœú›ú ÏRÅ˜ÖÍ ‹Şnû„üö†»˜ Ü±D’•|Ìİ]Ñ„830KÓ†fÂ±aìÅª­–CŒ	5`^¶b± Ñ¤Í¹¤!°´÷Â	Û|Ñ1®st¤ÂXûv5¶~íëwK6K@/»aå<ãêÏ¸TÂñÕW~ºÔÉ½ÖbÈˆ@}İ&ri@ú5÷;–„åÊµ¢?ŞÔi®šœ(ıˆµÓ¬Ã5U®@BàÃ
-jÁGÈ	„Öƒ&úË{·ã×­ßHŠÇ±8ÙÖUãê±!a'ƒ*ó‚±!(ûêİ€òbqnØ!¼£úË:¿Šçï‚ÃÍ=­W!/l{•€â;¼ŒQg½#x£eäqUo_ª-øğ·”0Û÷õşÈ9•÷!ss+CWŞæÏà4õp6€†¶	×HlvØÑÕ+bµ<‡V ş#·õV¨k¬g6¼ÈÙML9f*$ú{mbò_ÿí©MLñ½wíw+ŸäVQNöIı2J¨'û¤¾{ÖÃ	öxzî”Ò§ROön½°ö»¹âQúIœßëõåıTúÔ~ªÔ*%1|÷[§ö‰ëıT)3U5'VÏ¯RÏï¨Z™ò>ÿsÓi>ÅIÉ?`cÂÓµóîú%ÌçL”®]%¶86mA»>J¦ºz—®]¥µK×®²ŠØ”S9´¿kÇ8g†`¬‘ÅR*U#M÷™ ;‡}ç°/œ	:r£bğ¾x÷£»İıèÅsAÏ~öQÁsqY¤R$Y‹ *4×,X˜òèÛ[	;B9øİ²×_ôel™˜-Ftè
-EìÓ\s­_(Ğ­‘­$
-ÕÇK¹QB	Vïƒ²İ`¡5úLBÉ!¦–ùdÁzUÖ‚`‘zÍ§I|Q¢Ô|ãLZ³øgÂbl·ş6[zë$g2†sÆìÎêª9·øÊÎr/‡õ#^ºQn-4b¯É¡¾i03XŸm¾Ór´B ó*)ã¥‡*„¯Ä{–ƒ5>;…°ïşÓ^¿Ş ò1½t®vız£ÇôÒzh}õ`gù%+‰˜«Öw&˜æi9_;Çôˆ­9ºû—'îıõ‰Ã&Ø,ÄiÑãšúõôXŸzâ¡Ó&É4ˆ«Ï'/;É®ò!˜~ò…æó¿>•Û£ª|úÙ“»	®YGÛç—’]é)²Ër¦šaâk¶ëº¦»0ë_s>f»V‰/&»Ù‘íŠÖtWW_>. R*mÔÕ-€¥õuu B²~£®nÔÛ¨«WzD~íÍ¡«ÇP/·›(&Äãã¨~·ßÇí÷qû‹ıÈƒ¤Ÿ{u÷£»İıèbşëäÓwfq25¬E‰³—’±œnê¯ıÖ¾ Pfoe v}C@›½–ØõóìRÀ®oXNÚ°ë¶“6ìúv€ÊÇm8ôõ¸‡ş¢~!x	á()hbÁæ»^šúªj£ºRI6pF	¸Yô˜€3zLÀÍ¢ÇœÑcæ—[³’F|8µ6’¨å¦E¿ªš4SY[1~dyç«É2YEåZÌ$õhƒÊmnè°À¥QÎÜ›šêÉŒÒá€
-Â6ÅV£}Eıì+œ¶”œïïn™•šMõM^ya	êD½ ]{‘õ	UŒ&,’i¶üÚEÆÄMoÈ’¨¾sCöÌ†ì8nÈ÷ÀÏ#uü®½'~ß›ßµ÷Ä×#èÚËÉ2E‰,JlÑşA=	‹ïVT•wö¤^‚éI½ —„Ä‚Õ–¿‚˜x~Åi©µ~{éçHtœ¢£k}&¼³?;B«ätÏ¹P&l¢¹¤hQÈ"¶ŞTğšÕd‘ô¨šL	ú`C†gBî)	¹Ç3!÷$Ï„Üå™{šgB^0R3M”*¨Ëow¤æç Y`JT¶µÀ	¹·À	¹NÈ½NÈí,pBî-pBnÇ4NÈ=Õ8!·ã'älœÛ±ò@7ÈùÆ	¹''äŒ£åJ%ão€|³„#g#LH­æ+
-aIÚ†ÁdBf,ävÁdBæ,ävÁdBf-ävÁdBæ-ävÁdBf.ävÁd@®æ.:ä†ÁdBf/äq0ÙÒNÚr$l	‰Ã‘ {Â–õ´-{Â‹¢tŠLÍ0õ«	4KMõ[	Ó«ãz)¬I kúiê\‰ùKN¼
-P
-áOI¦l85sèlÔ$o¨€ ñ†Cg¦â‹7¤[ËĞu/©ı¨Ğ®¿w¹/BfW*áüïOSeóæ~Ÿ"õ}9B…±Öt¨œ©p~§"T£¶ª…¡r¥’Ê;¡e?úïGıêİ¢ÕšîgHL˜	×hüg M	lö^>8«l‰“K‘¬'p¡ÔxÈœ}‚VªîÖ3a£õ¯s?ÅaAôH¸"Ü[*Öë¯=á­p‡E‚û£GTld«<	’§_¦×£{üã øØ§«6j^¢yÿ\~…"ì}q¿&ü`Cô‘Q=rß^Œg–üç³Û[ı$ü¡‹wßİR¾…İ-dr\%ûŠ:)Ãşîùty¢"ŸüËÔ‡'?àN´È§p_Ú-RÚ-")Q‹ØÌ¸Ş-rH]ïn$İ¬U«Ôï9 lz:ÊËaŞt<ÊËaŞt>ÊËaŞt@ÊËaŞtBÊ9˜HÃ!¦Ç±Ş×¶ß×¶ß×¶¿Ø0Û[Ğ~w?ºûÑİ.ß#ròá;G{*©´ÃI(àVĞÀœ„RAv¾ÿ"F–
-ş
-Î-_XH]¨ÅìÌ3Õ†ƒ'NÃÍ•8%‰7R-·rDËÍü	¬i)ãêÌ‘kŠvkæx¥îj‰”ªîû«C}[ÏøL‹ÔJšôĞ"© ş‚‘ÉŠàxäÛj‘ó+ı´‘´¨åv7ÆÆÂ«ğXù¢æÕZ‰#N›şšš×Ä¨ˆÔòÕÄËLª¦õ[6È2>¯û#„ö"ƒ4–dµè­äÛ+j5“@±ïŠé‡bıÂS±Îò0‡	ØF"y$ÖPßuæ.R§`úÉWC½Ü3ˆ"‘Õv¨É¡o†‡î	×ŞĞ7«N•²êsê%vi
-¦ìòÊ6GÂ&ÆÉøLç²·Î©oWŸIH[;ÔçĞ73Î‰Rßı1}½'\±>¯~Û9°Ëa{ØÃ0êaqrâÃ·')~âê'1ôõıöü°ü='?Znà´%O=e5O÷ÿ ¡AN
+xœí]K¹‘¾ç¯ˆö°Z£(Æƒ/ÀğÁ²k`#ÀÛ»€ÁÔÂz<ÀşıÅ$«²ª[­~T6JãÒAÁÊäÇGD$ù‘Ì~ÿıÿşı3ıú×Ñûï>üÏï(.¿ùıöw–.L‘"í˜LBâ–«Qi1Ô”™öwËû}¤ı¿–HÿÚ^~ûq‰ôñ§åı‘XƒĞÇÏãòñnùËı5Æø×Èùe¥©•~•è×Ï]‹i¤2®ÿ=YÿH®ü<’æOöêyÖ#³üÿŒ¼ò)Ê;Ú•{OÚø5=PÈ_ÔÓœşqR Ï§ù|Î­ç•8A;6ÆºQÇİßı>şaùıÇåOËï¿û°¼?ïS>öéª+«„3Óİ’’„’RÍÇÄO«ÄÜ4X‹FŸV¯\ş¼|^ş¹H(µrÉ½Û§¦kó™Ùóùğıéû\bà¦ô‹ÑwK
+\YˆJwWCù´|¿üéÒ0)”z€qe˜Ò±6®lÓ‚kãÊ&0ÌëÎéÚŠ!rK\D­c¥´VNTLCár/˜DÚYt·X„˜2ieFš¥ûE¸u±Ú¥q-1Ñ~T¥W¥]ÓLR˜vYğ\­¥FƒdLŠ¼8¦LûEÅBª‰v-%RÚ5vÔÄ´«y7Ú•Æ]È­Ğ~é¢3Ú%eRÂ~Q•‘f!Ám“’ªµ)e”Hj¤]j‘$UÚeÎCÈ¨«‹E2iTÚ•’z•Úh¿üØQÙ*¬ÂA8I%­…vœUÉ´i¿ 1GjA¤jSb@uÙ˜É"rREy‘¿xQT2Rc"ÿİlJµ·,díÍÂ–
+Ë‡Ò&=[BH‚˜ŠQR¥]ŠLæ}_Ğ‡æÍÕ„Œv%¡DèıæÅtCh‰<‹¢F‡lÁÄîÑ—E)’ÆJÅL	ZCe„Tô‘ÕŒ–¦«d­]ˆÎí¢E²f´“šÈªá9/-¬½b%ÑNQìÛu³H¹ÀÜ•²¡—sêBÎh+·ŞM¸÷„ı¢beRdÁÑ")ŒcCk[FK,”¿£¥»dÍ]NrH™¬)¤æ¥F¹˜’¡\J%ó¶ƒ´_ŒÓUå’3)¼ƒ‹À¤ÛXbÏ)‰	6·_º¬5‘<¯ğÓ†çEÜÓPO)jÅ%âÅÑyû…İÚbF§íš\ŠÙÛ1g¥±’Z›ñÂ„!ZL2Ü1VUhÓ44£¤)x»ØÊxPzğğîu÷4!I€)$	=êM2í¬²ÚYë×¨.á™ŒXĞŸõ°¦1ÃÇIº"N¡;DÄ=e¡”L‚N„°_8Ñ­w,fÿÃ×ƒsIÁ,I¢’9äáôgÁ™aŞ,3¸h…>-Ì<%o”â¡ØØ/Y 0F
+2á¶HxÌ›¡ah!{Œnñˆë’âıÒ»
+£Qİù½¡=x	zdŒ_üç!zKl¥AİQ\Li"0<ÕÈ­c@ 
+^SÔéTÑ9¨¶¹‹ÂX´áY­’F™Bìl=wQÚøQğ*QYÜ`„YĞ¾-Á0yãKJS Xï/Ÿê‰áMÈQnKß/nE–„”á)ˆÆ.`°1“öŞ¤;/<ß¡ŸÄºµDR‘[+$îcşB”2Òvê‚ÀIúÛÒ»ih0%f÷¯ô»q1pTa0ğ;!€´FîğÄ! n$ìÁšëVÈßAşèQù3ã
+ì‘‚ü„iÏ³İ(q¨µ½¹ÑÍnntß;'aŸ“„Ì)×Œ![ÚÿÙ½‰ŠHÀ¸„‘+İ-’Bå©>iªÂ1‡d\*³ c´Q
+øñÃ¥€sc8ÏF7cï>ŠæÄœuUI´«%ûÊÇ%E…CD§ÍÖÇÕŞ‰Ñôˆ xb4â$AJ‹BÅ2Úà~4º²·
+-f*Ö‚$WÍ^£6/U°æ²º=ÇRM¯°:‚‰nÊêoƒŒÉèu7¿¦X’PI0i°“æ×˜jEûgÑ$Í”b¨½+®±:-…šÅĞş9¤"íÊÛßŒCj-*©…ˆYÎ•¸– ÚŠÏ,‰\i”ÜàeSÒ|Ù¤€W#K Qq7õ²‡.ÁÀ°`É@ºeQ2ôWQ—£®ÇÖó‚¤ZªÄ1'lºj¡Å‹×¹X ÒBu¨¡¾ŠU~<—ƒÑÃ,Ô0p²†>è½h…Yjhœ©";SÕu¹¥{Ä2"L%Ô5tÖW™ïsü‡SskÎ¡y	†z:Z»,ƒİNl×6’¸^`èÚ6@²^bèÚ6@¶^dèÚ6@yİG]{ò*CSâ…–tÿš2hsóÅ/Y	û.7&Pì.€•‘:wuÁç¥]Ìü®Ò¤?	Ó+’M¨çŸÛüÉ;X³7$fz}WÁ=wa¿€L,•	Ë…aª ²ĞepáøË©ÇtÎEÌï|9Á…Ü‰U=Kä)•0)pa¿0Ö<Ë0hBŸ9qÊ´áF |KlTPÛˆÂ`¥¥î†Ğ"æ ®}F¢±E@4Wå¾>+¨*–E0y/ÖºªÿÑhü=o$uvÂC5À€öô&Ä.ÀşúlupÂh"'C|^Úg®‚§#Õ°$Át•œ¤p¢WÆ*	èE>ì4F€DÂzÊN[íøôıâb¡®£—İİ—9|joÓøÀ¸¹˜i7!Ãø<††»ºĞĞ.b¸åw%KıIÃø zş¸ë€ùl‹[¨¦ãFbİH¬‰õB.˜cˆù}37/ºyÑÍ‹^6»èË¾ÀüJ9a~»úªÉÌãp­¿'œ«Ï$šs+!ÉeE¡tĞ«æ•c	ãş–yÂëÌJŠ'¼çµvÂ‘\æ¸¶öÍËŒ>¶ë\wyì±Hˆ¾1æ[aÅBŠ¡ÿvË#¹|]^ùú÷Ç9w,Xë:RÇ¢;Ş”İL²¤NèN¢¹½ŠÑ}¤æƒ1$ç$”Ë$g‘€ŸÈ 9§^· è™c0|æÔ_5ù"UŒeİ°èıvHÈ¯ï¸gäƒ;–dE%Ÿrw4!Î
+˜¥iC3áÔˆ0÷bÕVË1ÆŒ„JX—­Ø,ès4i3d®'i,-Ã=A§pÂñßtŒkÆİ©0öşÒ®ÆÖ¯}ÿ®aËf!Œ²vÎ3®şŒK…N¯¾óÓ¥Nîµ)#õ}›È¥1ôkîwî—„íÊµb<ŞÔi®šœ(ıˆ½Ó¬Ã5UŸ®@BàÃjä³ä„	BkÈÁg½ò>ìÇ¼Äuëw#’âqlÎEv†}Õ¸úFlHØÇÉ Ê¼`lÊ¾{—P^lÎ¥rA}mÔ+ëü*#lŞ-†›{ZoB^˜Øö&ÅI;TÆç¨³İ¼Ñ3ò¸ª÷ˆïÕF>ı-…fÿ¾<ÀŸ8§ò!ÄaÍceèÊë|á8M=œ ¡m‚Ä56;Ïèê±ZS+ÿ‘Ûú(Ô5Ö¼È£‡˜rÌ¡èouˆÉıÕC‡˜â[Ÿ:ü:îV>Ë­œ¢œ“úi”PÏÎI=|÷l‡3ìñô<)¥¥İzbNsÅ“ô³6xü¬××ÏSéCç©R«!‰á½w<:uH\Ÿ§J™CUs‚`õü*õñU+S>äÿØrš/q†ä/°±àéÚãîúXÏ™(]»<J
+8âp<´íò(9ÔU]ºvy”zÒ/]»Ê*b‡œÊ±ÿ];Åyd
+fd-Xl ¥Rµ é¶tã°oö3W‚NÜ¨¼/ŞüèæG7?zòZĞ_{ƒ¨à¹¹,†R$Y‹ *4×,Ø˜rïİ[N„r#ğ»å ?éÍØr`¶1 +!âœæškıJ®l5’(¡8^Ê-$”`U”í
+­ÑWJ¦T8´ÌgÖ«²ì ‹¡·|¢Ä7%J½Âúç 5‹¿&,ÆvíµÙÒ[$9c8gÌî¬®šs‹/,÷r¸Qßã¥[È­Qì-9ÔWMfæëG»ï¼­Ğy5(£ÒC•€·Ä[–ƒ5¼vJÀ¹û»ƒ~¹Iä}zé8]íúå&F÷é¥õÔúë€=Ê/YI¹j}c‚i~-ç[ç˜î±5'wÿôÀ½??ğñŸ	6q^ô¸&~>ÿ¬Ï<ğ¡ó&É4ˆ«Ïg•dWyGæ?¬Ğ|şç‡r»×”?{v÷)Á5[â„`ûüT²+=DvYÎ¡f˜øší:¦®é.¬ú×œOÙ®Uâ“É®cö_e»$DkGº««OÏ ÒPÚ
+¨«[ ¥Ö5êê@%ÈºF]İ¨öQW/tü:˜CWO¡8o7Q,ˆÇûQı6o¿ÍÛoóö'û‘IÿîÕÍn~tó£gó_g¯¾G6'³„†½(qR2¶ÓMı¥ïÚ' Ê­À®ohsÔ2 »¾!`CŠØõËYv}CÀvÖ‡]ßPù´‡¾! öáĞŸ4./!%‘	,8|wÅ[S_ÔLb¡®£‡Ô ›F	8£ÇÜ,zLÀ=&àfÑcÎè1óÓ-YƒF¼8µ¶ QËUoŠ~Q3iemyÆøå=ŞL–ƒU4®Å¤P¹ÎF\ZÈ™ûdSS=[Q:~ £‚°M±ÕhßPg±
+çıŸcHÎ÷w·ÌšMõU^ùÌÔˆzºö$ë–P1›°L³åÓ,2nzG–êwd/ÁìÈ^€Ó|ü<YÇïÚ[â§ñ¾éø]{K|=1€®=Í‘,‡(QÉR	‰-Ú¿©'aóİÊ“j	å=©—`zR/ÀsBbÁŠjËß@L||ÇKĞRkıå½¤¿D¢ã+:º¦ÑgÂë8ûGgh58İs`.”Ñ<ghQ‚E#¼ªà%›ÉbĞ“f2øÓ2<ò@ñLÈí8	y y&äv,Ï„<Ğ<ò35ÓRuùË©ùw N,0¥P¶µÀ	y°À	¹NÈƒNÈí,pB,pBnÇ4NÈÕ8!·ã'älœÛ±òH7ÈùÆ	y 'ä3GË5”Œ¿ò‹%9[À‚Ôj½¢lIÛ0˜LÈãŠÅ€Ü.˜LÈãšÅ€Ü.˜LÈãªÅ€Ü.˜LÈãºÅ€Ü.˜LÈãÊÅ€Ü.˜ÈÕÚE‡Ü0˜LÈãêÅ€<&[@ÚY_„-!ñq¤È°%d=ïËğ¤("‡fXúÕš¥¦úK	Ó«Ïõ†\°'!à³¦wSç˜¿öÁ‰J	øS`’C6|5sèl¡IŞP[0 ‚F‡ÎŠonÜn9nCgüÕ	TRû§B»şÜå¡™]©ßÿ¾›*›w÷Û¡¨ŸË‘P{M‡Ê9ÎoT„j¡­Za¨\CIåŠĞ²úïŸúÅ‡E«=ÿÜ¿!1=`&\¢ó¿ i°Áæàå3s`•M ¢ñå’c$ë	\Bj¼	dÎ~Ak¨îÖ3a£ı¯ó<ÅqCôH¸ ÜG*Öû¯=áµpÇM‚‡—¿£GTlÁVy$ÏßL/'F÷ÿ4ŞwÅéª-4/Ñ¼î¿@¾xØ~´¡zÏ¨î¹o/†oùÿÅÔ
 endstream
 endobj
 
-138 0 obj
+134 0 obj
 <<
   /Creator (Typst 0.14.2)
-  /ModDate (D:20260422085815-04'00)
-  /CreationDate (D:20260422085815-04'00)
+  /ModDate (D:20260524123054-04'00)
+  /CreationDate (D:20260524123054-04'00)
 >>
 endobj
 
-139 0 obj
+135 0 obj
 <<
   /Length 996
   /Type /Metadata
   /Subtype /XML
 >>
 stream
-<?xpacket begin="ï»¿" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="xmp-writer"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"  xmlns:xmp="http://ns.adobe.com/xap/1.0/"  xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"  xmlns:xmpTPg="http://ns.adobe.com/xap/1.0/t/pg/"  xmlns:pdf="http://ns.adobe.com/pdf/1.3/" ><xmp:CreatorTool>Typst 0.14.2</xmp:CreatorTool><dc:language><rdf:Bag><rdf:li>en</rdf:li></rdf:Bag></dc:language><xmp:ModifyDate>2026-04-22T08:58:15-04:00</xmp:ModifyDate><xmp:CreateDate>2026-04-22T08:58:15-04:00</xmp:CreateDate><xmpTPg:NPages>5</xmpTPg:NPages><dc:format>application/pdf</dc:format><xmpMM:InstanceID>Ytj36O85uIxu7r70JO+pXg==</xmpMM:InstanceID><xmpMM:DocumentID>Ytj36O85uIxu7r70JO+pXg==</xmpMM:DocumentID><xmpMM:RenditionClass>proof</xmpMM:RenditionClass><pdf:PDFVersion>1.7</pdf:PDFVersion></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="r"?>
+<?xpacket begin="ï»¿" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="xmp-writer"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"  xmlns:xmp="http://ns.adobe.com/xap/1.0/"  xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"  xmlns:xmpTPg="http://ns.adobe.com/xap/1.0/t/pg/"  xmlns:pdf="http://ns.adobe.com/pdf/1.3/" ><xmp:CreatorTool>Typst 0.14.2</xmp:CreatorTool><dc:language><rdf:Bag><rdf:li>en</rdf:li></rdf:Bag></dc:language><xmp:ModifyDate>2026-05-24T12:30:54-04:00</xmp:ModifyDate><xmp:CreateDate>2026-05-24T12:30:54-04:00</xmp:CreateDate><xmpTPg:NPages>5</xmpTPg:NPages><dc:format>application/pdf</dc:format><xmpMM:InstanceID>tfIu0pGAsLaiuoY3Ja+zHw==</xmpMM:InstanceID><xmpMM:DocumentID>tfIu0pGAsLaiuoY3Ja+zHw==</xmpMM:DocumentID><xmpMM:RenditionClass>proof</xmpMM:RenditionClass><pdf:PDFVersion>1.7</pdf:PDFVersion></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="r"?>
 endstream
 endobj
 
-140 0 obj
+136 0 obj
 <<
   /Type /Catalog
   /Pages 1 0 R
-  /Metadata 139 0 R
+  /Metadata 135 0 R
   /Lang (en)
-  /StructTreeRoot 26 0 R
+  /StructTreeRoot 25 0 R
   /MarkInfo <<
     /Marked true
     /Suspects false
@@ -1693,7 +1651,7 @@ endobj
 endobj
 
 xref
-0 141
+0 137
 0000000000 65535 f
 0000000016 00000 n
 0000000114 00000 n
@@ -1719,129 +1677,125 @@ xref
 0000002979 00000 n
 0000003121 00000 n
 0000003280 00000 n
-0000003456 00000 n
-0000003595 00000 n
-0000003860 00000 n
-0000003956 00000 n
-0000004045 00000 n
-0000004134 00000 n
-0000004230 00000 n
-0000004305 00000 n
-0000004732 00000 n
-0000004875 00000 n
-0000005027 00000 n
-0000005170 00000 n
-0000005344 00000 n
-0000005487 00000 n
-0000005644 00000 n
-0000005787 00000 n
-0000005927 00000 n
-0000006071 00000 n
-0000006214 00000 n
-0000006340 00000 n
-0000006483 00000 n
-0000006647 00000 n
-0000006790 00000 n
-0000006942 00000 n
-0000007085 00000 n
-0000007171 00000 n
-0000007250 00000 n
-0000007391 00000 n
-0000007464 00000 n
-0000007550 00000 n
-0000007701 00000 n
-0000007844 00000 n
-0000008021 00000 n
-0000008164 00000 n
-0000008325 00000 n
-0000008468 00000 n
-0000008629 00000 n
-0000008772 00000 n
-0000008922 00000 n
-0000009065 00000 n
-0000009200 00000 n
-0000009343 00000 n
-0000009476 00000 n
-0000009619 00000 n
-0000009751 00000 n
-0000009894 00000 n
-0000010022 00000 n
-0000010165 00000 n
-0000010334 00000 n
-0000010477 00000 n
-0000010635 00000 n
-0000010779 00000 n
-0000010926 00000 n
-0000011069 00000 n
-0000011205 00000 n
-0000011348 00000 n
-0000011434 00000 n
-0000011513 00000 n
-0000011654 00000 n
-0000011727 00000 n
-0000011813 00000 n
-0000011958 00000 n
-0000012101 00000 n
-0000012223 00000 n
-0000012343 00000 n
-0000012522 00000 n
-0000013211 00000 n
-0000013301 00000 n
-0000013550 00000 n
-0000014931 00000 n
-0000020945 00000 n
-0000021127 00000 n
-0000021463 00000 n
-0000021550 00000 n
-0000021802 00000 n
-0000022698 00000 n
-0000024821 00000 n
-0000024859 00000 n
-0000024897 00000 n
-0000025256 00000 n
-0000025679 00000 n
-0000025733 00000 n
-0000025788 00000 n
-0000025843 00000 n
-0000025898 00000 n
-0000025952 00000 n
-0000026007 00000 n
-0000026062 00000 n
-0000026116 00000 n
-0000026170 00000 n
-0000026224 00000 n
-0000026279 00000 n
-0000026333 00000 n
-0000026388 00000 n
-0000026443 00000 n
-0000026497 00000 n
-0000026552 00000 n
-0000026607 00000 n
-0000026660 00000 n
-0000026714 00000 n
-0000026768 00000 n
-0000026822 00000 n
-0000026877 00000 n
-0000026931 00000 n
-0000027239 00000 n
-0000032872 00000 n
-0000033180 00000 n
-0000037668 00000 n
-0000037976 00000 n
-0000044616 00000 n
-0000044924 00000 n
-0000050414 00000 n
-0000050705 00000 n
-0000055541 00000 n
-0000055668 00000 n
-0000056754 00000 n
+0000003441 00000 n
+0000003706 00000 n
+0000003802 00000 n
+0000003891 00000 n
+0000003980 00000 n
+0000004076 00000 n
+0000004137 00000 n
+0000004550 00000 n
+0000004693 00000 n
+0000004867 00000 n
+0000005010 00000 n
+0000005167 00000 n
+0000005310 00000 n
+0000005450 00000 n
+0000005594 00000 n
+0000005737 00000 n
+0000005863 00000 n
+0000006006 00000 n
+0000006170 00000 n
+0000006313 00000 n
+0000006465 00000 n
+0000006608 00000 n
+0000006694 00000 n
+0000006773 00000 n
+0000006914 00000 n
+0000006987 00000 n
+0000007073 00000 n
+0000007224 00000 n
+0000007367 00000 n
+0000007544 00000 n
+0000007687 00000 n
+0000007848 00000 n
+0000007991 00000 n
+0000008152 00000 n
+0000008295 00000 n
+0000008445 00000 n
+0000008588 00000 n
+0000008723 00000 n
+0000008866 00000 n
+0000008999 00000 n
+0000009142 00000 n
+0000009274 00000 n
+0000009417 00000 n
+0000009545 00000 n
+0000009688 00000 n
+0000009857 00000 n
+0000010000 00000 n
+0000010158 00000 n
+0000010302 00000 n
+0000010449 00000 n
+0000010592 00000 n
+0000010728 00000 n
+0000010871 00000 n
+0000010957 00000 n
+0000011036 00000 n
+0000011177 00000 n
+0000011250 00000 n
+0000011336 00000 n
+0000011481 00000 n
+0000011624 00000 n
+0000011746 00000 n
+0000011866 00000 n
+0000012045 00000 n
+0000012734 00000 n
+0000012824 00000 n
+0000013073 00000 n
+0000014454 00000 n
+0000020468 00000 n
+0000020650 00000 n
+0000020986 00000 n
+0000021073 00000 n
+0000021324 00000 n
+0000022220 00000 n
+0000024342 00000 n
+0000024379 00000 n
+0000024416 00000 n
+0000024775 00000 n
+0000025198 00000 n
+0000025252 00000 n
+0000025307 00000 n
+0000025362 00000 n
+0000025417 00000 n
+0000025471 00000 n
+0000025526 00000 n
+0000025581 00000 n
+0000025635 00000 n
+0000025689 00000 n
+0000025743 00000 n
+0000025798 00000 n
+0000025852 00000 n
+0000025907 00000 n
+0000025962 00000 n
+0000026016 00000 n
+0000026071 00000 n
+0000026126 00000 n
+0000026179 00000 n
+0000026233 00000 n
+0000026287 00000 n
+0000026341 00000 n
+0000026395 00000 n
+0000026701 00000 n
+0000032334 00000 n
+0000032640 00000 n
+0000037128 00000 n
+0000037434 00000 n
+0000044074 00000 n
+0000044380 00000 n
+0000049870 00000 n
+0000050159 00000 n
+0000054452 00000 n
+0000054579 00000 n
+0000055665 00000 n
 trailer
 <<
-  /Size 141
-  /Root 140 0 R
-  /Info 138 0 R
-  /ID [(Ytj36O85uIxu7r70JO+pXg==) (Ytj36O85uIxu7r70JO+pXg==)]
+  /Size 137
+  /Root 136 0 R
+  /Info 134 0 R
+  /ID [(tfIu0pGAsLaiuoY3Ja+zHw==) (tfIu0pGAsLaiuoY3Ja+zHw==)]
 >>
 startxref
-56992
+55903
 %%EOF

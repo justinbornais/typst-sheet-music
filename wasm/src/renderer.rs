@@ -166,7 +166,7 @@ fn clef_origin_offset(clef: &str) -> f64 {
         | "treble-15a" | "treble-15b" => 3.0,
         "bass" | "bass-8a" | "bass8a" | "bass-8b" | "bass8b" | "bass-15a" | "bass-15b" => 1.0,
         "alto" => 2.0,
-        "tenor" => 2.0,
+        "tenor" => 1.0,
         "percussion" => 2.0,
         _ => 3.0,
     }
