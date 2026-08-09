@@ -1088,9 +1088,7 @@ impl<'a> Parser<'a> {
                     && next != Some(b'\n')
                     && next != Some(b'|')
                 {
-                    self.events.push(Event::Gap(Gap {
-                        amount: (run_len - 1) as i32,
-                    }));
+                    self.events.push(Event::Gap(Gap::new((run_len - 1) as i32)));
                 }
                 continue;
             }
@@ -1847,6 +1845,16 @@ impl<'a> Parser<'a> {
                             t.ending = l;
                             t.ending_start = is_first;
                             t.ending_end = is_last;
+                        }
+                        Event::KeySig(k) => {
+                            k.ending = l;
+                            k.ending_start = is_first;
+                            k.ending_end = is_last;
+                        }
+                        Event::Gap(g) => {
+                            g.ending = l;
+                            g.ending_start = is_first;
+                            g.ending_end = is_last;
                         }
                         Event::Spacer(s) => {
                             s.ending = l;

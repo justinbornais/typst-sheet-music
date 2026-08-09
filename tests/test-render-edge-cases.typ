@@ -418,3 +418,15 @@ This document provides a series of tests to verify the rendering of edge cases i
     ),
   ),
 )
+
+#v(1cm)
+
+== Test 22: First Ending with Whitespace Gaps Across Measures
+
+#melody(
+  key: "G",
+  time: "3/4",
+  clef: "treble",
+  staff-size: 1.75mm,
+  music: "c4.d8  e8f|ga  bc'  d'c'|end{1.: b4a8g  fe|d2  c8g}|",
+)
