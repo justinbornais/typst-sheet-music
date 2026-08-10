@@ -103,57 +103,113 @@
   arranger: none,
   lyricist: none,
   color: none,
+  vertical-spacing: "regular",
 ) = {
   if title == none and composer == none { return }
   let fill = typst-color(color)
-  block(width: 100%, {
-    if title != none {
-      if fill != none {
-        align(center, text(size: 18pt, weight: "bold", fill: fill, title))
-      } else {
-        align(center, text(size: 18pt, weight: "bold", title))
-      }
-    }
-    if subtitle != none {
-      if fill != none {
-        align(center, text(size: 12pt, style: "italic", fill: fill, subtitle))
-      } else {
-        align(center, text(size: 12pt, style: "italic", subtitle))
-      }
-    }
-    v(2pt)
-    if composer != none or arranger != none or lyricist != none {
+  let is-tight = vertical-spacing == "tight"
+  if is-tight {
+    block(width: 100%, {
       grid(
-        columns: (1fr, 1fr),
-        {
-          if lyricist != none {
-            if fill != none {
-              align(left, text(size: 10pt, fill: fill, "Text: " + lyricist))
-            } else {
-              align(left, text(size: 10pt, "Text: " + lyricist))
-            }
+        columns: (1fr),
+        row-gutter: 1.5pt,
+        if title != none {
+          if fill != none {
+            align(center, text(size: 18pt, weight: "bold", fill: fill, title))
+          } else {
+            align(center, text(size: 18pt, weight: "bold", title))
           }
         },
-        {
-          if composer != none {
-            if fill != none {
-              align(right, text(size: 10pt, fill: fill, composer))
-            } else {
-              align(right, text(size: 10pt, composer))
-            }
-          }
-          if arranger != none {
-            if fill != none {
-              align(right, text(size: 9pt, style: "italic", fill: fill, "arr. " + arranger))
-            } else {
-              align(right, text(size: 9pt, style: "italic", "arr. " + arranger))
-            }
+        if subtitle != none {
+          if fill != none {
+            align(center, text(size: 12pt, style: "italic", fill: fill, subtitle))
+          } else {
+            align(center, text(size: 12pt, style: "italic", subtitle))
           }
         },
+        if composer != none or arranger != none or lyricist != none {
+          grid(
+            columns: (1fr, 1fr),
+            {
+              if lyricist != none {
+                if fill != none {
+                  align(left, text(size: 10pt, fill: fill, "Text: " + lyricist))
+                } else {
+                  align(left, text(size: 10pt, "Text: " + lyricist))
+                }
+              }
+            },
+            {
+              if composer != none {
+                if fill != none {
+                  align(right, text(size: 10pt, fill: fill, composer))
+                } else {
+                  align(right, text(size: 10pt, composer))
+                }
+              }
+              if arranger != none {
+                if fill != none {
+                  align(right, text(size: 9pt, style: "italic", fill: fill, "arr. " + arranger))
+                } else {
+                  align(right, text(size: 9pt, style: "italic", "arr. " + arranger))
+                }
+              }
+            },
+          )
+        }
       )
-    }
-    v(6pt)
-  })
+      v(2pt)
+    })
+  } else {
+    block(width: 100%, {
+      if title != none {
+        if fill != none {
+          align(center, text(size: 18pt, weight: "bold", fill: fill, title))
+        } else {
+          align(center, text(size: 18pt, weight: "bold", title))
+        }
+      }
+      if subtitle != none {
+        if fill != none {
+          align(center, text(size: 12pt, style: "italic", fill: fill, subtitle))
+        } else {
+          align(center, text(size: 12pt, style: "italic", subtitle))
+        }
+      }
+      v(2pt)
+      if composer != none or arranger != none or lyricist != none {
+        grid(
+          columns: (1fr, 1fr),
+          {
+            if lyricist != none {
+              if fill != none {
+                align(left, text(size: 10pt, fill: fill, "Text: " + lyricist))
+              } else {
+                align(left, text(size: 10pt, "Text: " + lyricist))
+              }
+            }
+          },
+          {
+            if composer != none {
+              if fill != none {
+                align(right, text(size: 10pt, fill: fill, composer))
+              } else {
+                align(right, text(size: 10pt, composer))
+              }
+            }
+            if arranger != none {
+              if fill != none {
+                align(right, text(size: 9pt, style: "italic", fill: fill, "arr. " + arranger))
+              } else {
+                align(right, text(size: 9pt, style: "italic", "arr. " + arranger))
+              }
+            }
+          },
+        )
+      }
+      v(6pt)
+    })
+  }
 }
 
 /// Render a complete music score.
