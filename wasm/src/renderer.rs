@@ -917,6 +917,7 @@ fn svg_from_cmds(
     width_mm: f64,
     fallback_height_mm: f64,
     music_font: &str,
+    vertical_spacing: Option<&str>,
 ) -> String {
     let mut bounds = (0.0, -fallback_height_mm, width_mm, 0.0);
     let mut ox = 0.0;
@@ -1009,13 +1010,18 @@ fn svg_from_cmds(
     }
 
     let margin = 1.5;
+    let (top_margin, bottom_margin) = if vertical_spacing == Some("tight") {
+        (0.5, 0.5)
+    } else {
+        (margin, margin)
+    };
     // Keep the horizontal viewport stable across systems. Content-aware left/right
     // bounds make systems with labels or brackets extending slightly farther left
     // get translated by a different amount, which visually shifts staff lines.
     let min_x = -margin;
     let max_x = width_mm + margin;
-    let min_y = bounds.1 - margin;
-    let max_y = bounds.3 + margin;
+    let min_y = bounds.1 - bottom_margin;
+    let max_y = bounds.3 + top_margin;
     let vb_w = (max_x - min_x).max(1.0);
     let vb_h = (max_y - min_y).max(1.0);
 
@@ -1984,8 +1990,9 @@ fn compute_above_extent_sp(
     items: &[LaidOutItem],
     fng_pos_default: &str,
     font: glyph::FontId,
+    vertical_spacing: Option<&str>,
 ) -> f64 {
-    let mut max_sp = 0.0_f64;
+    let mut max_sp: f64 = 0.0;
     let adj_stem_ends = std::collections::HashMap::new();
     let adj_stem_dirs = std::collections::HashMap::new();
 
@@ -1995,6 +2002,7 @@ fn compute_above_extent_sp(
                 &item.voice_items,
                 fng_pos_default,
                 font,
+                vertical_spacing,
             ));
         }
         let ev = &item.event;
@@ -2044,6 +2052,7 @@ fn compute_above_extent_sp(
             sp,
             fng_pos_default,
             font,
+            vertical_spacing,
         ) {
             item_top = item_top.max(chord_top);
         }
@@ -2071,6 +2080,7 @@ fn compute_above_extent_sp(
                     sp,
                     fng_pos_default,
                     font,
+                    vertical_spacing,
                 ));
             }
         }
@@ -2104,6 +2114,7 @@ pub fn render_system_group(
     staff_colors: &[Option<&str>],
     music_font: &str,
     tuplet_style: &str,
+    vertical_spacing: Option<&str>,
 ) -> SystemOutput {
     let font = glyph::FontId::from_name(music_font);
     let ed = glyph::engraving_defaults(font);
@@ -2233,7 +2244,7 @@ pub fn render_system_group(
             // Expand the gap if below-staff content of the upper staff or above-staff content
             // of the lower staff needs more room than the configured default spacing.
             let below_sp = compute_below_extent_sp(&laid_out_staves[si - 1].items);
-            let above_sp = compute_above_extent_sp(&laid_out.items, fng_pos, font);
+            let above_sp = compute_above_extent_sp(&laid_out.items, fng_pos, font, vertical_spacing);
             let required_mm = (below_sp + above_sp + 0.5) * sp_unit;
             let spacing = staff_spacing_mm.max(required_mm);
             y_offset -= spacing;
@@ -2286,6 +2297,7 @@ pub fn render_system_group(
             instrument_indent,
             staff_default_color,
             tuplet_style,
+            vertical_spacing,
         );
 
         y_offset -= staff_height_mm;
@@ -2483,7 +2495,7 @@ pub fn render_system_group(
     // Add below-staff content depth
     total_height += 1.75 * sp_unit; // baseline below depth
 
-    let svg = svg_from_cmds(&cmds, width_mm, total_height, music_font);
+    let svg = svg_from_cmds(&cmds, width_mm, total_height, music_font, vertical_spacing);
 
     SystemOutput {
         width: width_mm,
@@ -2796,6 +2808,7 @@ fn render_system(
     instrument_indent_sp: f64,
     default_color: Option<&str>,
     tuplet_style: &str,
+    vertical_spacing: Option<&str>,
 ) {
     let clef_name = laid_out.clef.as_deref();
     let opening_time = laid_out.time.as_ref().or(time.as_ref());
@@ -3773,6 +3786,7 @@ fn render_system(
                     adj_stem_ends.contains_key(&i),
                     font,
                     default_color,
+                    vertical_spacing,
                 );
 
                 // Staff markers
@@ -3815,6 +3829,7 @@ fn render_system(
                     false,
                     font,
                     default_color,
+                    vertical_spacing,
                 );
                 render_staff_markers(
                     cmds,
@@ -3872,6 +3887,7 @@ fn render_system(
                     adj_stem_ends.contains_key(&i),
                     font,
                     default_color,
+                    vertical_spacing,
                 );
                 render_staff_markers(
                     cmds,
@@ -4036,6 +4052,7 @@ fn render_system(
         total_width,
         fng_pos,
         font,
+        vertical_spacing,
     );
 
     // ── Lyrics ──
@@ -5478,6 +5495,7 @@ fn chord_symbol_top_y(
     sp: f64,
     fng_pos_default: &str,
     font: glyph::FontId,
+    vertical_spacing: Option<&str>,
 ) -> Option<f64> {
     let ev = &items[idx].event;
     let cs = ev.chord_symbol()?;
@@ -5494,7 +5512,13 @@ fn chord_symbol_top_y(
         fng_pos_default,
         font,
     );
-    let mut base_y = (y_top + 2.5 * sp).max(low_top + 1.35 * sp);
+    let is_tight = vertical_spacing == Some("tight");
+    let (min_base, low_gap) = if is_tight {
+        (1.6 * sp, 0.55 * sp)
+    } else {
+        (2.5 * sp, 1.35 * sp)
+    };
+    let mut base_y = (y_top + min_base).max(low_top + low_gap);
     if let Some(trill_top) = active_trill_visual_top_y(
         items,
         idx,
@@ -5559,6 +5583,7 @@ fn staff_text_top_y(
         sp,
         fng_pos_default,
         font,
+        None,
     ) {
         base_y = base_y.max(chord_top + 0.95 * sp);
     }
@@ -5626,15 +5651,8 @@ fn ending_bracket_y_for_bounds(
     sp: f64,
     fng_pos_default: &str,
     font: glyph::FontId,
+    _vertical_spacing: Option<&str>,
 ) -> f64 {
-    let label_text = items[start].event.ending().unwrap_or("");
-    let starts_here = items[start].event.ending_start();
-    let ending_label_size = ending_label_size_pt(sp);
-    let label_height = if starts_here && !label_text.is_empty() {
-        text_height_mm(ending_label_size)
-    } else {
-        0.0
-    };
     let content_top = (start..=end)
         .map(|idx| {
             let base_top = above_item_content_top(
@@ -5678,6 +5696,7 @@ fn ending_bracket_y_for_bounds(
                 sp,
                 fng_pos_default,
                 font,
+                _vertical_spacing,
             )
             .unwrap_or(octave_top);
             staff_text_top_y(
@@ -5694,8 +5713,7 @@ fn ending_bracket_y_for_bounds(
         })
         .fold(y_top, f64::max);
     let line_clearance = 0.75 * sp;
-    let label_clearance = label_height + 0.45 * sp;
-    (y_top + 3.5 * sp).max(content_top + line_clearance.max(label_clearance))
+    (y_top + 3.5 * sp).max(content_top + line_clearance)
 }
 
 fn fingering_respects_below_default(ev: &Event, fng_pos_default: &str) -> bool {
@@ -5828,6 +5846,7 @@ fn render_inline_text(
     is_beamed: bool,
     font: glyph::FontId,
     default_color: Option<&str>,
+    vertical_spacing: Option<&str>,
 ) {
     let fng_stack_step = fingering_stack_step(sp);
     let default_sp_numeric = 1.75; // default-staff-space in mm
@@ -5925,7 +5944,13 @@ fn render_inline_text(
     // Chord symbol — must clear the fingering stack with a visible gap.
     if let Some(cs) = ev.chord_symbol() {
         if !cs.is_empty() {
-            let mut chord_base_y = (y_top + 2.5 * sp).max(above_stack_top + 1.35 * sp);
+            let is_tight = vertical_spacing == Some("tight");
+            let (min_base, low_gap) = if is_tight {
+                (1.6 * sp, 0.55 * sp)
+            } else {
+                (2.5 * sp, 1.35 * sp)
+            };
+            let mut chord_base_y = (y_top + min_base).max(above_stack_top + low_gap);
             if let Some(trill_top) = active_trill_visual_top_y(
                 items,
                 idx,
@@ -7205,6 +7230,7 @@ fn render_endings(
     total_width: f64,
     fng_pos_default: &str,
     font: glyph::FontId,
+    vertical_spacing: Option<&str>,
 ) {
     struct EndingGroup {
         indices: Vec<usize>,
@@ -7219,32 +7245,32 @@ fn render_endings(
     for (i, item) in items.iter().enumerate() {
         let ending = item.event.ending().map(|s| s.to_string());
         if let Some(ref lbl) = ending {
-            if cur_indices.is_empty() || cur_label.as_deref() == Some(lbl) {
+            if cur_label.as_ref() == Some(lbl) {
                 cur_indices.push(i);
-                cur_label = Some(lbl.clone());
             } else {
-                let first = cur_indices[0];
-                let last = *cur_indices.last().unwrap();
-                groups.push(EndingGroup {
-                    indices: cur_indices.clone(),
-                    label: cur_label.unwrap(),
-                    starts_here: items[first].event.ending_start(),
-                    ends_here: items[last].event.ending_end(),
-                });
-                cur_indices = vec![i];
+                if !cur_indices.is_empty() {
+                    let first = cur_indices[0];
+                    let last = *cur_indices.last().unwrap();
+                    groups.push(EndingGroup {
+                        indices: cur_indices.clone(),
+                        label: cur_label.take().unwrap_or_default(),
+                        starts_here: items[first].event.ending_start(),
+                        ends_here: items[last].event.ending_end(),
+                    });
+                }
                 cur_label = Some(lbl.clone());
+                cur_indices = vec![i];
             }
             if item.event.ending_end() && !cur_indices.is_empty() {
                 let first = cur_indices[0];
                 let last = *cur_indices.last().unwrap();
                 groups.push(EndingGroup {
                     indices: cur_indices.clone(),
-                    label: cur_label.unwrap(),
+                    label: cur_label.take().unwrap_or_default(),
                     starts_here: items[first].event.ending_start(),
                     ends_here: items[last].event.ending_end(),
                 });
-                cur_indices = Vec::new();
-                cur_label = None;
+                cur_indices.clear();
             }
         } else if !cur_indices.is_empty() {
             let first = cur_indices[0];
@@ -7341,12 +7367,14 @@ fn render_endings(
             sp,
             fng_pos_default,
             font,
+            vertical_spacing,
         );
         let hook_depth = ending_hook_depth_mm(sp);
 
         emit_line(cmds, x0, bracket_y, x1, bracket_y, line_w);
         if eg.starts_here {
-            emit_line(cmds, x0, bracket_y, x0, bracket_y - hook_depth, line_w);
+            let left_bottom_y = (y_top + 1.0).min(bracket_y - hook_depth);
+            emit_line(cmds, x0, bracket_y, x0, left_bottom_y, line_w);
         }
         if eg.ends_here {
             emit_line(cmds, x1, bracket_y, x1, bracket_y - hook_depth, line_w);
@@ -7421,6 +7449,7 @@ mod ending_bracket_tests {
             20.0,
             "above",
             glyph::FontId::Bravura,
+            None,
         );
 
         assert!(vertical_depths(&cmds).is_empty());
@@ -7451,14 +7480,15 @@ mod ending_bracket_tests {
             20.0,
             "above",
             glyph::FontId::Bravura,
+            None,
         );
 
         let hook_depths = vertical_depths(&cmds);
         assert_eq!(hook_depths.len(), 2);
-        for depth in hook_depths {
-            assert!((depth - expected).abs() < 1e-9);
-            assert!(depth > 0.65 * sp * 2.0);
-        }
+        let left_depth = hook_depths[0];
+        let right_depth = hook_depths[1];
+        assert!(left_depth > expected);
+        assert!((right_depth - expected).abs() < 1e-9);
     }
 }
 

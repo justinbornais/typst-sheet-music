@@ -836,6 +836,7 @@ pub struct ScoreInput {
     pub note_colors: Option<BTreeMap<String, String>>,
     #[serde(default = "default_tuplet_style")]
     pub tuplet_style: String,
+    pub vertical_spacing: Option<String>,
 }
 
 fn default_tuplet_style() -> String {

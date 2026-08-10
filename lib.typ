@@ -202,8 +202,8 @@
   copyright: none,
   staff-group: "none",
   staff-size: 1.75mm,
-  system-spacing: 12mm,
-  staff-spacing: 8mm,
+  system-spacing: auto,
+  staff-spacing: auto,
   lyric-line-spacing: none,
   color: none,
   note-colors: none,
@@ -214,8 +214,25 @@
   measure-numbers: "system",
   relative-octave: false,
   measures-per-line: none,
+  vertical-spacing: "regular",
 ) = {
   if staves.len() == 0 { return }
+
+  let eff-system-spacing = if system-spacing != auto {
+    system-spacing
+  } else if vertical-spacing == "tight" {
+    0mm
+  } else {
+    12mm
+  }
+
+  let eff-staff-spacing = if staff-spacing != auto {
+    staff-spacing
+  } else if vertical-spacing == "tight" {
+    0mm
+  } else {
+    8mm
+  }
 
   // Alternate fonts are resolved through Typst so missing font-path setup still
   // produces a CLI warning. Default Leland is rendered from the WASM bundle.
@@ -230,6 +247,7 @@
     arranger: arranger,
     lyricist: lyricist,
     color: color,
+    vertical-spacing: vertical-spacing,
   )
 
   let render-inner(avail-width-mm) = {
@@ -261,22 +279,23 @@
       staff_group: staff-group,
       staff_size_mm: staff-size / 1mm,
       width_mm: avail-width-mm,
-      staff_spacing_mm: staff-spacing / 1mm,
-      system_spacing_mm: system-spacing / 1mm,
+      staff_spacing_mm: eff-staff-spacing / 1mm,
+      system_spacing_mm: eff-system-spacing / 1mm,
       measures_per_line: measures-per-line,
       measure_numbers: measure-numbers,
       music_font: music-font,
       color: normalize-color(color),
       note_colors: normalize-note-colors(note-colors),
       tuplet_style: tuplet-style,
+      vertical_spacing: vertical-spacing,
     )
 
     let result-bytes = scorify-wasm.render_score(bytes(json.encode(input)))
     let result = json(result-bytes)
 
     for system in result.systems {
-      block(image(bytes(system.svg), format: "svg"))
-      v(system-spacing)
+      block(above: 0pt, below: 0pt, image(bytes(system.svg), format: "svg"))
+      v(eff-system-spacing)
     }
   }
 
@@ -300,7 +319,7 @@
   title: none,
   composer: none,
   staff-size: 1.75mm,
-  system-spacing: 12mm,
+  system-spacing: auto,
   lyric-line-spacing: none,
   color: none,
   note-colors: none,
@@ -311,6 +330,7 @@
   measures-per-line: none,
   instrument-name: none,
   instrument-name-cont: none,
+  vertical-spacing: "regular",
 ) = {
   score(
     staves: ((clef: clef, music: music, instrument-name: instrument-name, instrument-name-cont: instrument-name-cont, note-colors: note-colors),),
@@ -328,6 +348,7 @@
     tuplet-style: tuplet-style,
     width: width,
     measures-per-line: measures-per-line,
+    vertical-spacing: vertical-spacing,
   )
 }
 
