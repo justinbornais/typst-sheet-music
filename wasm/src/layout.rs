@@ -1355,8 +1355,12 @@ pub fn layout_staff_font(
         });
     }
 
-    let tw = if !positions.is_empty() {
-        positions.last().unwrap().x + positions.last().unwrap().width
+    let tw = if let Some(last_item) = items.last() {
+        if last_item.event.is_barline() {
+            positions.last().unwrap().x
+        } else {
+            positions.last().unwrap().x + positions.last().unwrap().width
+        }
     } else {
         0.0
     };
@@ -1596,7 +1600,11 @@ pub fn align_staves_by_beat(laid_out_staves: &[LaidOutStaff]) -> Vec<LaidOutStaf
         col_xs.push(x);
         x += w;
     }
-    let total_w = x;
+    let total_w = if laid_out_staves.iter().all(|s| s.items.last().map_or(false, |it| it.event.is_barline())) {
+        col_xs.last().copied().unwrap_or(x)
+    } else {
+        x
+    };
 
     // 7. Reassign x to each item based on its column.
     let mut result = Vec::with_capacity(num_staves);
