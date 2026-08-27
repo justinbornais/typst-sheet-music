@@ -220,11 +220,34 @@ pub struct TimeSig {
 pub struct KeySig {
     pub key: String,
     pub mode: String,
+    #[serde(default)]
+    pub ending: Option<String>,
+    #[serde(default)]
+    pub ending_start: bool,
+    #[serde(default)]
+    pub ending_end: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Gap {
     pub amount: i32,
+    #[serde(default)]
+    pub ending: Option<String>,
+    #[serde(default)]
+    pub ending_start: bool,
+    #[serde(default)]
+    pub ending_end: bool,
+}
+
+impl Gap {
+    pub fn new(amount: i32) -> Self {
+        Self {
+            amount,
+            ending: None,
+            ending_start: false,
+            ending_end: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -513,6 +536,8 @@ impl Event {
             Event::Barline(b) => b.ending.as_deref(),
             Event::Clef(cl) => cl.ending.as_deref(),
             Event::TimeSig(t) => t.ending.as_deref(),
+            Event::KeySig(k) => k.ending.as_deref(),
+            Event::Gap(g) => g.ending.as_deref(),
             Event::Spacer(s) => s.ending.as_deref(),
             _ => None,
         }
@@ -525,6 +550,8 @@ impl Event {
             Event::Barline(b) => b.ending_start,
             Event::Clef(cl) => cl.ending_start,
             Event::TimeSig(t) => t.ending_start,
+            Event::KeySig(k) => k.ending_start,
+            Event::Gap(g) => g.ending_start,
             Event::Spacer(s) => s.ending_start,
             _ => false,
         }
@@ -537,6 +564,8 @@ impl Event {
             Event::Barline(b) => b.ending_end,
             Event::Clef(cl) => cl.ending_end,
             Event::TimeSig(t) => t.ending_end,
+            Event::KeySig(k) => k.ending_end,
+            Event::Gap(g) => g.ending_end,
             Event::Spacer(s) => s.ending_end,
             _ => false,
         }

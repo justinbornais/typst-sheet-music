@@ -4939,14 +4939,14 @@ mod beam_tests {
         let items = vec![
             laid_out_item(eighth_note("c")),
             laid_out_item(eighth_note("d")),
-            laid_out_item(Event::Gap(Gap { amount: 1 })),
+            laid_out_item(Event::Gap(Gap::new(1))),
             laid_out_item(eighth_note("e")),
             laid_out_item(eighth_note("f")),
-            laid_out_item(Event::Gap(Gap { amount: 1 })),
+            laid_out_item(Event::Gap(Gap::new(1))),
             laid_out_item(eighth_note("g")),
-            laid_out_item(Event::Gap(Gap { amount: 1 })),
+            laid_out_item(Event::Gap(Gap::new(1))),
             laid_out_item(eighth_note("a")),
-            laid_out_item(Event::Gap(Gap { amount: 1 })),
+            laid_out_item(Event::Gap(Gap::new(1))),
             laid_out_item(eighth_note("b")),
             laid_out_item(eighth_note("c")),
         ];
