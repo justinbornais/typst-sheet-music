@@ -218,6 +218,7 @@ fn process_score(params: &ScoreInput) -> ScoreOutput {
                 .collect::<Vec<_>>(),
             &params.music_font,
             &params.tuplet_style,
+            params.vertical_spacing.as_deref(),
         );
         output_systems.push(sys_output);
     }
@@ -705,6 +706,7 @@ mod tests {
             color: None,
             note_colors: None,
             tuplet_style: "bracket".into(),
+            vertical_spacing: None,
         }
     }
 
@@ -786,4 +788,6 @@ mod tests {
             }]
         );
     }
+
+
 }
